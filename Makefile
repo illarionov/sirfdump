@@ -1,9 +1,9 @@
 CC?=gcc
 CFLAGS?= -O2 -s -pipe
 CFLAGS+= -DNDEBUG
-CFLAGS=-W  -Wall -g -O0 -I/usr/local/include -I./include -I./util/codec -I./util/proto -I./pal
+#CFLAGS=-W  -Wall -g -O0 -I/usr/local/include
 
-CFLAGS+= -D_ENDIAN_LITTLE -I./include -I./util/codec -I./util/proto
+CFLAGS+= -D_ENDIAN_LITTLE -I./include -I./util/codec -I./util/proto -I./pal
 
 DESTDIR?=/usr/local
 
