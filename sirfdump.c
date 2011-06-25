@@ -327,7 +327,7 @@ int main(int argc, char *argv[])
 
    /* outfile  */
    if (ctx->opts.outfile != NULL) {
-      ctx->outfh = fopen(ctx->opts.infile, "a");
+      ctx->outfh = fopen(ctx->opts.outfile, "a");
       if (ctx->outfh == NULL) {
 	 perror(NULL);
 	 free_ctx(ctx);
