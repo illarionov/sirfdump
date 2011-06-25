@@ -65,7 +65,7 @@ static void help(void)
  printf(
    "\nOptions:\n"
    "    -f, --infile                Input file, default: - (stdin)\n"
-   "    -F, --outfile               Output file, default: - (stdin)\n"
+   "    -F, --outfile               Output file, default: - (stdout)\n"
    "    -h, --help                  Help\n"
    "    -v, --version               Show version\n"
    "\n"
