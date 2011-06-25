@@ -1,7 +1,7 @@
-sirflog - Sirf binary logger
+sirfdump - Sirf binary dumper
 
 Usage:
-    sirflog [-h] [options]
+    sirfdump [-h] [options]
 
 Options:
     -f, --infile                Input file, default: - (stdin)

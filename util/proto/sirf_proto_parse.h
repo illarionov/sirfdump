@@ -1,5 +1,5 @@
 /**
- * @addtogroup platform_src_sirf_util_codec
+ * @addtogroup platform_src_sirf_util_proto
  * @{
  */
 
@@ -7,7 +7,7 @@
  *                                                                         *
  *                   SiRF Technology, Inc. GPS Software                    *
  *                                                                         *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc. All rights reserved.*
+ *  Copyright (c) 2007-2008 by SiRF Technology, Inc. All rights reserved.  *
  *                                                                         *
  *    This Software is protected by United States copyright laws and       *
  *    international treaties.  You may not reverse engineer, decompile     *
@@ -27,47 +27,39 @@
  *
  * MODULE:  HOST
  *
- * FILENAME:  sirf_codec_ssb.h
+ * FILENAME:  sirf_proto_parse.h
  *
- * DESCRIPTION: Routine prototypes and symbol definitions
+ * DESCRIPTION: This file include the data structures and the functions to
+ *              implement the registration of protocols with UI mdoule
  *
  ***************************************************************************/
 
-#ifndef __SIRF_CODEC_SSB_H__
-#define __SIRF_CODEC_SSB_H__
+#ifndef __SIRF_PROTO_PARSE_H__
+#define __SIRF_PROTO_PARSE_H__
+
+/***************************************************************************
+ * Include Files
+ ***************************************************************************/
 
 #include "sirf_types.h"
 
-/* Return values ========================================================== */
+typedef enum {
+   PARSER_SSB,
+   PARSER_NMEA,
+   PARSER_SIRFLOC
+} tSIRF_ParserType;
 
-#define SIRF_CODEC_SSB_NULL_POINTER        0x7000
-#define SIRF_CODEC_SSB_INVALID_MSG_ID      0x7001
-#define SIRF_CODEC_SSB_LENGTH_ERROR        0x7002
+/* Define a callback function that will handle the message processing */
+typedef tSIRF_RESULT (*t_callback_func)(tSIRF_UINT8 *, tSIRF_UINT32, tSIRF_ParserType);
 
+tSIRF_VOID SIRF_PROTO_Parse_Register( t_callback_func callback_func );
 
-/* =============================================================================
- * Prototype Definitions
- * -------------------------------------------------------------------------- */
-#ifdef __cplusplus
-extern "C" {
-#endif
+tSIRF_VOID SIRF_PROTO_SLParse( tSIRF_UINT8 *Buf, tSIRF_UINT32 BytesRead );
+tSIRF_VOID SIRF_PROTO_Parse( tSIRF_UINT8 *Buf, tSIRF_UINT32 BytesRead );
+tSIRF_VOID SIRF_PROTO_NMEAParse( tSIRF_UINT8 *Buf, tSIRF_UINT32 BytesRead );
 
-tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
-                                    tSIRF_VOID *message_structure,
-                                    tSIRF_UINT32 message_length,
-                                    tSIRF_UINT8 *packet,
-                                    tSIRF_UINT32 *packet_length );
+#endif /* __SIRF_PROTO_PARSE_H__ */
 
-tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8* payload,
-                                    tSIRF_UINT32 payload_length,
-                                    tSIRF_UINT32 *message_id,
-                                    tSIRF_VOID *message_structure,
-                                    tSIRF_UINT32 *message_length );
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* __SIRF_CODEC_SSB_H__ */
 
 /**
  * @}

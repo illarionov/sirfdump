@@ -13,6 +13,8 @@
 #include <unistd.h>
 
 #include "sirf_msg.h"
+#include "sirf_codec_ssb.h"
+#include "sirf_codec_ascii.h"
 
 const char *progname = "sirfdump";
 const char *revision = "$Revision: 0.0 $";
@@ -24,7 +26,7 @@ struct opts_t {
 
 struct input_stream_t {
    int fd;
-   uint8_t buf[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
+   uint8_t buf[1024];
    unsigned head, tail;
    int last_errno;
 };
@@ -238,14 +240,29 @@ int process(struct ctx_t *ctx)
 {
    uint8_t *pkt;
    struct transport_msg_t msg;
+   uint8_t msg_structure[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
+   tSIRF_UINT32 msg_id, msg_length;
+   int err;
 
    while ( (pkt = readpkt(&ctx->in, &msg)) != NULL ) {
-      fprintf(ctx->outfh, "msg %d, length: %u, checksum: %x, skipped: %d\n",
-	    msg.payload_length > 0 ? msg.payload[0] : -1,
+      msg_id = -1;
+      msg_length = -1;
+      err = SIRF_CODEC_SSB_Decode(msg.payload,
 	    msg.payload_length,
-	    msg.checksum,
-	    msg.skipped_bytes
-	    );
+	    &msg_id,
+	    msg_structure,
+	    &msg_length);
+      if (err == 0) {
+	 char str[1024];
+	 tSIRF_UINT32 str_size = sizeof(str);
+	 if (SIRF_CODEC_ASCII_Encode(msg_id,
+	       msg_structure,
+	       msg_length,
+	       str,
+	       &str_size) == 0) {
+	    fputs(str, ctx->outfh);
+	 }
+      }
    }
 
    return ctx->in.last_errno;
