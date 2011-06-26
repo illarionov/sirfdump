@@ -41,6 +41,8 @@
 
 #ifdef SIRF_CODEC_NMEA
 
+#define MAX_NMEA_CHANNELS 50
+
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
@@ -48,7 +50,7 @@
 #include "sirf_types.h"
 #include "sirf_codec.h"
 #include "sirf_codec_nmea.h"
-#include "sirfnav_ui_io.h"
+//#include "sirfnav_ui_io.h"
 
 //!! #include "string_sif.h"
 

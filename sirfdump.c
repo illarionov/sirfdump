@@ -15,6 +15,7 @@
 #include "sirf_msg.h"
 #include "sirf_codec_ssb.h"
 #include "sirf_codec_ascii.h"
+#include "sirf_codec_nmea.h"
 
 const char *progname = "sirfdump";
 const char *revision = "$Revision: 0.0 $";
@@ -22,6 +23,10 @@ const char *revision = "$Revision: 0.0 $";
 struct opts_t {
    char *infile;
    char *outfile;
+   enum {
+      OUTPUT_DUMP,
+      OUTPUT_NMEA
+   } output_type;
 };
 
 struct input_stream_t {
@@ -38,11 +43,17 @@ struct transport_msg_t {
    unsigned skipped_bytes;
 };
 
+struct ctx_t;
+
+typedef int (dumpf_t)(struct ctx_t *ctx, struct transport_msg_t *msg);
+
 struct ctx_t {
    struct opts_t opts;
    struct input_stream_t in;
    FILE *outfh;
+   dumpf_t *dump_f;
 };
+
 
 static void usage(void)
 {
@@ -66,6 +77,7 @@ static void help(void)
    "\nOptions:\n"
    "    -f, --infile                Input file, default: - (stdin)\n"
    "    -F, --outfile               Output file, default: - (stdout)\n"
+   "    -o, --outtype               Output type: dump or nmea. default: dump\n"
    "    -h, --help                  Help\n"
    "    -v, --version               Show version\n"
    "\n"
@@ -84,6 +96,7 @@ static struct ctx_t *init_ctx()
       return NULL;
    }
    ctx->opts.infile = ctx->opts.outfile = NULL;
+   ctx->opts.output_type = OUTPUT_NMEA;
    ctx->in.fd = -1;
    ctx->in.head = ctx->in.tail = 0;
    ctx->in.last_errno = 0;
@@ -236,33 +249,93 @@ void *readpkt(struct input_stream_t *stream, struct transport_msg_t *res_msg)
    return res;
 }
 
+static int output_dump(struct ctx_t *ctx, struct transport_msg_t *msg)
+{
+   int err;
+   tSIRF_UINT32 msg_id, msg_length;
+   tSIRF_UINT32 str_size;
+   uint8_t msg_structure[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
+   char str[1024];
+
+   if (!msg || msg->payload_length < 1)
+      return 1;
+
+   err = SIRF_CODEC_SSB_Decode(msg->payload,
+	 msg->payload_length,
+	 &msg_id,
+	 msg_structure,
+	 &msg_length);
+   if (err)
+      return err;
+
+   str_size=sizeof(str);
+   err = SIRF_CODEC_ASCII_Encode(msg_id,
+	    msg_structure,
+	    msg_length,
+	    str,
+	    &str_size);
+
+   if (err == 0)
+      fputs(str, ctx->outfh);
+
+   return err;
+}
+
+static int output_nmea(struct ctx_t *ctx, struct transport_msg_t *msg)
+{
+   int err;
+   tSIRF_UINT32 msg_id, msg_length;
+   union {
+      tSIRF_MSG_SSB_MEASURED_TRACKER mt;
+      tSIRF_MSG_SSB_GEODETIC_NAVIGATION gn;
+      uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
+   } msg_structure;
+   char str[1024];
+
+   if (!msg || msg->payload_length < 1)
+      return 1;
+
+   err = SIRF_CODEC_SSB_Decode(msg->payload,
+	 msg->payload_length,
+	 &msg_id,
+	 msg_structure.u8,
+	 &msg_length);
+
+   if (err)
+      return err;
+
+   str[0]='\0';
+
+   switch (msg_id) {
+      case SIRF_MSG_SSB_MEASURED_TRACKER:
+	 err = SIRF_CODEC_NMEA_Encode_GSV(&msg_structure.mt, str);
+	 if (err == 0) fputs(str, ctx->outfh);
+	 break;
+      case SIRF_MSG_SSB_GEODETIC_NAVIGATION:
+	 err = SIRF_CODEC_NMEA_Encode_GGA(&msg_structure.gn, str);
+	 if (err == 0) fputs(str, ctx->outfh);
+	 err = SIRF_CODEC_NMEA_Encode_RMC(&msg_structure.gn, str);
+	 if (err == 0) fputs(str, ctx->outfh);
+	 err = SIRF_CODEC_NMEA_Encode_GSA(&msg_structure.gn, str);
+	 if (err == 0) fputs(str, ctx->outfh);
+	 err = SIRF_CODEC_NMEA_Encode_VTG(&msg_structure.gn, str);
+	 if (err == 0) fputs(str, ctx->outfh);
+/* 	 err = SIRF_CODEC_NMEA_Encode_GLL(&msg_structure.gn, str);
+	 if (err == 0) fputs(str, ctx->outfh); */
+      default:
+	 break;
+   }
+
+   return err;
+}
+
 int process(struct ctx_t *ctx)
 {
    uint8_t *pkt;
    struct transport_msg_t msg;
-   uint8_t msg_structure[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
-   tSIRF_UINT32 msg_id, msg_length;
-   int err;
 
    while ( (pkt = readpkt(&ctx->in, &msg)) != NULL ) {
-      msg_id = -1;
-      msg_length = -1;
-      err = SIRF_CODEC_SSB_Decode(msg.payload,
-	    msg.payload_length,
-	    &msg_id,
-	    msg_structure,
-	    &msg_length);
-      if (err == 0) {
-	 char str[1024];
-	 tSIRF_UINT32 str_size = sizeof(str);
-	 if (SIRF_CODEC_ASCII_Encode(msg_id,
-	       msg_structure,
-	       msg_length,
-	       str,
-	       &str_size) == 0) {
-	    fputs(str, ctx->outfh);
-	 }
-      }
+      ctx->dump_f(ctx, &msg);
    }
 
    return ctx->in.last_errno;
@@ -278,6 +351,7 @@ int main(int argc, char *argv[])
       {"help",        no_argument,       0, 'h'},
       {"infile",      required_argument, 0, 'f'},
       {"outfile",     required_argument, 0, 'F'},
+      {"outtype",     required_argument, 0, 'o'},
       {0, 0, 0, 0}
    };
 
@@ -285,7 +359,7 @@ int main(int argc, char *argv[])
    if (ctx == NULL)
       return 1;
 
-   while ((c = getopt_long(argc, argv, "vh?f:F:",longopts,NULL)) != -1) {
+   while ((c = getopt_long(argc, argv, "vh?f:F:o:",longopts,NULL)) != -1) {
       switch (c) {
 	 case 'f':
 	    if (set_file(&ctx->opts.infile, optarg) != 0) {
@@ -296,6 +370,16 @@ int main(int argc, char *argv[])
 	 case 'F':
 	    if (set_file(&ctx->opts.outfile, optarg) != 0) {
 	       free_ctx(ctx);
+	       return 1;
+	    }
+	    break;
+	 case 'o':
+	    if (strcmp(optarg, "nmea") == 0) {
+	       ctx->opts.output_type = OUTPUT_NMEA;
+	    }else if (strcmp(optarg, "dump") == 0) {
+	       ctx->opts.output_type = OUTPUT_DUMP;
+	    }else {
+	       fputs("Wrong output type\n", stderr);
 	       return 1;
 	    }
 	    break;
@@ -335,6 +419,17 @@ int main(int argc, char *argv[])
       }
    }else
       ctx->outfh = stdout;
+
+   /* output_type  */
+   switch (ctx->opts.output_type) {
+      case OUTPUT_NMEA:
+	 ctx->dump_f = &output_nmea;
+	 break;
+      case OUTPUT_DUMP:
+      default:
+	 ctx->dump_f = &output_dump;
+	 break;
+   }
 
    process(ctx);
 
