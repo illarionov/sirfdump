@@ -18,6 +18,9 @@
 const char *progname = "sirfdump";
 const char *revision = "$Revision: 0.0 $";
 
+extern int output_dump(struct transport_msg_t *msg, FILE *out_f, void *user_ctx);
+extern int output_nmea(struct transport_msg_t *msg, FILE *out_f, void *user_ctx);
+
 struct opts_t {
    char *infile;
    char *outfile;
@@ -65,7 +68,7 @@ static void help(void)
    "\nOptions:\n"
    "    -f, --infile                Input file, default: - (stdin)\n"
    "    -F, --outfile               Output file, default: - (stdout)\n"
-   "    -o, --outtype               Output type: dump or nmea. default: dump\n"
+   "    -o, --outtype               Output type: dump or nmea. default: nmea\n"
    "    -h, --help                  Help\n"
    "    -v, --version               Show version\n"
    "\n"
@@ -244,7 +247,7 @@ int process(struct ctx_t *ctx)
    struct transport_msg_t msg;
 
    while ( (pkt = readpkt(&ctx->in, &msg)) != NULL ) {
-      ctx->dump_f(ctx, &msg);
+      ctx->dump_f(&msg, ctx->outfh, NULL);
    }
 
    return ctx->in.last_errno;

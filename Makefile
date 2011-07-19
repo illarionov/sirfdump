@@ -9,8 +9,9 @@ DESTDIR?=/usr/local
 
 OBJS=	sirf_codec_ssb.o \
 	sirf_codec_ascii.o \
-	sirf_codec_nmea.o
-
+	sirf_codec_nmea.o \
+	output_dump.o \
+	output_nmea.o
 
 all: sirfdump
 
@@ -30,6 +31,13 @@ sirf_codec_ascii.o: util/codec/sirf_codec_ascii.c
 
 sirf_codec_nmea.o: util/codec/sirf_codec_nmea.c
 	$(CC) $(CFLAGS) -DSIRF_CODEC_NMEA -c util/codec/sirf_codec_nmea.c
+
+output_dump.o: output_dump.c sirfdump.h sirf_codec_ssb.o sirf_codec_ascii.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -c output_dump.c
+
+output_nmea.o: output_dump.c sirfdump.h sirf_codec_ssb.o sirf_codec_nmea.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -c output_nmea.c
+
 
 install:
 	mkdir -p ${DESTDIR}/bin 2> /dev/null
