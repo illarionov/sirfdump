@@ -17,7 +17,7 @@ all: sirfdump
 clean:
 	rm -f *.o sirfdump
 
-sirfdump: ${OBJS} sirfdump.c
+sirfdump: ${OBJS} sirfdump.c sirfdump.h
 	$(CC) $(CFLAGS) $(LDFLAGS) \
 	sirfdump.c ${OBJS} \
 	-o sirfdump

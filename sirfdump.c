@@ -12,10 +12,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "sirfdump.h"
 #include "sirf_msg.h"
-#include "sirf_codec_ssb.h"
-#include "sirf_codec_ascii.h"
-#include "sirf_codec_nmea.h"
 
 const char *progname = "sirfdump";
 const char *revision = "$Revision: 0.0 $";
@@ -36,22 +34,12 @@ struct input_stream_t {
    int last_errno;
 };
 
-struct transport_msg_t {
-   uint8_t *payload;
-   unsigned payload_length;
-   unsigned checksum;
-   unsigned skipped_bytes;
-};
-
-struct ctx_t;
-
-typedef int (dumpf_t)(struct ctx_t *ctx, struct transport_msg_t *msg);
-
 struct ctx_t {
    struct opts_t opts;
    struct input_stream_t in;
    FILE *outfh;
    dumpf_t *dump_f;
+   void *user_ctx;
 };
 
 
@@ -101,6 +89,7 @@ static struct ctx_t *init_ctx()
    ctx->in.head = ctx->in.tail = 0;
    ctx->in.last_errno = 0;
    ctx->outfh = NULL;
+   ctx->user_ctx = NULL;
 
    return ctx;
 }
@@ -247,86 +236,6 @@ void *readpkt(struct input_stream_t *stream, struct transport_msg_t *res_msg)
    }
 
    return res;
-}
-
-static int output_dump(struct ctx_t *ctx, struct transport_msg_t *msg)
-{
-   int err;
-   tSIRF_UINT32 msg_id, msg_length;
-   tSIRF_UINT32 str_size;
-   uint8_t msg_structure[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
-   char str[1024];
-
-   if (!msg || msg->payload_length < 1)
-      return 1;
-
-   err = SIRF_CODEC_SSB_Decode(msg->payload,
-	 msg->payload_length,
-	 &msg_id,
-	 msg_structure,
-	 &msg_length);
-   if (err)
-      return err;
-
-   str_size=sizeof(str);
-   err = SIRF_CODEC_ASCII_Encode(msg_id,
-	    msg_structure,
-	    msg_length,
-	    str,
-	    &str_size);
-
-   if (err == 0)
-      fputs(str, ctx->outfh);
-
-   return err;
-}
-
-static int output_nmea(struct ctx_t *ctx, struct transport_msg_t *msg)
-{
-   int err;
-   tSIRF_UINT32 msg_id, msg_length;
-   union {
-      tSIRF_MSG_SSB_MEASURED_TRACKER mt;
-      tSIRF_MSG_SSB_GEODETIC_NAVIGATION gn;
-      uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
-   } msg_structure;
-   char str[1024];
-
-   if (!msg || msg->payload_length < 1)
-      return 1;
-
-   err = SIRF_CODEC_SSB_Decode(msg->payload,
-	 msg->payload_length,
-	 &msg_id,
-	 msg_structure.u8,
-	 &msg_length);
-
-   if (err)
-      return err;
-
-   str[0]='\0';
-
-   switch (msg_id) {
-      case SIRF_MSG_SSB_MEASURED_TRACKER:
-	 err = SIRF_CODEC_NMEA_Encode_GSV(&msg_structure.mt, str);
-	 if (err == 0) fputs(str, ctx->outfh);
-	 break;
-      case SIRF_MSG_SSB_GEODETIC_NAVIGATION:
-	 err = SIRF_CODEC_NMEA_Encode_GGA(&msg_structure.gn, str);
-	 if (err == 0) fputs(str, ctx->outfh);
-	 err = SIRF_CODEC_NMEA_Encode_RMC(&msg_structure.gn, str);
-	 if (err == 0) fputs(str, ctx->outfh);
-	 err = SIRF_CODEC_NMEA_Encode_GSA(&msg_structure.gn, str);
-	 if (err == 0) fputs(str, ctx->outfh);
-	 err = SIRF_CODEC_NMEA_Encode_VTG(&msg_structure.gn, str);
-	 if (err == 0) fputs(str, ctx->outfh);
-/* 	 err = SIRF_CODEC_NMEA_Encode_GLL(&msg_structure.gn, str);
-	 if (err == 0) fputs(str, ctx->outfh); */
-      default:
-	 break;
-   }
-
-   return err;
 }
 
 int process(struct ctx_t *ctx)
