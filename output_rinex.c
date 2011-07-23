@@ -1,4 +1,5 @@
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -43,10 +44,35 @@ struct rinex_ctx_t {
       float sec;
    } time_of_first_obs;
 
-   int first_record_found;
-   int last_phase_err_cnt;
+   int first_obs_found;
+   int header_printed;
+
+   unsigned gps_week;
+   unsigned gps_tow;
+   unsigned solution_svs;
+
+   struct {
+      unsigned sat_id;
+      unsigned valid;
+      double last_gps_sw_time;
+      double pr;
+      double cfreq;
+      double phase;
+      unsigned snr;
+      unsigned last_phase_err_cnt;
+   } ch[SIRF_NUM_CHANNELS];
+
+
 };
 
+static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
+      tSIRF_MSG_SSB_NL_MEAS_DATA *msg);
+static int handle_meas_nav_msg(struct rinex_ctx_t *ctx,
+      tSIRF_MSG_SSB_MEASURED_NAVIGATION *msg);
+static int handle_clock_status_msg(struct rinex_ctx_t *ctx,
+      tSIRF_MSG_SSB_CLOCK_STATUS *msg);
+static int hanble_50bpsdata_msg(struct rinex_ctx_t *ctx,
+      tSIRF_MSG_SSB_50BPS_DATA *msg);
 static int printf_obs_header(FILE *out_f, struct rinex_ctx_t *ctx);
 
 void *new_rinex_ctx(int argc, char **argv)
@@ -54,6 +80,7 @@ void *new_rinex_ctx(int argc, char **argv)
    struct rinex_ctx_t *ctx;
    struct tm *tm;
    time_t clock;
+   unsigned ch;
 
    ctx = malloc(sizeof(*ctx));
 
@@ -64,7 +91,7 @@ void *new_rinex_ctx(int argc, char **argv)
    ctx->file.run_by[0]='\0';
    time(&clock);
    tm = gmtime(&clock);
-   snprintf(ctx->file.date, sizeof(ctx->file.date), "%i-%3s-%2u %2i:%2i",
+   snprintf(ctx->file.date, sizeof(ctx->file.date), "%i-%3s-%02u %02i:%02i",
 	 tm->tm_mday, MonthName[tm->tm_mon], tm->tm_year % 100,
 	 tm->tm_hour, tm->tm_min);
 
@@ -89,8 +116,15 @@ void *new_rinex_ctx(int argc, char **argv)
    ctx->time_of_first_obs.min = 0;
    ctx->time_of_first_obs.sec = 0.0;
 
-   ctx->first_record_found = 0;
-   ctx->last_phase_err_cnt = 0;
+   ctx->first_obs_found = 0;
+   ctx->header_printed = 0;
+
+   ctx->gps_week=0;
+   ctx->gps_tow=0;
+   ctx->solution_svs=0;
+   for (ch=0; ch < SIRF_NUM_CHANNELS; ch++) {
+      ctx->ch[ch].valid = 0;
+   }
 
    return ctx;
 }
@@ -109,11 +143,12 @@ int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
    struct rinex_ctx_t *ctx;
    tSIRF_UINT32 msg_id, msg_length;
    union {
-      tSIRF_MSG_SSB_MEASURED_TRACKER mt;
-      tSIRF_MSG_SSB_GEODETIC_NAVIGATION gn;
+      tSIRF_MSG_SSB_NL_MEAS_DATA nld;
       uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
-   } msg_structure;
+   } m;
    char str[1024];
+
+   assert(user_ctx);
 
    if (!msg || msg->payload_length < 1)
       return 1;
@@ -123,7 +158,7 @@ int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
    err = SIRF_CODEC_SSB_Decode(msg->payload,
 	 msg->payload_length,
 	 &msg_id,
-	 msg_structure.u8,
+	 m.u8,
 	 &msg_length);
 
    if (err)
@@ -131,45 +166,127 @@ int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 
    str[0]='\0';
 
-   if (ctx->first_record_found == 0) {
-      printf_obs_header(out_f, ctx);
-      ctx->first_record_found=1;
+   switch (msg_id) {
+      case SIRF_MSG_SSB_NL_MEAS_DATA:
+	 fprintf(out_f, "msg 28. time_tag: %u chan: %02d sw_id: %03d gps_time: %11.2f\n",
+	       m.nld.Timetag, m.nld.Chnl, m.nld.svid, m.nld.gps_sw_time);
+	 handle_nl_meas_data_msg(ctx, &m.nld);
+	 break;
+      case SIRF_MSG_SSB_MEASURED_NAVIGATION:
+	 handle_meas_nav_msg(ctx, (tSIRF_MSG_SSB_MEASURED_NAVIGATION *)&m);
+	 break;
+      case SIRF_MSG_SSB_CLOCK_STATUS:
+	 handle_clock_status_msg(ctx, (tSIRF_MSG_SSB_CLOCK_STATUS *)&m);
+	 break;
+      case SIRF_MSG_SSB_50BPS_DATA:
+	 hanble_50bpsdata_msg(ctx, (tSIRF_MSG_SSB_50BPS_DATA *)&m);
+	 break;
+      default:
+	 break;
    }
 
+   if (!ctx->header_printed && ctx->first_obs_found) {
+      printf_obs_header(out_f, ctx);
+      ctx->header_printed = 1;
+   }
 
    return err;
 }
 
+static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
+      tSIRF_MSG_SSB_NL_MEAS_DATA *msg)
+{
+   assert(ctx);
+   assert(msg);
+
+   return 1;
+}
+
+static int handle_meas_nav_msg(struct rinex_ctx_t *ctx,
+      tSIRF_MSG_SSB_MEASURED_NAVIGATION *msg)
+{
+   assert(ctx);
+   assert(msg);
+
+   /* pmode  */
+   if (((msg->nav_mode & 7) != 3) /* 3-SV solution (Kalman filter)*/
+	 && ((msg->nav_mode & 7) != 4) /* >3-SV solution (Kalman filter) */
+	 && ((msg->nav_mode & 7) != 5) /* 2-D point solution (least squares)  */
+	 && ((msg->nav_mode & 7) != 6)) { /* 3-D point solution (least squares)  */
+      fprintf(stderr, "msgid 2: no solution. week: %d tow: %d sws: %d pmode = 0x%x \n",
+	    msg->gps_week, msg->gps_tow, msg->sv_used_cnt, msg->nav_mode & 7);
+      return 1;
+   }
+
+   ctx->approx_pos.x = msg->ecef_x;
+   ctx->approx_pos.y = msg->ecef_y;
+   ctx->approx_pos.z = msg->ecef_z;
+
+   ctx->gps_week = msg->gps_week;
+   ctx->gps_tow = msg->gps_tow;
+   ctx->solution_svs = msg->sv_used_cnt;
+
+   ctx->first_obs_found=1;
+
+
+   return 1;
+}
+
+static int handle_clock_status_msg(struct rinex_ctx_t *ctx,
+      tSIRF_MSG_SSB_CLOCK_STATUS *msg)
+{
+   assert(ctx);
+   assert(msg);
+
+   return 1;
+}
+
+static int hanble_50bpsdata_msg(struct rinex_ctx_t *ctx,
+      tSIRF_MSG_SSB_50BPS_DATA *msg)
+{
+   assert(ctx);
+   assert(msg);
+
+   return 1;
+}
+
+
+
 static int printf_obs_header(FILE *out_f, struct rinex_ctx_t *ctx)
 {
-   fprintf(out_f, "%9.2f %19s %19s %20s\n", 2.11, "OBSERVATION DATA", "G",
+
+   assert(ctx);
+   assert(out_f);
+
+   fprintf(out_f, "%9.2f%-11s%-20s%-20s%-20s\n", 2.11, "", "OBSERVATION DATA", "G",
 	 "RINEX VERSION / TYPE");
-   fprintf(out_f, "%20s%20s%20s%20s", ctx->file.pgm, ctx->file.run_by, ctx->file.date,
+   fprintf(out_f, "%-20s%-20s%-20s%-20s\n", ctx->file.pgm, ctx->file.run_by, ctx->file.date,
 	 "PGM / RUN BY / DATE");
-   fprintf(out_f, "%60s%20s\n", ctx->marker_name,
+   fprintf(out_f, "%-60s%-20s\n", ctx->marker_name,
 	 "MARKER NAME");
-   fprintf(out_f, "%20s%40s%20s\n", ctx->observer, ctx->agency,
+   fprintf(out_f, "%-20s%-40s%-20s\n", ctx->observer, ctx->agency,
 	 "OBSERVER / AGENCY");
-   fprintf(out_f, "%20s%20s%20s%20s\n", ctx->rec.no, ctx->rec.type, ctx->rec.version,
+   fprintf(out_f, "%-20s%-20s%-20s%-20s\n", ctx->rec.no, ctx->rec.type, ctx->rec.version,
 	 "REC # / TYPE / VERS");
-   fprintf(out_f, "%20s%40s%20s\n", ctx->antenna.no, ctx->antenna.type,
+   fprintf(out_f, "%-20s%-40s%-20s\n", ctx->antenna.no, ctx->antenna.type,
 	 "ANT # / TYPE");
-   fprintf(out_f, "%14.4f%14.4f%14.4f%20s\n", ctx->approx_pos.x, ctx->approx_pos.y, ctx->approx_pos.x,
+   fprintf(out_f, "%14.4f%14.4f%14.4f%18s%-20s\n", ctx->approx_pos.x, ctx->approx_pos.y, ctx->approx_pos.x, "",
 	 "APPROX POSITION XYZ");
-   fprintf(out_f, "%14.4f%14.4f%14.4f%20s\n", ctx->antenna.h, ctx->antenna.e, ctx->antenna.n,
+   fprintf(out_f, "%14.4f%14.4f%14.4f%18s%-20s\n", ctx->antenna.h, ctx->antenna.e, ctx->antenna.n, "",
 	 "ANTENNA: DELTA H/E/N");
-   fprintf(out_f, "%6i%6i%48s%20s\n", 1, 0, "",
+   fprintf(out_f, "%6i%6i%-48s%-20s\n", 1, 0, "",
 	 "WAVELENGTH FACT L1/2");
-   fprintf(out_f, "%6i%54s%30s\n", 4, "C1    L1    S1    D1  ",
+   fprintf(out_f, "%6i    %-50s%-20s\n", 4, "C1    L1    S1    D1  ",
 	 "# / TYPES OF OBSERV");
-   fprintf(out_f, "%6d%6d%6d%6d%6d%13.7f%5s   %20s\n", ctx->time_of_first_obs.year,
+   fprintf(out_f, "%6d%6d%6d%6d%6d%13.7f%-5s%12s%-20s\n", ctx->time_of_first_obs.year,
 	 ctx->time_of_first_obs.month, ctx->time_of_first_obs.day,
 	 ctx->time_of_first_obs.hour, ctx->time_of_first_obs.min,
-	 ctx->time_of_first_obs.sec, "GPS",
+	 ctx->time_of_first_obs.sec, "", "",
 	 "TIME OF FIRST OBS");
-   fprintf(out_f, "%60s%20s\n", "",
+   fprintf(out_f, "%-60s%-20s\n", "",
 	 "END OF HEADER");
 
+   return 1;
 }
 
 

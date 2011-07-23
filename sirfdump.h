@@ -14,6 +14,13 @@ struct transport_msg_t {
 
 typedef int (dumpf_t)(struct transport_msg_t *msg, FILE *out_f, void *user_ctx);
 
+int output_dump(struct transport_msg_t *msg, FILE *out_f, void *user_ctx);
+int output_nmea(struct transport_msg_t *msg, FILE *out_f, void *user_ctx);
+
+void *new_rinex_ctx(int argc, char **argv);
+void free_rinex_ctx(void *ctx);
+int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx);
+
 #endif /* SIRFDUMP_H */
 
 

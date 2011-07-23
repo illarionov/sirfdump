@@ -18,15 +18,13 @@
 const char *progname = "sirfdump";
 const char *revision = "$Revision: 0.0 $";
 
-extern int output_dump(struct transport_msg_t *msg, FILE *out_f, void *user_ctx);
-extern int output_nmea(struct transport_msg_t *msg, FILE *out_f, void *user_ctx);
-
 struct opts_t {
    char *infile;
    char *outfile;
    enum {
       OUTPUT_DUMP,
-      OUTPUT_NMEA
+      OUTPUT_NMEA,
+      OUTPUT_RINEX
    } output_type;
 };
 
@@ -68,7 +66,7 @@ static void help(void)
    "\nOptions:\n"
    "    -f, --infile                Input file, default: - (stdin)\n"
    "    -F, --outfile               Output file, default: - (stdout)\n"
-   "    -o, --outtype               Output type: dump or nmea. default: nmea\n"
+   "    -o, --outtype               Output type: dump / nmea / rinex. default: nmea\n"
    "    -h, --help                  Help\n"
    "    -v, --version               Show version\n"
    "\n"
@@ -247,7 +245,7 @@ int process(struct ctx_t *ctx)
    struct transport_msg_t msg;
 
    while ( (pkt = readpkt(&ctx->in, &msg)) != NULL ) {
-      ctx->dump_f(&msg, ctx->outfh, NULL);
+      ctx->dump_f(&msg, ctx->outfh, ctx->user_ctx);
    }
 
    return ctx->in.last_errno;
@@ -290,6 +288,8 @@ int main(int argc, char *argv[])
 	       ctx->opts.output_type = OUTPUT_NMEA;
 	    }else if (strcmp(optarg, "dump") == 0) {
 	       ctx->opts.output_type = OUTPUT_DUMP;
+	    }else if (strcmp(optarg, "rinex") == 0) {
+	       ctx->opts.output_type = OUTPUT_RINEX;
 	    }else {
 	       fputs("Wrong output type\n", stderr);
 	       return 1;
@@ -337,6 +337,15 @@ int main(int argc, char *argv[])
       case OUTPUT_NMEA:
 	 ctx->dump_f = &output_nmea;
 	 break;
+      case OUTPUT_RINEX:
+	 ctx->dump_f = &output_rinex;
+	 ctx->user_ctx = new_rinex_ctx(argc, argv);
+	 if (ctx->user_ctx == NULL) {
+	    perror(NULL);
+	    free_ctx(ctx);
+	    return 1;
+	 }
+	 break;
       case OUTPUT_DUMP:
       default:
 	 ctx->dump_f = &output_dump;
@@ -344,6 +353,10 @@ int main(int argc, char *argv[])
    }
 
    process(ctx);
+
+   if (ctx->opts.output_type == OUTPUT_RINEX) {
+      free_rinex_ctx(ctx->user_ctx);
+   }
 
    free_ctx(ctx);
    return 0;

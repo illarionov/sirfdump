@@ -1,7 +1,7 @@
 CC?=gcc
 CFLAGS?= -O2 -s -pipe
 CFLAGS+= -DNDEBUG
-#CFLAGS=-W  -Wall -g -O0 -I/usr/local/include
+CFLAGS=-W  -Wall -g -O0
 
 CFLAGS+= -D_ENDIAN_LITTLE -I./include -I./util/codec -I./util/proto -I./pal
 
@@ -11,7 +11,8 @@ OBJS=	sirf_codec_ssb.o \
 	sirf_codec_ascii.o \
 	sirf_codec_nmea.o \
 	output_dump.o \
-	output_nmea.o
+	output_nmea.o \
+	output_rinex.o
 
 all: sirfdump
 
@@ -38,6 +39,8 @@ output_dump.o: output_dump.c sirfdump.h sirf_codec_ssb.o sirf_codec_ascii.o
 output_nmea.o: output_dump.c sirfdump.h sirf_codec_ssb.o sirf_codec_nmea.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -c output_nmea.c
 
+output_rinex.o: output_rinex.c sirfdump.h sirf_codec_ssb.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -c output_rinex.c
 
 install:
 	mkdir -p ${DESTDIR}/bin 2> /dev/null
