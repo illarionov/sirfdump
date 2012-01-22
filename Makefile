@@ -5,6 +5,8 @@ CFLAGS=-W  -Wall -g -O0
 
 CFLAGS+= -D_ENDIAN_LITTLE -I./include -I./util/codec -I./util/proto -I./pal
 
+LDFLAGS+= -lm
+
 DESTDIR?=/usr/local
 
 OBJS=	sirf_codec_ssb.o \
@@ -34,13 +36,13 @@ sirf_codec_nmea.o: util/codec/sirf_codec_nmea.c
 	$(CC) $(CFLAGS) -DSIRF_CODEC_NMEA -c util/codec/sirf_codec_nmea.c
 
 output_dump.o: output_dump.c sirfdump.h sirf_codec_ssb.o sirf_codec_ascii.o
-	$(CC) $(CFLAGS) $(LDFLAGS) -c output_dump.c
+	$(CC) $(CFLAGS) -c output_dump.c
 
 output_nmea.o: output_dump.c sirfdump.h sirf_codec_ssb.o sirf_codec_nmea.o
-	$(CC) $(CFLAGS) $(LDFLAGS) -c output_nmea.c
+	$(CC) $(CFLAGS) -c output_nmea.c
 
 output_rinex.o: output_rinex.c sirfdump.h sirf_codec_ssb.o
-	$(CC) $(CFLAGS) $(LDFLAGS) -c output_rinex.c
+	$(CC) $(CFLAGS) -c output_rinex.c
 
 install:
 	mkdir -p ${DESTDIR}/bin 2> /dev/null
