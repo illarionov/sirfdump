@@ -1,7 +1,6 @@
 
 #define _GNU_SOURCE
 #include <sys/types.h>
-#include <sys/uio.h>
 
 #include <assert.h>
 #include <errno.h>
