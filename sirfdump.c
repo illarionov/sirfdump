@@ -325,7 +325,14 @@ int main(int argc, char *argv[])
 
    /* outfile  */
    if (ctx->opts.outfile != NULL) {
-      ctx->outfh = fopen(ctx->opts.outfile, "a");
+      ctx->outfh = fopen(ctx->opts.outfile,
+#ifdef WIN32
+	"ab"
+#else
+	"a"
+#endif
+	);
+
       if (ctx->outfh == NULL) {
 	 perror(NULL);
 	 free_ctx(ctx);
