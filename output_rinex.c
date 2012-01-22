@@ -486,8 +486,8 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
       double l1;
       double d1;
       double s1;
-      unsigned loss_of_lock;
-      unsigned sig_strength;
+      unsigned char loss_of_lock;
+      unsigned char sig_strength;
 
       if (!e->ch[chan_id].valid)
 	 continue;
@@ -497,7 +497,7 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 
       /* Phase on L1, cycles */
       if (e->ch[chan_id].carrier_phase)
-	 l1 = floor(L1_CARRIER_FREQ * (e->ch[chan_id].carrier_phase / SPEED_OF_LIGHT - (e->clock_bias / 1e9)));
+	 l1 = L1_CARRIER_FREQ * (e->ch[chan_id].carrier_phase / SPEED_OF_LIGHT - (e->clock_bias / 1e9));
       else
 	 l1 = 0;
 
@@ -507,10 +507,10 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
       /* Snr */
       s1 = e->ch[chan_id].avg_cno;
 
-      loss_of_lock = 0;
-      sig_strength = snr_project_to_1x9(s1);
+      loss_of_lock = ' ';
+      sig_strength = ' ';
 
-      written = fprintf(out_f, "%14.3lf%1u%1u%14.3lf%1u%1u%14.3lf%1u%1u%14.3lf%1u%1u\r\n",
+      written = fprintf(out_f, "%14.3lf%c%c%14.3lf%c%c%14.3lf%c%c%14.3lf%c%c\r\n",
 	    c1, loss_of_lock, sig_strength,
 	    l1, loss_of_lock, sig_strength,
 	    d1, loss_of_lock, sig_strength,
