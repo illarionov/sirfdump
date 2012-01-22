@@ -143,7 +143,6 @@ static int read_data(struct input_stream_t *stream)
    }
 
    l = read(stream->fd, &stream->buf[stream->tail], sizeof(stream->buf) - stream->tail);
-
    if (l<0)
       stream->last_errno = errno;
    else
@@ -311,7 +310,11 @@ int main(int argc, char *argv[])
 
    /* infile  */
    if (ctx->opts.infile != NULL) {
-      ctx->in.fd = open(ctx->opts.infile, O_RDONLY);
+      ctx->in.fd = open(ctx->opts.infile, O_RDONLY
+#ifdef O_BINARY
+	 | O_BINARY
+#endif
+      );
       if (ctx->in.fd < 0) {
 	 perror(NULL);
 	 free_ctx(ctx);
