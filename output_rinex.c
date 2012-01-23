@@ -38,11 +38,9 @@ struct epoch_t {
 	 double carrier_freq;
 	 double carrier_phase;
 	 unsigned sync_flags;
-	 unsigned avg_cno;
-	 /*
+	 double avg_cno;
          unsigned phase_err_cnt;
          unsigned low_power_cnt;
-	 */
       } ch[SIRF_NUM_CHANNELS];
 
 };
@@ -222,7 +220,7 @@ static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
       return -1;
    }
 
-   ctx->epoch.ch[msg->Chnl].valid = 1;
+   ctx->epoch.ch[msg->Chnl].valid = msg->sync_flags & 0x01;
    ctx->epoch.ch[msg->Chnl].sat_id = msg->svid;
    ctx->epoch.ch[msg->Chnl].gps_soft_time = msg->gps_sw_time;
    ctx->epoch.ch[msg->Chnl].pseudorange = msg->pseudorange;
@@ -232,11 +230,9 @@ static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
    ctx->epoch.ch[msg->Chnl].avg_cno = 0;
    for (i=0; i<SIRF_NUM_POINTS; i++)
       ctx->epoch.ch[msg->Chnl].avg_cno += msg->cton[i];
-   ctx->epoch.ch[msg->Chnl].avg_cno /= SIRF_NUM_POINTS;
-   /*
+   ctx->epoch.ch[msg->Chnl].avg_cno /= (double)SIRF_NUM_POINTS;
    ctx->epoch.ch[msg->Chnl].phase_err_cnt = msg->phase_error_count;
    ctx->epoch.ch[msg->Chnl].low_power_cnt = msg->low_power_count;
-   */
 
    return 1;
 }
@@ -332,7 +328,7 @@ static int printf_obs_header(FILE *out_f, struct rinex_ctx_t *ctx)
 	 "ANTENNA: DELTA H/E/N");
    fprintf(out_f, "%6i%6i%-48s%-20s\r\n", 1, 0, "",
 	 "WAVELENGTH FACT L1/2");
-   fprintf(out_f, "%6i    %-50s%-20s\r\n", 4, "C1    L1    D1    S1  ",
+   fprintf(out_f, "%6i    %-50s%-20s\r\n", 4, "L1    C1    D1    S1  ",
 	 "# / TYPES OF OBSERV");
    fprintf(out_f, "%6d%6d%6d%6d%6d%13.7f%-5s%12s%-20s\r\n", ctx->time_of_first_obs.year,
 	 ctx->time_of_first_obs.month, ctx->time_of_first_obs.day,
@@ -389,12 +385,9 @@ static inline int is_sat_in_epoch(const struct epoch_t *e, unsigned chan_id)
 
 static inline int snr_project_to_1x9(double snr)
 {
-   if (snr < 15)
-      return 1;
-   if (snr > 70)
-      return 9;
-
-   return 1 + ( 9 * (snr - 15) / (70-15));
+   #define MIN(_a, _b) ( ((_a) < (_b)) ? (_a) : (_b)  )
+   #define MAX(_a, _b) ( ((_a) > (_b)) ? (_a) : (_b)  )
+   return MIN(MAX((int)(snr/6),1),9);
 }
 
 
@@ -486,7 +479,7 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
       double l1;
       double d1;
       double s1;
-      unsigned char loss_of_lock;
+      unsigned char l1_loss_of_lock, loss_of_lock;
       unsigned char sig_strength;
 
       if (!e->ch[chan_id].valid)
@@ -497,7 +490,7 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 
       /* Phase on L1, cycles */
       if (e->ch[chan_id].carrier_phase)
-	 l1 = L1_CARRIER_FREQ * (e->ch[chan_id].carrier_phase / SPEED_OF_LIGHT - (e->clock_bias / 1e9));
+	 l1 = floor(L1_CARRIER_FREQ * (e->ch[chan_id].carrier_phase / SPEED_OF_LIGHT - (e->clock_bias / 1e9)));
       else
 	 l1 = 0;
 
@@ -507,12 +500,30 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
       /* Snr */
       s1 = e->ch[chan_id].avg_cno;
 
+      /* 0x01 - acq/re-acq completed  */
+      /* 0x02 - integrated carrier phase is valid */
+      /* 0x04 - subframe sync completed  */
+      /* 0x08 - carrier pullin completed  */
+      /* 0x10 - code locked  */
+      /* 0x40 - ephemeris data available  */
+      if (!(e->ch[chan_id].sync_flags & 0x02))
+	 l1_loss_of_lock = '1';
+      else
+	 l1_loss_of_lock = ' ';
+
+      if ( (e->ch[chan_id].phase_err_cnt > 0) && (l1_loss_of_lock != '1')) {
+	    fprintf(stderr, "%.5lf sync_flags %x phase_err_cnt: %u\n",
+		  e->gps_tow,
+		  e->ch[chan_id].sync_flags,
+		  e->ch[chan_id].phase_err_cnt);
+      }
+
       loss_of_lock = ' ';
-      sig_strength = ' ';
+      sig_strength = itoa [ snr_project_to_1x9(s1) ];
 
       written = fprintf(out_f, "%14.3lf%c%c%14.3lf%c%c%14.3lf%c%c%14.3lf%c%c\r\n",
+	    l1, l1_loss_of_lock, sig_strength,
 	    c1, loss_of_lock, sig_strength,
-	    l1, loss_of_lock, sig_strength,
 	    d1, loss_of_lock, sig_strength,
 	    s1, loss_of_lock, sig_strength);
       if (written < 0)

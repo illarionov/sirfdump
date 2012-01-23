@@ -1,7 +1,7 @@
 CC?=gcc
 CFLAGS?= -O2 -s -pipe
-#CFLAGS+= -DNDEBUG
-CFLAGS=-W  -Wall -g -O0
+CFLAGS+= -DNDEBUG
+#CFLAGS=-W  -Wall -g -O0
 
 CFLAGS+= -D_ENDIAN_LITTLE -I./include -I./util/codec -I./util/proto -I./pal
 
