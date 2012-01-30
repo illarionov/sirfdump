@@ -9,7 +9,7 @@
 #include "sirf_msg.h"
 #include "sirf_codec_ssb.h"
 
-const char *MonthName[] = {"JAN","FEB","MAR","APR", "MAY","JUN","JUL","AUG", 
+const char * const MonthName[] = {"JAN","FEB","MAR","APR", "MAY","JUN","JUL","AUG", 
    "SEP", "OCO", "DEC"};
 
 #define L1_CARRIER_FREQ 1575420000.0

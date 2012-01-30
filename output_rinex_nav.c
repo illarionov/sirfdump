@@ -9,7 +9,7 @@
 #include "sirf_msg.h"
 #include "sirf_codec_ssb.h"
 
-extern const char **MonthName;
+extern const char const *MonthName[];
 
 #define L1_CARRIER_FREQ 1575420000.0
 #define SPEED_OF_LIGHT 299792458.0
@@ -160,8 +160,8 @@ static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
    assert(msg);
    assert(out_f);
 
-   fprintf(stderr, "msg 8 (50 BPS data). sv_id: %d data: "
-	 "%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n"
+   fprintf(stderr, "msg 8 (50 BPS data). sv_id: %2d data: "
+	 "%08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n"
 	 ,
 	 (unsigned)msg->svid,
 	 msg->word[0], msg->word[1], msg->word[2], msg->word[3],
