@@ -21,6 +21,12 @@ void *new_rinex_ctx(int argc, char **argv);
 void free_rinex_ctx(void *ctx);
 int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx);
 
+void *new_rinex_nav_ctx(int argc, char **argv);
+void free_rinex_nav_ctx(void *ctx);
+int output_rinex_nav(struct transport_msg_t *msg, FILE *out_f, void *user_ctx);
+
+
+
 #endif /* SIRFDUMP_H */
 
 

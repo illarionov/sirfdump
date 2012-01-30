@@ -14,7 +14,8 @@ OBJS=	sirf_codec_ssb.o \
 	sirf_codec_nmea.o \
 	output_dump.o \
 	output_nmea.o \
-	output_rinex.o
+	output_rinex.o \
+	output_rinex_nav.o
 
 ifdef NO_STRLCPY
 	OBJS += strlcat.o
@@ -47,6 +48,9 @@ output_nmea.o: output_dump.c sirfdump.h sirf_codec_ssb.o sirf_codec_nmea.o
 
 output_rinex.o: output_rinex.c sirfdump.h sirf_codec_ssb.o
 	$(CC) $(CFLAGS) -c output_rinex.c
+
+output_rinex_nav.o: output_rinex_nav.c sirfdump.h sirf_codec_ssb.o
+	$(CC) $(CFLAGS) -c output_rinex_nav.c
 
 strlcat.o: compat/strlcat.c
 	$(CC) $(CFLAGS) -c compat/strlcat.c

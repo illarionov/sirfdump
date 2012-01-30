@@ -15,7 +15,7 @@
 #include "sirf_msg.h"
 
 const char *progname = "sirfdump";
-const char *revision = "$Revision: 0.0 $";
+const char *revision = "$Revision: 0.1 $";
 
 struct opts_t {
    char *infile;
@@ -23,7 +23,8 @@ struct opts_t {
    enum {
       OUTPUT_DUMP,
       OUTPUT_NMEA,
-      OUTPUT_RINEX
+      OUTPUT_RINEX,
+      OUTPUT_RINEX_NAV
    } output_type;
 };
 
@@ -65,7 +66,7 @@ static void help(void)
    "\nOptions:\n"
    "    -f, --infile                Input file, default: - (stdin)\n"
    "    -F, --outfile               Output file, default: - (stdout)\n"
-   "    -o, --outtype               Output type: dump / nmea / rinex. default: nmea\n"
+   "    -o, --outtype               Output type: dump / nmea / rinex / rinex-nav. default: nmea\n"
    "    -h, --help                  Help\n"
    "    -v, --version               Show version\n"
    "\n"
@@ -288,6 +289,8 @@ int main(int argc, char *argv[])
 	       ctx->opts.output_type = OUTPUT_DUMP;
 	    }else if (strcmp(optarg, "rinex") == 0) {
 	       ctx->opts.output_type = OUTPUT_RINEX;
+	    }else if (strcmp(optarg, "rinex-nav") == 0) {
+	       ctx->opts.output_type = OUTPUT_RINEX_NAV;
 	    }else {
 	       fputs("Wrong output type\n", stderr);
 	       return 1;
@@ -355,6 +358,15 @@ int main(int argc, char *argv[])
 	    return 1;
 	 }
 	 break;
+      case OUTPUT_RINEX_NAV:
+	 ctx->dump_f = &output_rinex_nav;
+	 ctx->user_ctx = new_rinex_nav_ctx(argc, argv);
+	 if (ctx->user_ctx == NULL) {
+	    perror(NULL);
+	    free_ctx(ctx);
+	    return 1;
+	 }
+	 break;
       case OUTPUT_DUMP:
       default:
 	 ctx->dump_f = &output_dump;
@@ -363,8 +375,13 @@ int main(int argc, char *argv[])
 
    process(ctx);
 
-   if (ctx->opts.output_type == OUTPUT_RINEX) {
-      free_rinex_ctx(ctx->user_ctx);
+   switch (ctx->opts.output_type) {
+      case OUTPUT_RINEX:
+	 free_rinex_ctx(ctx->user_ctx);
+      case OUTPUT_RINEX_NAV:
+	 free_rinex_nav_ctx(ctx->user_ctx);
+      default:
+	 break;
    }
 
    free_ctx(ctx);
