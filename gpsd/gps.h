@@ -19,6 +19,9 @@ extern "C" {
 
 #include <inttypes.h>	/* stdint.h would be smaller but not all have it */
 #include <stdio.h>
+#include <stdbool.h>
+
+#define GPS_PI          3.1415926535897932384626433832795029
 
 /* The almanac is a subset of the clock and ephemeris data, with reduced
  * precision. See IS-GPS-200E, Table 20-VI  */
@@ -314,6 +317,28 @@ struct subframe_t {
 	} sub5_25;
     };
 };
+
+typedef uint32_t isgps30bits_t;
+
+/* logging levels */
+#define LOG_ERROR 1 /*errors, display always */
+#define LOG_SHOUT 0 /* not an error but we should always see it */
+#define LOG_WARN  1 /* not errors but may indicate a problem */
+#define LOG_INF   2 /* key informative messages */
+#define LOG_DATA  3 /* log data management messages */
+#define LOG_PROG  4 /* progress messages */
+#define LOG_IO    5 /* IO to and from devices */
+#define LOG_SPIN  6 /* logging for catching spin bugs */
+#define LOG_RAW	  7 /* raw low-level I/O */
+
+#define ISGPS_ERRLEVEL_BASE     LOG_RAW
+
+void gpsd_report(int errlevel, const char *fmt, ... );
+
+unsigned gpsd_interpret_subframe_raw(struct subframe_t *subp,
+      unsigned int tSVID, uint32_t words[]);
+
+unsigned int isgps_parity(isgps30bits_t th);
 
 #ifdef __cplusplus
 }  /* End of the 'extern "C"' block */

@@ -4,14 +4,28 @@
  * BSD terms apply: see the file COPYING in the distribution root for details.
  */
 #include <math.h>
+#include <string.h>
+#include <stdarg.h>
 
-#include "gpsd.h"
+#include "gps.h"
 
 /* convert unsigned to signed */
 #define uint2int( u, bit) ( u & (1<<bit) ? u - (1<<bit) : u)
 
+#ifndef VERBOSITY
+#define VERBOSITY 0
+#endif
+
+static unsigned gpsd_interpret_subframe(struct subframe_t *subp,
+			     unsigned int tSVID, uint32_t words[]);
+static void subframe_almanac(uint8_t tSVID, uint32_t words[],
+			     uint8_t subframe, uint8_t sv,
+			     uint8_t data_id,
+			     /*@out@*/struct almanac_t *almp);
+
 /*@ -usedef @*/
-gps_mask_t gpsd_interpret_subframe_raw(unsigned int tSVID, uint32_t words[])
+unsigned gpsd_interpret_subframe_raw(struct subframe_t *subp,
+      unsigned int tSVID, uint32_t words[])
 {
     unsigned int i;
     uint8_t preamble;
@@ -70,7 +84,7 @@ gps_mask_t gpsd_interpret_subframe_raw(unsigned int tSVID, uint32_t words[])
 	words[i] = (words[i] >> 6) & 0xffffff;
     }
 
-    return gpsd_interpret_subframe(tSVID, words);
+    return gpsd_interpret_subframe(subp, tSVID, words);
 }
 
 /* you can find up to date almanac data for comparision here:
@@ -134,7 +148,7 @@ static void subframe_almanac(uint8_t tSVID, uint32_t words[],
     /*@-matchanyintegral -shiftimplementation@*/
 }
 
-gps_mask_t gpsd_interpret_subframe(struct subframe_t *subp,
+static unsigned gpsd_interpret_subframe(struct subframe_t *subp,
 			     unsigned int tSVID, uint32_t words[])
 {
     /*
@@ -808,7 +822,25 @@ gps_mask_t gpsd_interpret_subframe(struct subframe_t *subp,
 	/* unknown/illegal subframe */
 	return 0;
     }
-    return SUBFRAME_SET;
+    return 1;
 }
+
+void gpsd_report(int errlevel, const char *fmt, ... )
+   /* assemble command in printf(3) style, use stderr or syslog */
+{
+   char buf[BUFSIZ];
+   va_list ap;
+
+   if (errlevel > VERBOSITY)
+      return;
+
+   (void)strcpy(buf, "gpsd");
+   (void)strlcat(buf, ": ", BUFSIZ);
+   va_start(ap, fmt) ;
+   (void)vsnprintf(buf + strlen(buf), sizeof(buf)-strlen(buf), fmt, ap);
+   va_end(ap);
+   (void)fputs(buf, stderr);
+}
+
 
 /*@ +usedef @*/

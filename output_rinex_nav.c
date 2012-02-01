@@ -5,6 +5,7 @@
 #include <time.h>
 #include <math.h>
 
+#include "gpsd/gps.h"
 #include "sirfdump.h"
 #include "sirf_msg.h"
 #include "sirf_codec_ssb.h"
@@ -156,10 +157,18 @@ static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
       tSIRF_MSG_SSB_50BPS_DATA *msg,
       FILE *out_f)
 {
+   unsigned i;
+   struct subframe_t subp;
+   uint32_t words[10];
+
    assert(ctx);
    assert(msg);
    assert(out_f);
 
+   for(i=0; i<10; i++)
+      words[i]=msg->word[i];
+
+   /*
    fprintf(stderr, "msg 8 (50 BPS data). sv_id: %2d data: "
 	 "%08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n"
 	 ,
@@ -168,6 +177,8 @@ static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
 	 msg->word[4], msg->word[5], msg->word[6], msg->word[7],
 	 msg->word[8], msg->word[9]
 	 );
+	 */
+   gpsd_interpret_subframe_raw(&subp, msg->svid, words);
 
    return 0;
 }

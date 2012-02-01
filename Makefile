@@ -1,7 +1,7 @@
 CC?=gcc
 CFLAGS?= -O2 -s -pipe
-CFLAGS+= -DNDEBUG
-#CFLAGS=-W  -Wall -g -O0
+#CFLAGS+= -DNDEBUG
+CFLAGS=-W  -Wall -g -O0 -DVERBOSITY=LOG_RAW
 
 CFLAGS+= -D_ENDIAN_LITTLE -I./include -I./util/codec -I./util/proto -I./pal
 
@@ -15,7 +15,9 @@ OBJS=	sirf_codec_ssb.o \
 	output_dump.o \
 	output_nmea.o \
 	output_rinex.o \
-	output_rinex_nav.o
+	output_rinex_nav.o \
+	isgps.o \
+	subframe.o
 
 ifdef NO_STRLCPY
 	OBJS += strlcat.o
@@ -40,17 +42,23 @@ sirf_codec_ascii.o: util/codec/sirf_codec_ascii.c
 sirf_codec_nmea.o: util/codec/sirf_codec_nmea.c
 	$(CC) $(CFLAGS) -DSIRF_CODEC_NMEA -c util/codec/sirf_codec_nmea.c
 
-output_dump.o: output_dump.c sirfdump.h sirf_codec_ssb.o sirf_codec_ascii.o
+output_dump.o: output_dump.c sirfdump.h
 	$(CC) $(CFLAGS) -c output_dump.c
 
-output_nmea.o: output_dump.c sirfdump.h sirf_codec_ssb.o sirf_codec_nmea.o
+output_nmea.o: output_dump.c sirfdump.h
 	$(CC) $(CFLAGS) -c output_nmea.c
 
-output_rinex.o: output_rinex.c sirfdump.h sirf_codec_ssb.o
+output_rinex.o: output_rinex.c sirfdump.h
 	$(CC) $(CFLAGS) -c output_rinex.c
 
-output_rinex_nav.o: output_rinex_nav.c sirfdump.h sirf_codec_ssb.o
+output_rinex_nav.o: output_rinex_nav.c sirfdump.h
 	$(CC) $(CFLAGS) -c output_rinex_nav.c
+
+subframe.o: gpsd/gps.h gpsd/subframe.c
+	$(CC) $(CFLAGS) -c gpsd/subframe.c
+
+isgps.o: gpsd/gps.h gpsd/isgps.c
+	$(CC) $(CFLAGS) -c gpsd/isgps.c
 
 strlcat.o: compat/strlcat.c
 	$(CC) $(CFLAGS) -c compat/strlcat.c
