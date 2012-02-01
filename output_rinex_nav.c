@@ -29,33 +29,11 @@ struct rinex_nav_ctx_t {
       char date[21];
    } file;
 
-   char marker_name[21];
-   char observer[21];
-   char agency[21];
-
-   struct {
-      char no[21];
-      char type[21];
-      char version[21];
-   } rec;
-
-   struct {
-      float x,y,z;
-   } approx_pos;
-
-   struct {
-      char no[20];
-      char type[20];
-      float h, e, n;
-   } antenna;
-
-   struct tm0 time_of_first_obs;
-
-   int first_obs_found;
    int header_printed;
 
 };
 
+static int print_obs_header(FILE *out_f, struct rinex_nav_ctx_t *ctx);
 int gpstime2tm0(unsigned gps_week, double gps_tow, struct tm0 *res);
 static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
       tSIRF_MSG_SSB_50BPS_DATA *msg,
@@ -82,28 +60,6 @@ void *new_rinex_nav_ctx(int argc, char **argv)
 	 tm->tm_mday, MonthName[tm->tm_mon], tm->tm_year % 100,
 	 tm->tm_hour, tm->tm_min);
 
-   ctx->marker_name[0]='\0';
-   ctx->observer[0]='\0';
-   ctx->agency[0]='\0';
-
-   ctx->rec.no[0]='\0';
-   ctx->rec.type[0]='\0';
-   ctx->rec.version[0]='\0';
-
-   ctx->approx_pos.x = ctx->approx_pos.y = ctx->approx_pos.z = 0;
-
-   ctx->antenna.no[0]='\0';
-   ctx->antenna.type[0]='\0';
-   ctx->antenna.h = ctx->antenna.e = ctx->antenna.n = 0;
-
-   ctx->time_of_first_obs.year = 0;
-   ctx->time_of_first_obs.month = 0;
-   ctx->time_of_first_obs.day = 0;
-   ctx->time_of_first_obs.hour = 0;
-   ctx->time_of_first_obs.min = 0;
-   ctx->time_of_first_obs.sec = 0.0;
-
-   ctx->first_obs_found = 0;
    ctx->header_printed = 0;
 
    return ctx;
@@ -178,8 +134,37 @@ static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
 	 msg->word[8], msg->word[9]
 	 );
 	 */
-   gpsd_interpret_subframe_raw(&subp, msg->svid, words);
+   if (gpsd_interpret_subframe_raw(&subp, msg->svid, words) <= 0)
+      return -1;
+
+   if (!ctx->header_printed)
+      ctx->header_printed = print_obs_header(out_f, ctx);
 
    return 0;
 }
+
+static int print_obs_header(FILE *out_f, struct rinex_nav_ctx_t *ctx)
+{
+
+   assert(ctx);
+   assert(out_f);
+
+   fprintf(out_f, "%9.2f%-11s%-20s%-20s%-20s\r\n",
+	 2.11,
+	 "",
+	 "NAVIGATION DATA",
+	 "",
+	 "RINEX VERSION / TYPE");
+   fprintf(out_f, "%-20s%-20s%-20s%-20s\r\n", ctx->file.pgm, ctx->file.run_by, ctx->file.date,
+	 "PGM / RUN BY / DATE");
+
+   fprintf(out_f, "%-60s%-20s\r\n", "",
+	 "END OF HEADER");
+
+   return 1;
+}
+
+
+
+
 
