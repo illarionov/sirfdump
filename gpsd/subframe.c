@@ -217,7 +217,7 @@ static unsigned gpsd_interpret_subframe(struct subframe_t *subp,
 	 * of any receiver that reports it.
 	 */
 	subp->sub1.WN   = (uint16_t)((words[2] >> 14) & 0x03ff);
-	subp->sub1.l2   = (uint8_t)((words[2] >> 10) & 0x000003); /* L2 Code */
+	subp->sub1.l2   = (uint8_t)((words[2] >> 12) & 0x000003); /* L2 Code */
 	subp->sub1.ura  = (unsigned int)((words[2] >>  8) & 0x00000F); /* URA Index */
 	subp->sub1.hlth = (unsigned int)((words[2] >>  2) & 0x00003F); /* SV health */
 	subp->sub1.IODC = (words[2] & 0x000003); /* IODC 2 MSB */
