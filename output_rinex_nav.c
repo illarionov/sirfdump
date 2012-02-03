@@ -40,6 +40,8 @@ struct rinex_nav_ctx_t {
 
    int header_printed;
 
+   unsigned gps_week;
+
    struct nav_data_t data[MAX_GPS_PRN];
 };
 
@@ -47,7 +49,7 @@ int gpstime2tm0(unsigned gps_week, double gps_tow, struct tm0 *res);
 
 
 static int print_nav_header(FILE *out_f, const struct rinex_nav_ctx_t *ctx);
-static int print_nav_data(FILE *out_f, const struct nav_data_t *nav_data);
+static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn);
 static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
       tSIRF_MSG_SSB_50BPS_DATA *msg,
       FILE *out_f);
@@ -76,6 +78,7 @@ void *new_rinex_nav_ctx(int argc, char **argv)
 	 tm->tm_hour, tm->tm_min);
 
    ctx->header_printed = 0;
+   ctx->gps_week = 1024;
 
    for(i=0; i < MAX_GPS_PRN; i++) {
       ctx->data[i].is_sub1_active =
@@ -102,6 +105,7 @@ int output_rinex_nav(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
    tSIRF_UINT32 msg_id, msg_length;
    union {
       tSIRF_MSG_SSB_50BPS_DATA data_50bps;
+      tSIRF_MSG_SSB_CLOCK_STATUS data_clock;
       uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
    } m;
    char str[1024];
@@ -126,6 +130,8 @@ int output_rinex_nav(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 
    if (msg_id ==  SIRF_MSG_SSB_50BPS_DATA)
       handle_mid8_msg(ctx, &m.data_50bps, out_f);
+   else if (msg_id == SIRF_MSG_SSB_CLOCK_STATUS)
+      ctx->gps_week = m.data_clock.gps_week;
 
    return err;
 }
@@ -218,7 +224,7 @@ static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
       if (!ctx->header_printed)
 	 ctx->header_printed = print_nav_header(out_f, ctx);
 
-      dst->is_printed =  print_nav_data(out_f, dst);
+      dst->is_printed =  print_nav_data(out_f, ctx, subp.tSVID);
    }
 
    return 0;
@@ -266,15 +272,16 @@ static inline double ura2meters(unsigned ura)
    return 6145.0;
 }
 
-static int print_nav_data(FILE *out_f, const struct nav_data_t *nav_data)
+static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn)
 {
    unsigned wn;
    struct tm0 epoch;
+   const struct nav_data_t *nav_data;
 
-   assert(nav_data);
+   nav_data = &ctx->data[prn-1];
 
    /* XXX */
-   wn = nav_data->sub1.sub1.WN+1024;
+   wn = (ctx->gps_week & 0xfc00) | (nav_data->sub1.sub1.WN & 0x3ff);
    gpstime2tm0(wn, nav_data->sub1.sub1.l_toc, &epoch);
 
    fprintf(out_f,
