@@ -228,7 +228,7 @@ static int print_nav_header(FILE *out_f, const struct rinex_nav_ctx_t *ctx)
    assert(out_f);
 
    fprintf(out_f, "%9.2f%-11s%c%-19s%-20s%-20s\r\n",
-	 2.11,
+	 2.10,
 	 "",
 	 'N',
 	 ": GPS NAV DATA",
