@@ -10,7 +10,7 @@
 #include "gps.h"
 
 /* convert unsigned to signed */
-#define uint2int( u, bit) ( u & (1<<bit) ? u - (1<<bit) : u)
+#define uint2int( u, bit) ( u & (1<<(bit-1)) ? u - (1<<bit) : u)
 
 #ifndef VERBOSITY
 #define VERBOSITY 0
@@ -230,7 +230,7 @@ static unsigned gpsd_interpret_subframe(struct subframe_t *subp,
 	subp->sub1.d_af2  = pow(2.0, -55) * (int)subp->sub1.af2;
 	subp->sub1.af1  = (int16_t)( words[8] & 0x00FFFF);
 	subp->sub1.d_af1  = pow(2.0, -43) * subp->sub1.af1;
-	subp->sub1.af0  = (int32_t)((words[9] >>  1) & 0x03FFFFF);
+	subp->sub1.af0  = (int32_t)((words[9] >>  2) & 0x03FFFFF);
 	subp->sub1.af0  = uint2int(subp->sub1.af0, 22);
 	subp->sub1.d_af0  = pow(2.0, -31) * subp->sub1.af0;
 	subp->sub1.IODC <<= 8;
@@ -299,7 +299,7 @@ static unsigned gpsd_interpret_subframe(struct subframe_t *subp,
 	break;
     case 3:
 	/* subframe 3: ephemeris for transmitting SV */
-	subp->sub3.Cic      = ((words[2] >>  8) & 0x00FFFF);
+	subp->sub3.Cic      = (int16_t)((words[2] >>  8) & 0x00FFFF);
 	subp->sub3.d_Cic    = pow(2.0, -29) * subp->sub3.Cic;
 	subp->sub3.Omega0   = (int32_t)(words[2] & 0x0000FF);
 	subp->sub3.Omega0 <<= 24;
@@ -321,7 +321,8 @@ static unsigned gpsd_interpret_subframe(struct subframe_t *subp,
 	subp->sub3.Omegad   = uint2int(subp->sub3.Omegad, 24);
 	subp->sub3.d_Omegad = pow(2.0, -43) * subp->sub3.Omegad;
 	subp->sub3.IODE     = ((words[9] >> 16) & 0x0000FF);
-	subp->sub3.IDOT     = ((words[9] >>  2) & 0x003FFF);
+	subp->sub3.IDOT     = (int16_t)((words[9] >>  2) & 0x003FFF);
+	subp->sub3.IDOT     = uint2int(subp->sub3.IDOT, 14);
 	subp->sub3.d_IDOT   = pow(2.0, -43) * subp->sub3.IDOT;
 	gpsd_report(LOG_PROG,
 	    "50B: SF:3 SV:%2u IODE:%3u I IDOT:%.6g Cic:%.6e Omega0:%.11e "
