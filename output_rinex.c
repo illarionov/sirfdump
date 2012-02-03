@@ -16,11 +16,6 @@ const char * const MonthName[] = {"JAN","FEB","MAR","APR", "MAY","JUN","JUL","AU
 #define SPEED_OF_LIGHT 299792458.0
 #define GPS_EPOCH  315964800 /*  GPS epoch in Unix time */
 
-struct tm0 {
-   unsigned year, month, day, hour, min;
-   float sec;
-};
-
 struct epoch_t {
       /* mid-7 */
       unsigned gps_week;
@@ -73,7 +68,7 @@ struct rinex_ctx_t {
       float h, e, n;
    } antenna;
 
-   struct tm0 time_of_first_obs;
+   struct gps_tm time_of_first_obs;
 
    int first_obs_found;
    int header_printed;
@@ -81,7 +76,6 @@ struct rinex_ctx_t {
    struct epoch_t epoch;
 };
 
-int gpstime2tm0(unsigned gps_week, double gps_tow, struct tm0 *res);
 static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
       tSIRF_MSG_SSB_NL_MEAS_DATA *msg);
 static int handle_meas_nav_msg(struct rinex_ctx_t *ctx,
@@ -341,7 +335,7 @@ static int printf_obs_header(FILE *out_f, struct rinex_ctx_t *ctx)
    return 1;
 }
 
-int gpstime2tm0(unsigned gps_week, double gps_tow, struct tm0 *res)
+int gpstime2tm0(unsigned gps_week, double gps_tow, struct gps_tm *res)
 {
    time_t tt;
    struct tm *tm;
@@ -394,7 +388,7 @@ static inline int snr_project_to_1x9(double snr)
 static int epoch_printf(FILE *out_f, struct epoch_t *e)
 {
    const char itoa[] = {'0','1','2','3','4','5','6','7','8','9'};
-   struct tm0 gps_tm;
+   struct gps_tm gps_tm0;
    char tmp[82];
    unsigned satlist_p;
    int written;
@@ -402,18 +396,18 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
    unsigned chan_id;
    unsigned epoch_flag;
 
-   gpstime2tm0(e->gps_week, e->gps_tow, &gps_tm);
+   gpstime2tm0(e->gps_week, e->gps_tow, &gps_tm0);
 
    epoch_flag=0;
 
    /* Header */
    written = snprintf(tmp, sizeof(tmp), " %2u %2u %2u %2u %2u%11.7lf  %1u",
-	 gps_tm.year % 100,
-	 gps_tm.month,
-	 gps_tm.day,
-	 gps_tm.hour,
-	 gps_tm.min,
-	 (double)gps_tm.sec,
+	 gps_tm0.year % 100,
+	 gps_tm0.month,
+	 gps_tm0.day,
+	 gps_tm0.hour,
+	 gps_tm0.min,
+	 (double)gps_tm0.sec,
 	 epoch_flag
 	 );
 

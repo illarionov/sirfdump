@@ -13,13 +13,6 @@
 
 extern const char const *MonthName[];
 
-#define MAX_GPS_PRN  32
-
-struct tm0 {
-   unsigned year, month, day, hour, min;
-   float sec;
-};
-
 struct nav_data_t {
    unsigned is_printed;
    unsigned is_sub1_active;
@@ -44,8 +37,6 @@ struct rinex_nav_ctx_t {
 
    struct nav_data_t data[MAX_GPS_PRN];
 };
-
-int gpstime2tm0(unsigned gps_week, double gps_tow, struct tm0 *res);
 
 
 static int print_nav_header(FILE *out_f, const struct rinex_nav_ctx_t *ctx);
@@ -252,47 +243,27 @@ static int print_nav_header(FILE *out_f, const struct rinex_nav_ctx_t *ctx)
    return 1;
 }
 
-static inline double ura2meters(unsigned ura)
-{
-
-   switch (ura) {
-      case 1: return 2.8;
-      case 3: return 5.7;
-      case 5: return 11.3;
-      default:
-	 break;
-   }
-
-   if (ura <= 6)
-      return pow(2.0, 1.0+(double)ura/2.0);
-
-   if (ura < 15)
-      return pow(2.0, (double)ura - 2.0);
-
-   return 6145.0;
-}
-
 static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn)
 {
    unsigned wn;
-   struct tm0 epoch;
+   struct gps_tm toc_tm;
    const struct nav_data_t *nav_data;
 
    nav_data = &ctx->data[prn-1];
 
    /* XXX */
    wn = (ctx->gps_week & 0xfc00) | (nav_data->sub1.sub1.WN & 0x3ff);
-   gpstime2tm0(wn, nav_data->sub1.sub1.l_toc, &epoch);
+   gpstime2tm0(wn, nav_data->sub1.sub1.l_toc, &toc_tm);
 
    fprintf(out_f,
 	 "%2u%3u%3u%3u%3u%3u%5.1f%19.12lE%19.12lE%19.12lE\r\n",
 	 nav_data->sub1.tSVID,
-	 epoch.year % 100,
-	 epoch.month,
-	 epoch.day,
-	 epoch.hour,
-	 epoch.min,
-	 epoch.sec,
+	 toc_tm.year % 100,
+	 toc_tm.month,
+	 toc_tm.day,
+	 toc_tm.hour,
+	 toc_tm.min,
+	 toc_tm.sec,
 	 nav_data->sub1.sub1.d_af0,
 	 nav_data->sub1.sub1.d_af1,
 	 nav_data->sub1.sub1.d_af2);
@@ -340,6 +311,26 @@ static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn
 	 );
 
    return 1;
+}
+
+static inline double ura2meters(unsigned ura)
+{
+
+   switch (ura) {
+      case 1: return 2.8;
+      case 3: return 5.7;
+      case 5: return 11.3;
+      default:
+	 break;
+   }
+
+   if (ura <= 6)
+      return pow(2.0, 1.0+(double)ura/2.0);
+
+   if (ura < 15)
+      return pow(2.0, (double)ura - 2.0);
+
+   return 6145.0;
 }
 
 
