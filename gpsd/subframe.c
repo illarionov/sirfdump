@@ -261,7 +261,6 @@ static unsigned gpsd_interpret_subframe(struct subframe_t *subp,
 	subp->sub2.M0     = (int32_t)( words[3] & 0x0000FF);
 	subp->sub2.M0   <<= 24;
 	subp->sub2.M0    |= ( words[4] & 0x00FFFFFF);
-	subp->sub2.M0     = uint2int(subp->sub2.M0, 24);
 	subp->sub2.d_M0   = pow(2.0,-31) * subp->sub2.M0 * GPS_PI;
 	subp->sub2.Cuc    = (int16_t)((words[5] >>  8) & 0x00FFFF);
 	subp->sub2.d_Cuc  = pow(2.0,-29) * subp->sub2.Cuc;
