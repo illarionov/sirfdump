@@ -51,6 +51,7 @@ static int print_nav_data(FILE *out_f, const struct nav_data_t *nav_data);
 static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
       tSIRF_MSG_SSB_50BPS_DATA *msg,
       FILE *out_f);
+static inline double ura2meters(unsigned ura);
 
 void *new_rinex_nav_ctx(int argc, char **argv)
 {
@@ -136,7 +137,6 @@ static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
 {
    unsigned i;
    struct subframe_t subp;
-   struct subframe_t *dst_subp;
    struct nav_data_t *dst;
    uint32_t words[10];
 
@@ -230,10 +230,11 @@ static int print_nav_header(FILE *out_f, const struct rinex_nav_ctx_t *ctx)
    assert(ctx);
    assert(out_f);
 
-   fprintf(out_f, "%9.2f%-11s%-20s%-20s%-20s\r\n",
-	 2.10,
+   fprintf(out_f, "%9.2f%-11s%c%-19s%-20s%-20s\r\n",
+	 2.11,
 	 "",
-	 "NAVIGATION DATA",
+	 'N',
+	 ": GPS NAV DATA",
 	 "",
 	 "RINEX VERSION / TYPE");
    fprintf(out_f, "%-20s%-20s%-20s%-20s\r\n", ctx->file.pgm, ctx->file.run_by, ctx->file.date,
@@ -245,6 +246,25 @@ static int print_nav_header(FILE *out_f, const struct rinex_nav_ctx_t *ctx)
    return 1;
 }
 
+static inline double ura2meters(unsigned ura)
+{
+
+   switch (ura) {
+      case 1: return 2.8;
+      case 3: return 5.7;
+      case 5: return 11.3;
+      default:
+	 break;
+   }
+
+   if (ura <= 6)
+      return pow(2.0, 1.0+(double)ura/2.0);
+
+   if (ura < 15)
+      return pow(2.0, (double)ura - 2.0);
+
+   return 6145.0;
+}
 
 static int print_nav_data(FILE *out_f, const struct nav_data_t *nav_data)
 {
@@ -258,7 +278,7 @@ static int print_nav_data(FILE *out_f, const struct nav_data_t *nav_data)
    gpstime2tm0(wn, nav_data->sub1.sub1.l_toc, &epoch);
 
    fprintf(out_f,
-	 "%2u%3u%3u%3u%3u%3u%5.1f%19.12lf%19.12lf%19.12lf\r\n",
+	 "%2u%3u%3u%3u%3u%3u%5.1f%19.12lE%19.12lE%19.12lE\r\n",
 	 nav_data->sub1.tSVID,
 	 epoch.year % 100,
 	 epoch.month,
@@ -266,7 +286,6 @@ static int print_nav_data(FILE *out_f, const struct nav_data_t *nav_data)
 	 epoch.hour,
 	 epoch.min,
 	 epoch.sec,
-	 /*  XXX */
 	 nav_data->sub1.sub1.d_af0,
 	 nav_data->sub1.sub1.d_af1,
 	 nav_data->sub1.sub1.d_af2);
@@ -278,11 +297,10 @@ static int print_nav_data(FILE *out_f, const struct nav_data_t *nav_data)
 	 "   %19.12lE%19.12lE%19.12lE%19.12lE\r\n"
 	 "   %19.12lE%19.12lE%19.12lE%19.12lE\r\n"
 	 "   %19.12lE%19.12lE%19.12lE%19.12lE\r\n"
-	 "   %19.12lE%19.12lE\r\n",
+	 "   %19.12lE\r\n",
 	 (double)nav_data->sub2.sub2.IODE,
 	 nav_data->sub2.sub2.d_Crs,
 	 nav_data->sub2.sub2.d_deltan * (double)GPS_PI,
-	 /* XXX  */
 	 nav_data->sub2.sub2.d_M0,
 
 	 nav_data->sub2.sub2.d_Cuc,
@@ -305,14 +323,13 @@ static int print_nav_data(FILE *out_f, const struct nav_data_t *nav_data)
 	 (double)wn,
 	 (double)nav_data->sub1.sub1.l2p,
 
-	 (double)nav_data->sub1.sub1.ura,
-	 (double)(nav_data->sub1.sub1.hlth & 0x40),
+	 ura2meters(nav_data->sub1.sub1.ura),
+	 (double)nav_data->sub1.sub1.hlth,
 	 nav_data->sub1.sub1.d_Tgd,
 	 (double)nav_data->sub1.sub1.IODC,
 
 	 /* XXX  */
-	 (double)nav_data->sub1.sub1.l_toc,
-	 0.0
+	 (double)nav_data->sub1.l_TOW17
 	 );
 
    return 1;
