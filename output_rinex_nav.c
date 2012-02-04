@@ -44,7 +44,7 @@ static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn
 static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
       tSIRF_MSG_SSB_50BPS_DATA *msg,
       FILE *out_f);
-static inline double ura2meters(unsigned ura);
+static double ura2meters(unsigned ura);
 
 void *new_rinex_nav_ctx(int argc, char **argv)
 {
@@ -256,7 +256,7 @@ static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn
    gpstime2tm0(wn, nav_data->sub1.sub1.l_toc, &toc_tm);
 
    fprintf(out_f,
-	 "%2u%3u%3u%3u%3u%3u%5.1f%19.12lE%19.12lE%19.12lE\r\n",
+	 "%2u%3u%3u%3u%3u%3u%5.1f%19.12E%19.12E%19.12E\r\n",
 	 nav_data->sub1.tSVID,
 	 toc_tm.year % 100,
 	 toc_tm.month,
@@ -269,13 +269,13 @@ static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn
 	 nav_data->sub1.sub1.d_af2);
 
    fprintf(out_f,
-	 "   %19.12lE%19.12lE%19.12lE%19.12lE\r\n"
-	 "   %19.12lE%19.12lE%19.12lE%19.12lE\r\n"
-	 "   %19.12lE%19.12lE%19.12lE%19.12lE\r\n"
-	 "   %19.12lE%19.12lE%19.12lE%19.12lE\r\n"
-	 "   %19.12lE%19.12lE%19.12lE%19.12lE\r\n"
-	 "   %19.12lE%19.12lE%19.12lE%19.12lE\r\n"
-	 "   %19.12lE\r\n",
+	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
+	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
+	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
+	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
+	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
+	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
+	 "   %19.12E\r\n",
 	 (double)nav_data->sub2.sub2.IODE,
 	 nav_data->sub2.sub2.d_Crs,
 	 nav_data->sub2.sub2.d_deltan * (double)GPS_PI,
@@ -313,7 +313,7 @@ static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn
    return 1;
 }
 
-static inline double ura2meters(unsigned ura)
+static double ura2meters(unsigned ura)
 {
 
    switch (ura) {

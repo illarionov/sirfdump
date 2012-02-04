@@ -9,6 +9,18 @@ LDFLAGS+= -lm
 
 DESTDIR?=/usr/local
 
+UNAME_O:= $(shell uname -o)
+
+ifeq ($(UNAME_O),GNU/Linux)
+	NO_STRLCPY=1
+endif
+
+ifeq ($(UNAME_O),Msys)
+	NO_STRLCPY=1
+	CFLAGS+= -posix -D__USE_MINGW_ANSI_STDIO=1
+endif
+
+
 OBJS=	sirf_codec_ssb.o \
 	sirf_codec_ascii.o \
 	sirf_codec_nmea.o \

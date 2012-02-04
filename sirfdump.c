@@ -268,6 +268,10 @@ int main(int argc, char *argv[])
    if (ctx == NULL)
       return 1;
 
+#ifdef WIN32
+   putenv("PRINTF_EXPONENT_DIGITS=2");
+#endif
+
    while ((c = getopt_long(argc, argv, "vh?f:F:o:",longopts,NULL)) != -1) {
       switch (c) {
 	 case 'f':

@@ -372,12 +372,12 @@ static void epoch_clear (struct epoch_t *e)
 
 }
 
-static inline int is_sat_in_epoch(const struct epoch_t *e, unsigned chan_id)
+static int is_sat_in_epoch(const struct epoch_t *e, unsigned chan_id)
 {
    return ( fabs(e->gps_tow + ((double)e->clock_bias / 1e9) - e->ch[chan_id].gps_soft_time) < 0.1);
 }
 
-static inline int snr_project_to_1x9(double snr)
+static int snr_project_to_1x9(double snr)
 {
    #define MIN(_a, _b) ( ((_a) < (_b)) ? (_a) : (_b)  )
    #define MAX(_a, _b) ( ((_a) > (_b)) ? (_a) : (_b)  )
@@ -506,7 +506,7 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 	 l1_loss_of_lock = ' ';
 
       if ( (e->ch[chan_id].phase_err_cnt > 0) && (l1_loss_of_lock != '1')) {
-	    fprintf(stderr, "%.5lf sync_flags %x phase_err_cnt: %u\n",
+	    fprintf(stderr, "%.5f sync_flags %x phase_err_cnt: %u\n",
 		  e->gps_tow,
 		  e->ch[chan_id].sync_flags,
 		  e->ch[chan_id].phase_err_cnt);
@@ -515,7 +515,7 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
       loss_of_lock = ' ';
       sig_strength = itoa [ snr_project_to_1x9(s1) ];
 
-      written = fprintf(out_f, "%14.3lf%c%c%14.3lf%c%c%14.3lf%c%c%14.3lf%c%c\r\n",
+      written = fprintf(out_f, "%14.3f%c%c%14.3f%c%c%14.3f%c%c%14.3f%c%c\r\n",
 	    l1, l1_loss_of_lock, sig_strength,
 	    c1, loss_of_lock, sig_strength,
 	    d1, loss_of_lock, sig_strength,
