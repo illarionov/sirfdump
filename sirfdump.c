@@ -382,8 +382,10 @@ int main(int argc, char *argv[])
    switch (ctx->opts.output_type) {
       case OUTPUT_RINEX:
 	 free_rinex_ctx(ctx->user_ctx);
+	 break;
       case OUTPUT_RINEX_NAV:
 	 free_rinex_nav_ctx(ctx->user_ctx);
+	 break;
       default:
 	 break;
    }
