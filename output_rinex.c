@@ -401,7 +401,7 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
    epoch_flag=0;
 
    /* Header */
-   written = snprintf(tmp, sizeof(tmp), " %2u %2u %2u %2u %2u%11.7lf  %1u",
+   written = snprintf(tmp, sizeof(tmp), " %2u %2u %2u %2u %2u%11.7f  %1u",
 	 gps_tm0.year % 100,
 	 gps_tm0.month,
 	 gps_tm0.day,
