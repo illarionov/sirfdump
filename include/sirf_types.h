@@ -33,7 +33,8 @@
 #ifndef SIRF_TYPES_H_INCLUDED
 #define SIRF_TYPES_H_INCLUDED
 
-
+#include <stdint.h>
+#include <stdbool.h>
 
 /* ----------------------------------------------------------------------------
  *   Included files
@@ -48,19 +49,19 @@
 
 #define tSIRF_VOID void
 
-typedef unsigned long int       tSIRF_BOOL;
+typedef bool		        tSIRF_BOOL;
 typedef unsigned char           tSIRF_UCHAR;
 
 typedef char                    tSIRF_CHAR;
 
-typedef signed   char           tSIRF_INT8;
-typedef unsigned char           tSIRF_UINT8;
+typedef int8_t                  tSIRF_INT8;
+typedef uint8_t                 tSIRF_UINT8;
 
-typedef signed   short int      tSIRF_INT16;
-typedef unsigned short int      tSIRF_UINT16;
+typedef int16_t                 tSIRF_INT16;
+typedef uint16_t                tSIRF_UINT16;
 
-typedef signed long int         tSIRF_INT32;
-typedef unsigned long int       tSIRF_UINT32;
+typedef int32_t                 tSIRF_INT32;
+typedef uint32_t                tSIRF_UINT32;
 
 typedef double                  tSIRF_DOUBLE;
 typedef float                   tSIRF_FLOAT;
@@ -69,14 +70,8 @@ typedef void *                  tSIRF_HANDLE;
 
 typedef unsigned long int       tSIRF_RESULT;
 
-#if defined(_MSC_VER) && (_MSC_VER < 1400)
-#include <basetsd.h>
-typedef INT64 tSIRF_INT64;
-typedef UINT64 tSIRF_UINT64;
-#else
-typedef long long tSIRF_INT64;
-typedef unsigned long long tSIRF_UINT64;
-#endif
+typedef int64_t tSIRF_INT64;
+typedef uint64_t tSIRF_UINT64;
 
 #ifdef TOOLCHAIN_VC8
    /** Support snprintf on Visual Studio 8 (2005) */

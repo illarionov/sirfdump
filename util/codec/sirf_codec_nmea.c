@@ -151,7 +151,7 @@ static tSIRF_VOID AddCheckSum( tSIRF_CHAR *pBuf)
    {
       ckSum ^= *pBuf++;
    }
-   g_nmea_null_char = pBuf + sprintf( pBuf, "*%02lX\x0D\x0A", (tSIRF_UINT32)ckSum );  /* +"*CK\x0d\x0a" */
+   g_nmea_null_char = pBuf + sprintf( pBuf, "*%02lX\x0D\x0A", (unsigned long)ckSum );  /* +"*CK\x0d\x0a" */
 
 } /* AddCheckSum() */
 
@@ -162,7 +162,7 @@ static tSIRF_VOID AddCheckSum( tSIRF_CHAR *pBuf)
  *      and fix related data for a GPS receiver.
  *
  ******************************************************************************/
-tSIRF_UINT32 SIRF_CODEC_NMEA_Encode_GGA(tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data, tSIRF_CHAR *buf )
+tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GGA(tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data, tSIRF_CHAR *buf )
 {
    tSIRF_DOUBLE tRet = SIRF_FAILURE;
    if (( (tSIRF_MSG_SSB_GEODETIC_NAVIGATION *) NULL != data) && (tSIRF_CHAR *) NULL != buf)
@@ -222,8 +222,8 @@ tSIRF_UINT32 SIRF_CODEC_NMEA_Encode_GGA(tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data,
       ABS( lonDDD ),                   /* tSIRF_INT32 deg   */
       lonMMmmbuf,                      /* tSIRF_INT32 min   */
       lonInDegree < 0.0 ? 'W' : 'E',   /* direction */
-      NavMode,
-      (tSIRF_INT32)data->sv_used_cnt,
+      (long)NavMode,
+      (long)data->sv_used_cnt,
       (double)data->hdop * SIRF_MSG_SSB_DOP_LSB,
       data->alt_msl*1e-2,
       (data->alt_ellips - data->alt_msl)*1e-2 );
@@ -232,7 +232,7 @@ tSIRF_UINT32 SIRF_CODEC_NMEA_Encode_GGA(tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data,
 
       tRet = SIRF_SUCCESS;
    }
-   return (tSIRF_UINT32)tRet;
+   return tRet;
 } /* SIRF_CODEC_NMEA_Encode_GGA */
 
 /**************************************************************************
@@ -324,7 +324,7 @@ tSIRF_RESULT SIRF_CODEC_NMEA_Encode_RMC( tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data
  *     Geographic Position-Latidude/Longitude
  *
  ******************************************************************************/
-tSIRF_UINT32 SIRF_CODEC_NMEA_Encode_GLL( tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data, tSIRF_CHAR *buf )
+tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GLL( tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data, tSIRF_CHAR *buf )
 {
    tSIRF_DOUBLE latInDegree=0;
    tSIRF_INT16 latDD=0;
@@ -401,7 +401,7 @@ tSIRF_UINT32 SIRF_CODEC_NMEA_Encode_GLL( tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data
  *     solution reported by the $--GGA sentence, and DOP values.
  *
  ******************************************************************************/
-tSIRF_UINT32 SIRF_CODEC_NMEA_Encode_GSA( tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data, tSIRF_CHAR *buf )
+tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GSA( tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data, tSIRF_CHAR *buf )
 {
    tSIRF_INT32 i;
    tSIRF_INT32 NavMode;
@@ -428,7 +428,7 @@ tSIRF_UINT32 SIRF_CODEC_NMEA_Encode_GSA( tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data
       if (data->sv_used & (1<<i))
       {
          tSIRF_CHAR str1[128];
-         snprintf(str1, sizeof(str1), "%02ld,", i+1);
+         snprintf(str1, sizeof(str1), "%02d,", i+1);
          strlcat(str, str1, sizeof(str));
       }
    } /* for */
@@ -439,7 +439,7 @@ tSIRF_UINT32 SIRF_CODEC_NMEA_Encode_GSA( tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data
       strlcat(str, ",", sizeof(str));
    }
    /* format is ,pdop,hdop,vdop,   only have hdop :->  ,,hdop,  */
-   sprintf(buf, "$GPGSA,A,%1ld,%s,,%.1f,",
+   sprintf(buf, "$GPGSA,A,%1d,%s,,%.1f,",
             NavMode,
             str,
             (double)data->hdop * SIRF_MSG_SSB_DOP_LSB );
@@ -505,7 +505,7 @@ tSIRF_RESULT SIRF_CODEC_NMEA_Encode_VTG( tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data
 *                                                                         *
 ****************************************************************************/
 
-tSIRF_UINT32 SIRF_CODEC_NMEA_Encode_GSV( tSIRF_MSG_SSB_MEASURED_TRACKER *data, tSIRF_CHAR *buf )
+tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GSV( tSIRF_MSG_SSB_MEASURED_TRACKER *data, tSIRF_CHAR *buf )
 {
    tSIRF_INT32 nMsgCnt, svidcnt;
    tSIRF_INT32 msgno, chnlno, smplno, fieldno;
@@ -528,9 +528,9 @@ tSIRF_UINT32 SIRF_CODEC_NMEA_Encode_GSV( tSIRF_MSG_SSB_MEASURED_TRACKER *data, t
    for (msgno=1; msgno <= nMsgCnt; msgno++)
    {
       sprintf (ptr, "$GPGSV,%ld,%ld,%02ld",
-               nMsgCnt, /* total # of msgs */
-               msgno,       /* Msg #           */
-               svidcnt );
+               (long)nMsgCnt, /* total # of msgs */
+               (long)msgno,       /* Msg #           */
+               (long)svidcnt );
 
       fieldno = 0;
 
