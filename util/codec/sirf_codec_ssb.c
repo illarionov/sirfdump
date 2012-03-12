@@ -2171,7 +2171,9 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8 *payload,
          SIRF_MSG_SSB_DR_OUTPUT            == *message_id ||
          SIRF_MSG_SSB_SIRFNAV_NOTIFICATION == *message_id ||
          SIRF_MSG_SSB_EVENT                == *message_id ||
-         SIRF_MSG_SSB_EE                   == *message_id
+         SIRF_MSG_SSB_EE                   == *message_id ||
+         SIRF_MSG_SSB_NL_AUX_DATA          == *message_id ||
+         SIRF_MSG_SSB_TRACKER_DATA         == *message_id
          )
       {
          header_len += 1 * sizeof(tSIRF_UINT8);
