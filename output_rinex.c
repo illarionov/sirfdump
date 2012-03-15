@@ -488,7 +488,7 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 	 l1 = 0;
 
       /* Doppler freq on L1, Hz */
-      d1 = (e->ch[chan_id].carrier_freq * L1_CARRIER_FREQ / SPEED_OF_LIGHT) - e->clock_drift;
+      d1 = -1 * (e->ch[chan_id].carrier_freq * L1_CARRIER_FREQ / SPEED_OF_LIGHT - e->clock_drift);
 
       /* Snr */
       s1 = e->ch[chan_id].avg_cno;
