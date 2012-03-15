@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include <string.h>
 
 #include "sirfdump.h"
 #include "sirf_msg.h"
@@ -24,8 +25,8 @@ struct epoch_t {
       unsigned clock_drift; /*  Clock bias change rate, Hz */
       unsigned clock_bias; /* ns */
 
-      /* mid-28 */
       struct {
+	 /* mid-28 */
          unsigned valid;
 	 unsigned sat_id;
          double gps_soft_time;
@@ -36,6 +37,11 @@ struct epoch_t {
 	 double avg_cno;
          unsigned phase_err_cnt;
          unsigned low_power_cnt;
+
+	 /* mid64  */
+	 unsigned mid64_valid;
+	 tSIRF_MSG_SSB_NL_AUX_MEAS_DATA mid64;
+
       } ch[SIRF_NUM_CHANNELS];
 
 };
@@ -78,6 +84,9 @@ struct rinex_ctx_t {
 
 static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
       tSIRF_MSG_SSB_NL_MEAS_DATA *msg);
+static int handle_nl_aux_meas_data_msg(struct rinex_ctx_t *ctx,
+      tSIRF_MSG_SSB_NL_AUX_MEAS_DATA *msg);
+
 static int handle_meas_nav_msg(struct rinex_ctx_t *ctx,
       tSIRF_MSG_SSB_MEASURED_NAVIGATION *msg);
 static int handle_clock_status_msg(struct rinex_ctx_t *ctx,
@@ -152,6 +161,7 @@ int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
    tSIRF_UINT32 msg_id, msg_length;
    union {
       tSIRF_MSG_SSB_NL_MEAS_DATA nld;
+      tSIRF_MSG_SSB_NL_AUX_MEAS_DATA aux_nld;
       uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
    } m;
    char str[1024];
@@ -177,6 +187,9 @@ int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
    switch (msg_id) {
       case SIRF_MSG_SSB_NL_MEAS_DATA:
 	 handle_nl_meas_data_msg(ctx, &m.nld);
+	 break;
+      case SIRF_MSG_SSB_NL_AUX_MEAS_DATA:
+	 handle_nl_aux_meas_data_msg(ctx, &m.aux_nld);
 	 break;
       case SIRF_MSG_SSB_MEASURED_NAVIGATION:
 	 handle_meas_nav_msg(ctx, (tSIRF_MSG_SSB_MEASURED_NAVIGATION *)&m);
@@ -228,6 +241,34 @@ static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
    ctx->epoch.ch[msg->Chnl].phase_err_cnt = msg->phase_error_count;
    ctx->epoch.ch[msg->Chnl].low_power_cnt = msg->low_power_count;
 
+   return 1;
+}
+
+static int handle_nl_aux_meas_data_msg(struct rinex_ctx_t *ctx,
+      tSIRF_MSG_SSB_NL_AUX_MEAS_DATA *msg)
+{
+   unsigned chan_id;
+   unsigned i;
+
+   chan_id=SIRF_NUM_CHANNELS;
+
+
+   /* XXX: mid64 must follow mid28  */
+   for(i=0; i<SIRF_NUM_CHANNELS; ++i) {
+      if (ctx->epoch.ch[i].valid
+	    && (ctx->epoch.ch[i].sat_id == msg->sv_prn)) {
+	 chan_id = i;
+	 break;
+      }
+   }
+   if (chan_id == SIRF_NUM_CHANNELS) {
+      fprintf(stderr, "skipped mid64 record: channel not found prn:%hhu \n",
+	    (unsigned char)msg->sv_prn);
+      return -1;
+   }
+
+   ctx->epoch.ch[chan_id].mid64_valid = 1;
+   memcpy(&ctx->epoch.ch[chan_id].mid64, msg, sizeof(*msg));
    return 1;
 }
 
@@ -368,6 +409,7 @@ static void epoch_clear (struct epoch_t *e)
 
    for (ch=0; ch < SIRF_NUM_CHANNELS; ch++) {
       e->ch[ch].valid = 0;
+      e->ch[ch].mid64_valid = 0;
    }
 
 }
@@ -514,6 +556,25 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 
       loss_of_lock = ' ';
       sig_strength = itoa [ snr_project_to_1x9(s1) ];
+
+      if (e->ch[chan_id].mid64_valid) {
+	 double old_d1;
+	 l1 = e->ch[chan_id].mid64.carrier_phase;
+	 old_d1 = d1;
+	 d1 = (double)e->ch[chan_id].mid64.carrier_freq * 0.000476 - e->clock_drift;
+	 fprintf(stderr, "doppler diff: %f code corr: %i\n", d1 - old_d1, e->ch[chan_id].mid64.code_correction);
+      }
+
+      if ((l1 > 9999999999.999) || (l1 < -999999999.999)) {
+	 l1 = 0;
+	 sig_strength = ' ';
+	 l1_loss_of_lock = ' ';
+      }
+      if ((d1 > 9999999999.999) || (d1 < -999999999.999)) {
+	 d1 = 0;
+	 sig_strength = ' ';
+	 l1_loss_of_lock = ' ';
+      }
 
       written = fprintf(out_f, "%14.3f%c%c%14.3f%c%c%14.3f%c%c%14.3f%c%c\r\n",
 	    l1, l1_loss_of_lock, sig_strength,
