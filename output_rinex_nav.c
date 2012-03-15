@@ -227,17 +227,17 @@ static int print_nav_header(FILE *out_f, const struct rinex_nav_ctx_t *ctx)
    assert(ctx);
    assert(out_f);
 
-   fprintf(out_f, "%9.2f%-11s%c%-19s%-20s%-20s\r\n",
+   fprintf(out_f, "%9.2f%-11s%c%-19s%-20s%-20s\n",
 	 2.10,
 	 "",
 	 'N',
 	 ": GPS NAV DATA",
 	 "",
 	 "RINEX VERSION / TYPE");
-   fprintf(out_f, "%-20s%-20s%-20s%-20s\r\n", ctx->file.pgm, ctx->file.run_by, ctx->file.date,
+   fprintf(out_f, "%-20s%-20s%-20s%-20s\n", ctx->file.pgm, ctx->file.run_by, ctx->file.date,
 	 "PGM / RUN BY / DATE");
 
-   fprintf(out_f, "%-60s%-20s\r\n", "",
+   fprintf(out_f, "%-60s%-20s\n", "",
 	 "END OF HEADER");
 
    return 1;
@@ -256,7 +256,7 @@ static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn
    gpstime2tm0(wn, nav_data->sub1.sub1.l_toc, &toc_tm);
 
    fprintf(out_f,
-	 "%2u%3u%3u%3u%3u%3u%5.1f%19.12E%19.12E%19.12E\r\n",
+	 "%2u%3u%3u%3u%3u%3u%5.1f%19.12E%19.12E%19.12E\n",
 	 nav_data->sub1.tSVID,
 	 toc_tm.year % 100,
 	 toc_tm.month,
@@ -269,13 +269,13 @@ static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn
 	 nav_data->sub1.sub1.d_af2);
 
    fprintf(out_f,
-	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
-	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
-	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
-	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
-	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
-	 "   %19.12E%19.12E%19.12E%19.12E\r\n"
-	 "   %19.12E\r\n",
+	 "   %19.12E%19.12E%19.12E%19.12E\n"
+	 "   %19.12E%19.12E%19.12E%19.12E\n"
+	 "   %19.12E%19.12E%19.12E%19.12E\n"
+	 "   %19.12E%19.12E%19.12E%19.12E\n"
+	 "   %19.12E%19.12E%19.12E%19.12E\n"
+	 "   %19.12E%19.12E%19.12E%19.12E\n"
+	 "   %19.12E\n",
 	 (double)nav_data->sub2.sub2.IODE,
 	 nav_data->sub2.sub2.d_Crs,
 	 nav_data->sub2.sub2.d_deltan * (double)GPS_PI,

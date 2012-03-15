@@ -304,32 +304,32 @@ static int printf_obs_header(FILE *out_f, struct rinex_ctx_t *ctx)
    assert(ctx);
    assert(out_f);
 
-   fprintf(out_f, "%9.2f%-11s%-20s%-20s%-20s\r\n", 2.11, "", "OBSERVATION DATA", "G",
+   fprintf(out_f, "%9.2f%-11s%-20s%-20s%-20s\n", 2.11, "", "OBSERVATION DATA", "G",
 	 "RINEX VERSION / TYPE");
-   fprintf(out_f, "%-20s%-20s%-20s%-20s\r\n", ctx->file.pgm, ctx->file.run_by, ctx->file.date,
+   fprintf(out_f, "%-20s%-20s%-20s%-20s\n", ctx->file.pgm, ctx->file.run_by, ctx->file.date,
 	 "PGM / RUN BY / DATE");
-   fprintf(out_f, "%-60s%-20s\r\n", ctx->marker_name,
+   fprintf(out_f, "%-60s%-20s\n", ctx->marker_name,
 	 "MARKER NAME");
-   fprintf(out_f, "%-20s%-40s%-20s\r\n", ctx->observer, ctx->agency,
+   fprintf(out_f, "%-20s%-40s%-20s\n", ctx->observer, ctx->agency,
 	 "OBSERVER / AGENCY");
-   fprintf(out_f, "%-20s%-20s%-20s%-20s\r\n", ctx->rec.no, ctx->rec.type, ctx->rec.version,
+   fprintf(out_f, "%-20s%-20s%-20s%-20s\n", ctx->rec.no, ctx->rec.type, ctx->rec.version,
 	 "REC # / TYPE / VERS");
-   fprintf(out_f, "%-20s%-40s%-20s\r\n", ctx->antenna.no, ctx->antenna.type,
+   fprintf(out_f, "%-20s%-40s%-20s\n", ctx->antenna.no, ctx->antenna.type,
 	 "ANT # / TYPE");
-   fprintf(out_f, "%14.4f%14.4f%14.4f%18s%-20s\r\n", ctx->approx_pos.x, ctx->approx_pos.y, ctx->approx_pos.z, "",
+   fprintf(out_f, "%14.4f%14.4f%14.4f%18s%-20s\n", ctx->approx_pos.x, ctx->approx_pos.y, ctx->approx_pos.z, "",
 	 "APPROX POSITION XYZ");
-   fprintf(out_f, "%14.4f%14.4f%14.4f%18s%-20s\r\n", ctx->antenna.h, ctx->antenna.e, ctx->antenna.n, "",
+   fprintf(out_f, "%14.4f%14.4f%14.4f%18s%-20s\n", ctx->antenna.h, ctx->antenna.e, ctx->antenna.n, "",
 	 "ANTENNA: DELTA H/E/N");
-   fprintf(out_f, "%6i%6i%-48s%-20s\r\n", 1, 0, "",
+   fprintf(out_f, "%6i%6i%-48s%-20s\n", 1, 0, "",
 	 "WAVELENGTH FACT L1/2");
-   fprintf(out_f, "%6i    %-50s%-20s\r\n", 4, "L1    C1    D1    S1  ",
+   fprintf(out_f, "%6i    %-50s%-20s\n", 4, "L1    C1    D1    S1  ",
 	 "# / TYPES OF OBSERV");
-   fprintf(out_f, "%6d%6d%6d%6d%6d%13.7f%-5s%12s%-20s\r\n", ctx->time_of_first_obs.year,
+   fprintf(out_f, "%6d%6d%6d%6d%6d%13.7f%-5s%12s%-20s\n", ctx->time_of_first_obs.year,
 	 ctx->time_of_first_obs.month, ctx->time_of_first_obs.day,
 	 ctx->time_of_first_obs.hour, ctx->time_of_first_obs.min,
 	 ctx->time_of_first_obs.sec, "", "",
 	 "TIME OF FIRST OBS");
-   fprintf(out_f, "%-60s%-20s\r\n", "",
+   fprintf(out_f, "%-60s%-20s\n", "",
 	 "END OF HEADER");
 
    return 1;
@@ -459,7 +459,6 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
       tmp[30] = ' ';
    tmp[31] = itoa [ sat_cnt % 10 ];
 
-   tmp[satlist_p++] = '\r';
    tmp[satlist_p++] = '\n';
    tmp[satlist_p] = '\0';
 
@@ -532,7 +531,7 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 
       loss_of_lock = ' ';
 
-      written = fprintf(out_f, "%14.3f%c%c%14.3f%c%c%14.3f%c%c%14.3f\r\n",
+      written = fprintf(out_f, "%14.3f%c%c%14.3f%c%c%14.3f%c%c%14.3f\n",
 	    l1, l1_loss_of_lock, ' ',
 	    c1, loss_of_lock, sig_strength,
 	    d1, loss_of_lock, ' ',
