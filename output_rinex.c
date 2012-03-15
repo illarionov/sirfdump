@@ -33,7 +33,7 @@ struct epoch_t {
 	 double carrier_freq;
 	 double carrier_phase;
 	 unsigned sync_flags;
-	 double avg_cno;
+	 double min_cno;
          unsigned phase_err_cnt;
          unsigned low_power_cnt;
       } ch[SIRF_NUM_CHANNELS];
@@ -221,10 +221,11 @@ static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
    ctx->epoch.ch[msg->Chnl].carrier_freq = msg->carrier_freq;
    ctx->epoch.ch[msg->Chnl].carrier_phase = msg->carrier_phase;
    ctx->epoch.ch[msg->Chnl].sync_flags = msg->sync_flags;
-   ctx->epoch.ch[msg->Chnl].avg_cno = 0;
-   for (i=0; i<SIRF_NUM_POINTS; i++)
-      ctx->epoch.ch[msg->Chnl].avg_cno += msg->cton[i];
-   ctx->epoch.ch[msg->Chnl].avg_cno /= (double)SIRF_NUM_POINTS;
+   ctx->epoch.ch[msg->Chnl].min_cno = msg->cton[0];
+   for (i=1; i<SIRF_NUM_POINTS; i++) {
+      if (ctx->epoch.ch[msg->Chnl].min_cno > msg->cton[i])
+	 ctx->epoch.ch[msg->Chnl].min_cno = msg->cton[i];
+   }
    ctx->epoch.ch[msg->Chnl].phase_err_cnt = msg->phase_error_count;
    ctx->epoch.ch[msg->Chnl].low_power_cnt = msg->low_power_count;
 
@@ -491,7 +492,7 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
       d1 = -1 * (e->ch[chan_id].carrier_freq * L1_CARRIER_FREQ / SPEED_OF_LIGHT - e->clock_drift);
 
       /* Snr */
-      s1 = e->ch[chan_id].avg_cno;
+      s1 = e->ch[chan_id].min_cno;
 
       /* 0x01 - acq/re-acq completed  */
       /* 0x02 - integrated carrier phase is valid */
