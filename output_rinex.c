@@ -214,7 +214,7 @@ static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
       return -1;
    }
 
-   ctx->epoch.ch[msg->Chnl].valid = msg->sync_flags & 0x01;
+   ctx->epoch.ch[msg->Chnl].valid = msg->sync_flags;
    ctx->epoch.ch[msg->Chnl].sat_id = msg->svid;
    ctx->epoch.ch[msg->Chnl].gps_soft_time = msg->gps_sw_time;
    ctx->epoch.ch[msg->Chnl].pseudorange = msg->pseudorange;
@@ -484,7 +484,7 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 
       /* Phase on L1, cycles */
       if (e->ch[chan_id].carrier_phase)
-	 l1 = floor(L1_CARRIER_FREQ * (e->ch[chan_id].carrier_phase / SPEED_OF_LIGHT - (e->clock_bias / 1e9)));
+	 l1 = L1_CARRIER_FREQ * (e->ch[chan_id].carrier_phase / SPEED_OF_LIGHT - (e->clock_bias / 1e9));
       else
 	 l1 = 0;
 
@@ -512,18 +512,35 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 		  e->ch[chan_id].phase_err_cnt);
       }
 
-      loss_of_lock = ' ';
       sig_strength = itoa [ snr_project_to_1x9(s1) ];
 
+      if ((l1 > 9999999999.999) || (l1 < -999999999.999))
+	 l1 = 0;
+      else if (e->ch[chan_id].phase_err_cnt == 50)
+	 l1 = 0;
+
+      if ((d1 > 9999999999.999) || (d1 < -999999999.999))
+	 d1 = 0;
+
+      if ((c1 > 9999999999.999) || (c1 < -999999999.999)) {
+	 c1 = 0;
+	 sig_strength=' ';
+      }
+
+      if (l1 == 0)
+	 l1_loss_of_lock = ' ';
+
+      loss_of_lock = ' ';
+
       written = fprintf(out_f, "%14.3f%c%c%14.3f%c%c%14.3f%c%c%14.3f%c%c\r\n",
-	    l1, l1_loss_of_lock, sig_strength,
+	    l1, l1_loss_of_lock, ' ',
 	    c1, loss_of_lock, sig_strength,
-	    d1, loss_of_lock, sig_strength,
-	    s1, loss_of_lock, sig_strength);
+	    d1, loss_of_lock, ' ',
+	    s1, loss_of_lock, ' ');
       if (written < 0)
 	 return -1;
 
-   }
+   } /* for */
 
    return 0;
 }
