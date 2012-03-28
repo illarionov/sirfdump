@@ -38,6 +38,9 @@ struct epoch_t {
          unsigned low_power_cnt;
       } ch[SIRF_NUM_CHANNELS];
 
+      /* Epoch */
+      unsigned valid_channels;
+      double epoch_time;
 };
 
 struct rinex_ctx_t {
@@ -85,6 +88,7 @@ static int handle_clock_status_msg(struct rinex_ctx_t *ctx,
 static int printf_obs_header(FILE *out_f, struct rinex_ctx_t *ctx);
 
 static void epoch_clear (struct epoch_t *e);
+static void epoch_close(struct epoch_t *e);
 static int epoch_printf(FILE *out_f, struct epoch_t *e);
 
 void *new_rinex_ctx(int argc, char **argv)
@@ -257,7 +261,7 @@ static int handle_meas_nav_msg(struct rinex_ctx_t *ctx,
    ctx->approx_pos.z = msg->ecef_z;
 
    ctx->epoch.gps_week = (ctx->epoch.gps_week & 0xfc00) | (msg->gps_week & 0x3ff);
-   ctx->epoch.gps_tow = msg->gps_tow / 100;
+   ctx->epoch.gps_tow = msg->gps_tow / 100.0;
    ctx->epoch.solution_svs = msg->sv_used_cnt;
 
    return 1;
@@ -292,6 +296,7 @@ static int handle_clock_status_msg(struct rinex_ctx_t *ctx,
    }
 
    if (ctx->header_printed) {
+      epoch_close(&ctx->epoch);
       epoch_printf(out_f, &ctx->epoch);
       epoch_clear(&ctx->epoch);
    }
@@ -340,15 +345,20 @@ int gpstime2tm0(unsigned gps_week, double gps_tow, struct gps_tm *res)
 {
    time_t tt;
    struct tm *tm;
-   double intpart;
+   double intpart, fractpart;
 
    assert(res);
 
-   tt = GPS_EPOCH + gps_week * 60 * 60 * 24 * 7 + gps_tow;
+   gps_tow = round(gps_tow * 1e6)/1e6;
+   fractpart = modf(gps_tow, &intpart);
+   assert(fractpart<1.0);
+
+   tt = GPS_EPOCH + gps_week * 60 * 60 * 24 * 7 + (int)intpart;
 
    tm = gmtime(&tt);
 
-   res->sec = tm->tm_sec + modf(gps_tow, &intpart);
+   res->sec = tm->tm_sec + fractpart;
+   assert(res->sec<60.0);
    res->min = tm->tm_min;
    res->hour = tm->tm_hour;
    res->day = tm->tm_mday;
@@ -371,6 +381,8 @@ static void epoch_clear (struct epoch_t *e)
       e->ch[ch].valid = 0;
    }
 
+   e->valid_channels=0;
+   e->epoch_time=0;
 }
 
 static int is_sat_in_epoch(const struct epoch_t *e, unsigned chan_id)
@@ -385,37 +397,15 @@ static int snr_project_to_1x9(double snr)
    return MIN(MAX((int)(snr/6),1),9);
 }
 
-
-static int epoch_printf(FILE *out_f, struct epoch_t *e)
+static void epoch_close(struct epoch_t *e)
 {
-   const char itoa[] = {'0','1','2','3','4','5','6','7','8','9'};
-   struct gps_tm gps_tm0;
-   char tmp[82];
-   unsigned satlist_p;
-   int written;
-   unsigned sat_cnt;
    unsigned chan_id;
-   unsigned epoch_flag;
 
-   gpstime2tm0(e->gps_week, e->gps_tow, &gps_tm0);
+   assert(e);
 
-   epoch_flag=0;
+   e->valid_channels = 0;
+   e->epoch_time = 0;
 
-   /* Header */
-   written = snprintf(tmp, sizeof(tmp), " %2u %2u %2u %2u %2u%11.7f  %1u",
-	 gps_tm0.year % 100,
-	 gps_tm0.month,
-	 gps_tm0.day,
-	 gps_tm0.hour,
-	 gps_tm0.min,
-	 (double)gps_tm0.sec,
-	 epoch_flag
-	 );
-
-   assert(written == 5*3+11+3);
-
-   satlist_p = 32;
-   sat_cnt = 0;
    for (chan_id=0; chan_id < SIRF_NUM_CHANNELS; chan_id++) {
       if (!e->ch[chan_id].valid)
 	 continue;
@@ -428,6 +418,56 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 	 continue;
       }
 
+      ++e->valid_channels;
+      /* Use first valid channel time as epoch time   */
+      if (e->epoch_time == 0) {
+	 double bias = round(e->clock_bias / 1e3);
+	 e->epoch_time = (double)e->ch[chan_id].gps_soft_time - bias / 1e6;
+      }
+   }
+
+}
+
+static int epoch_printf(FILE *out_f, struct epoch_t *e)
+{
+   const char itoa[] = {'0','1','2','3','4','5','6','7','8','9'};
+   struct gps_tm gps_tm0;
+   char tmp[82];
+   unsigned satlist_p;
+   int written;
+   unsigned sat_cnt;
+   unsigned chan_id;
+   unsigned epoch_flag;
+
+   if (e->valid_channels == 0)
+      return -1;
+
+   gpstime2tm0(e->gps_week, e->epoch_time, &gps_tm0);
+
+   epoch_flag=0;
+
+   /* Header */
+   written = snprintf(tmp, sizeof(tmp), " %2u %2u %2u %2u %2u%11.7f  %1u%3u",
+	 gps_tm0.year % 100,
+	 gps_tm0.month,
+	 gps_tm0.day,
+	 gps_tm0.hour,
+	 gps_tm0.min,
+	 (double)gps_tm0.sec,
+	 epoch_flag,
+	 e->valid_channels % 1000
+	 );
+
+   assert(written == 5*3+11+3+3);
+
+   /* XXX */
+   assert(e->valid_channels <= 12);
+
+   satlist_p = 32;
+   for (chan_id=0; chan_id < SIRF_NUM_CHANNELS; chan_id++) {
+      if (!e->ch[chan_id].valid)
+	 continue;
+
       /* sat_id 'Gxx' */
       if (e->ch[chan_id].sat_id >= 100)
 	 tmp[satlist_p++]='S';
@@ -439,26 +479,7 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
       else
 	 tmp[satlist_p++] = ' ';
       tmp[satlist_p++] = itoa[ e->ch[chan_id].sat_id % 10  ];
-
-      sat_cnt++;
-   }
-
-   if (sat_cnt == 0)
-      return -1;
-
-   /* XXX */
-   assert(sat_cnt <= 12);
-
-   /* sat_cnt */
-   if (sat_cnt >= 100)
-      tmp[29] = itoa [ (sat_cnt / 100) % 10 ];
-   else
-      tmp[29] = ' ';
-   if (sat_cnt >= 10)
-      tmp[30] = itoa [ (sat_cnt / 10) % 10 ];
-   else
-      tmp[30] = ' ';
-   tmp[31] = itoa [ sat_cnt % 10 ];
+   } /* for  */
 
    tmp[satlist_p++] = '\n';
    tmp[satlist_p] = '\0';
