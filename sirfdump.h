@@ -19,7 +19,7 @@ struct transport_msg_t {
 
 struct gps_tm {
    unsigned year, month, day, hour, min;
-   float sec;
+   double sec;
 };
 
 typedef int (dumpf_t)(struct transport_msg_t *msg, FILE *out_f, void *user_ctx);
