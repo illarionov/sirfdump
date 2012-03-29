@@ -435,7 +435,6 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
    char tmp[82];
    unsigned satlist_p;
    int written;
-   unsigned sat_cnt;
    unsigned chan_id;
    unsigned epoch_flag;
 
