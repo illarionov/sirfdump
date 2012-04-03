@@ -420,10 +420,8 @@ static void epoch_close(struct epoch_t *e)
 
       ++e->valid_channels;
       /* Use first valid channel time as epoch time   */
-      if (e->epoch_time == 0) {
-	 double bias = round(e->clock_bias / 1e3);
-	 e->epoch_time = (double)e->ch[chan_id].gps_soft_time - bias / 1e6;
-      }
+      if (e->epoch_time == 0)
+	 e->epoch_time = (double)e->ch[chan_id].gps_soft_time - (double)e->clock_bias / 1e9;
    }
 
 }
