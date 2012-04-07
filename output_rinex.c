@@ -349,7 +349,7 @@ int gpstime2tm0(unsigned gps_week, double gps_tow, struct gps_tm *res)
 
    assert(res);
 
-   gps_tow = round(gps_tow * 1e6)/1e6;
+   gps_tow = round(gps_tow * 1e7)/1e7;
    fractpart = modf(gps_tow, &intpart);
    assert(fractpart<1.0);
 
