@@ -550,9 +550,9 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 
       loss_of_lock = ' ';
 
-      written = fprintf(out_f, "%14.3f%c%c%14.4f%c%14.3f%c%c%14.3f\n",
+      written = fprintf(out_f, "%14.3f%c%c%14.3f%c%c%14.3f%c%c%14.3f\n",
 	    l1, l1_loss_of_lock, ' ',
-	    c1, sig_strength,
+	    c1, loss_of_lock, sig_strength,
 	    d1, loss_of_lock, ' ',
 	    s1);
       if (written < 0)
