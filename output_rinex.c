@@ -390,7 +390,7 @@ int gpstime2tm0(unsigned gps_week, double gps_tow, struct gps_tm *res)
 
    assert(res);
 
-   gps_tow = round(gps_tow * 1e6)/1e6;
+   gps_tow = round(gps_tow * 1e7)/1e7;
    fractpart = modf(gps_tow, &intpart);
    assert(fractpart<1.0);
 
@@ -429,7 +429,7 @@ static void epoch_clear (struct epoch_t *e)
 
 static int is_sat_in_epoch(const struct epoch_t *e, unsigned chan_id)
 {
-   return ( fabs(e->gps_tow + ((double)e->clock_bias / 1e9) - e->ch[chan_id].gps_soft_time) < 0.1);
+   return ( fabs(e->gps_tow + ((double)e->clock_bias / 1.0e9) - e->ch[chan_id].gps_soft_time) < 0.1);
 }
 
 static int snr_project_to_1x9(double snr)
@@ -454,7 +454,7 @@ static void epoch_close(struct epoch_t *e)
 
       if (!is_sat_in_epoch(e, chan_id)) {
 	 fprintf(stderr, "Found mid28 from different epoch. Current: %.5lf mid28: %.5lf\n",
-	       (double)(e->gps_tow + (e->clock_bias / 1e9)),
+	       (double)(e->gps_tow + (e->clock_bias / 1.0e9)),
 	       (double)e->ch[chan_id].gps_soft_time);
 	 e->ch[chan_id].valid = 0;
 	 continue;
@@ -462,10 +462,8 @@ static void epoch_close(struct epoch_t *e)
 
       ++e->valid_channels;
       /* Use first valid channel time as epoch time   */
-      if (e->epoch_time == 0) {
-	 double bias = round(e->clock_bias / 1e3);
-	 e->epoch_time = (double)e->ch[chan_id].gps_soft_time - bias / 1e6;
-      }
+      if (e->epoch_time == 0)
+	 e->epoch_time = (double)e->ch[chan_id].gps_soft_time - (double)e->clock_bias / 1.0e9;
    }
 
 }
@@ -477,7 +475,6 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
    char tmp[82];
    unsigned satlist_p;
    int written;
-   unsigned sat_cnt;
    unsigned chan_id;
    unsigned epoch_flag;
 
@@ -543,11 +540,11 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 	 continue;
 
       /* Pseudorange C/A on L1, meters */
-      c1 = e->ch[chan_id].pseudorange - (SPEED_OF_LIGHT * (e->clock_bias / 1e9));
+      c1 = e->ch[chan_id].pseudorange - (SPEED_OF_LIGHT * (e->clock_bias / 1.0e9));
 
       /* Phase on L1, cycles */
       if (e->ch[chan_id].carrier_phase)
-	 l1 = L1_CARRIER_FREQ * (e->ch[chan_id].carrier_phase / SPEED_OF_LIGHT - (e->clock_bias / 1e9));
+	 l1 = L1_CARRIER_FREQ * (e->ch[chan_id].carrier_phase / SPEED_OF_LIGHT - (e->clock_bias / 1.0e9));
       else
 	 l1 = 0;
 
