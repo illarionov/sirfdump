@@ -29,6 +29,7 @@ struct epoch_t {
 	 /* mid-28 */
          unsigned valid;
 	 unsigned sat_id;
+	 unsigned time_tag;
          double gps_soft_time;
 	 double pseudorange;
 	 double carrier_freq;
@@ -234,6 +235,7 @@ static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
    ctx->epoch.ch[msg->Chnl].valid = msg->sync_flags;
    ctx->epoch.ch[msg->Chnl].sat_id = msg->svid;
    ctx->epoch.ch[msg->Chnl].gps_soft_time = msg->gps_sw_time;
+   ctx->epoch.ch[msg->Chnl].time_tag = msg->Timetag;
    ctx->epoch.ch[msg->Chnl].pseudorange = msg->pseudorange;
    ctx->epoch.ch[msg->Chnl].carrier_freq = msg->carrier_freq;
    ctx->epoch.ch[msg->Chnl].carrier_phase = msg->carrier_phase;
@@ -577,10 +579,73 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
       /* mid64 */
       if (e->ch[chan_id].mid64_valid) {
 	 double old_d1;
-	 l1 = e->ch[chan_id].mid64.carrier_phase;
+	 //l1 = e->ch[chan_id].mid64.carrier_phase;
 	 old_d1 = d1;
 	 d1 = (double)e->ch[chan_id].mid64.carrier_freq * 0.000476 - e->clock_drift;
-	 fprintf(stderr, "doppler diff: %f code corr: %i\n", d1 - old_d1, e->ch[chan_id].mid64.code_correction);
+	 fprintf(stdout,
+	       "\nMID28 sv_prn: %hhu ext_status: %s%s%s%s%s%s\n"
+	       "   Time_tag/mid28 tag/Cur epoch time: %u/%u/%.3f\n",
+	       (unsigned char)e->ch[chan_id].mid64.sv_prn,
+	       e->ch[chan_id].mid64.extended_status & 0x02 ? "Subframe sync verified  " : "",
+	       e->ch[chan_id].mid64.extended_status & 0x04 ? "Possible cycle slip  " : "",
+	       e->ch[chan_id].mid64.extended_status & 0x08 ? "Subframe sync lost  " : "",
+	       e->ch[chan_id].mid64.extended_status & 0x10 ? "Multipath detected  " : "",
+	       e->ch[chan_id].mid64.extended_status & 0x20 ? "Multipath-only detected  " : "",
+	       e->ch[chan_id].mid64.extended_status & 0x40 ? "Weak frame sync done" : "",
+	       (unsigned)e->ch[chan_id].mid64.time_tag,
+	       (unsigned)e->ch[chan_id].time_tag,
+	       (double)e->epoch_time);
+	 fprintf(stdout, "   code_phase val/chips/msecs: %u/%f/%f\n",
+	    (unsigned)e->ch[chan_id].mid64.code_phase,
+	    (double)e->ch[chan_id].mid64.code_phase / pow(2,11),
+	    (double)e->ch[chan_id].mid64.code_phase / pow(2,11)/1023.0
+	    );
+	 fprintf(stdout, "   carrier_phase val/mid28: %i/%f\n",
+	    e->ch[chan_id].mid64.carrier_phase,
+	    l1
+	    );
+	 fprintf(stdout,
+	       "   carrier freq val/Hz/drift/acceleration m/s/dopler diff: %i/%f/%u/%f/%i/%f\n",
+	    e->ch[chan_id].mid64.carrier_freq,
+	    (double)e->ch[chan_id].mid64.carrier_freq*0.000476,
+	    e->clock_drift,
+	    d1,
+	    e->ch[chan_id].mid64.carrier_accel,
+	    d1-old_d1
+	    );
+	 fprintf(stdout, "   ms_num / bit_num / code correction, cycle: %hu/%u/%i\n",
+	       e->ch[chan_id].mid64.ms_num,
+	       e->ch[chan_id].mid64.bit_num,
+	       e->ch[chan_id].mid64.code_correction);
+	 fprintf(stdout, "   mid28 pseudorange meters/msecs: %.3f/%.3f      %.3f/%.3f\n",
+	        (double)e->ch[chan_id].pseudorange,
+	        (double)1000.0*e->ch[chan_id].pseudorange/SPEED_OF_LIGHT,
+		(double)c1,
+		(double)1000.0*c1/SPEED_OF_LIGHT
+	       );
+	 fprintf(stdout, "   pseudorange smooth code val/cycles: %i/%f\n",
+	       e->ch[chan_id].mid64.smooth_code,
+	       (double)e->ch[chan_id].mid64.smooth_code / pow(2,10));
+	 fprintf(stdout, "   code offset val/cycles:\t%i/%f\n",
+	       e->ch[chan_id].mid64.code_offset,
+	       (double)e->ch[chan_id].mid64.code_offset / pow(2,11));
+	 fprintf(stdout, "   pr noise/delta range qual/phase lock qual/bit sinc qual/ms uncert: %hi/%hi/%hi/%hhu/%hi\n",
+	       (short)e->ch[chan_id].mid64.pseudorange_noise,
+	       (short)e->ch[chan_id].mid64.delta_range_qual,
+	       (short)e->ch[chan_id].mid64.phase_lock_qual,
+	       (unsigned char)e->ch[chan_id].mid64.bit_sync_qual,
+	       (short)e->ch[chan_id].mid64.ms_uncertainty);
+	 fprintf(stdout,"   abs_I/abs_Q/sv_bit_number:\t%hu/%hu/%i\n",
+	       (short)e->ch[chan_id].mid64.sum_abs_I,
+	       (short)e->ch[chan_id].mid64.sum_abs_Q,
+	       (int)e->ch[chan_id].mid64.sv_bit_num);
+	 fprintf(stdout, "   MP/MP-only line-of-sight:\t%hi/%hi\n",
+	       (short)e->ch[chan_id].mid64.mp_los_det_value,
+	       (short)e->ch[chan_id].mid64.mp_only_det_value);
+	 fprintf(stdout, "   sw_time_uncertainty, usec:\t%u\n",
+	       (unsigned)e->ch[chan_id].mid64.sw_time_uncertainty);
+
+	 //fprintf(stderr, "doppler diff: %f code corr: %i\n", d1 - old_d1, e->ch[chan_id].mid64.code_correction);
       }
 
       if ((l1 > 9999999999.999) || (l1 < -999999999.999))
