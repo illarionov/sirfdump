@@ -1,9 +1,9 @@
 CC?=gcc
-CFLAGS?= -O2 -s -pipe
+CFLAGS?= -Os -s -pipe
 CFLAGS+= -DNDEBUG
 #CFLAGS=-W  -Wall -g -O0 -DVERBOSITY=LOG_RAW
 
-CFLAGS+= -D_ENDIAN_LITTLE -I./include -I./util/codec -I./util/proto -I./pal
+CFLAGS+= -I./include -I./util/codec -I./util/proto -I./pal
 
 LDFLAGS+= -lm
 
@@ -20,6 +20,9 @@ ifeq ($(UNAME_O),Msys)
 	CFLAGS+= -posix -D__USE_MINGW_ANSI_STDIO=1
 endif
 
+ifdef ENDIAN
+	CFLAGS += -D_ENDIAN_$(ENDIAN)
+endif
 
 OBJS=	sirf_codec_ssb.o \
 	sirf_codec_ascii.o \
