@@ -17,9 +17,15 @@ extern "C" {
 #  define UNUSED
 #endif
 
+#ifdef _MSC_VER
+#include <stdint.h>
+#define bool unsigned char
+#else
 #include <inttypes.h>	/* stdint.h would be smaller but not all have it */
-#include <stdio.h>
 #include <stdbool.h>
+#endif
+
+#include <stdio.h>
 
 #define GPS_PI          3.1415926535897932384626433832795029
 
