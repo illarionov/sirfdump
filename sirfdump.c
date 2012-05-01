@@ -32,7 +32,8 @@ struct opts_t {
       OUTPUT_DUMP,
       OUTPUT_NMEA,
       OUTPUT_RINEX,
-      OUTPUT_RINEX_NAV
+      OUTPUT_RINEX_NAV,
+      OUTPUT_RTCM,
    } output_type;
 };
 
@@ -74,7 +75,7 @@ static void help(void)
    "\nOptions:\n"
    "    -f, --infile                Input file, default: - (stdin)\n"
    "    -F, --outfile               Output file, default: - (stdout)\n"
-   "    -o, --outtype               Output type: dump / nmea / rinex / rinex-nav. default: nmea\n"
+   "    -o, --outtype               Output type: dump / nmea / rinex / rinex-nav / rtcm. default: nmea\n"
    "    -h, --help                  Help\n"
    "    -v, --version               Show version\n"
    "\n"
@@ -307,6 +308,8 @@ int main(int argc, char *argv[])
 	       ctx->opts.output_type = OUTPUT_RINEX;
 	    }else if (strcmp(optarg, "rinex-nav") == 0) {
 	       ctx->opts.output_type = OUTPUT_RINEX_NAV;
+	    }else if (strcmp(optarg, "rtcm") == 0) {
+	       ctx->opts.output_type = OUTPUT_RTCM;
 	    }else {
 	       fputs("Wrong output type\n", stderr);
 	       return 1;
@@ -383,6 +386,15 @@ int main(int argc, char *argv[])
 	    return 1;
 	 }
 	 break;
+      case OUTPUT_RTCM:
+	 ctx->dump_f = &output_rtcm;
+	 ctx->user_ctx = new_rtcm_ctx(argc, argv);
+	 if (ctx->user_ctx == NULL) {
+	    perror(NULL);
+	    free_ctx(ctx);
+	    return 1;
+	 }
+	 break;
       case OUTPUT_DUMP:
       default:
 	 ctx->dump_f = &output_dump;
@@ -397,6 +409,9 @@ int main(int argc, char *argv[])
 	 break;
       case OUTPUT_RINEX_NAV:
 	 free_rinex_nav_ctx(ctx->user_ctx);
+	 break;
+      case OUTPUT_RTCM:
+	 free_rtcm_ctx(ctx->user_ctx);
 	 break;
       default:
 	 break;

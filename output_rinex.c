@@ -12,10 +12,6 @@
 const char * const MonthName[] = {"JAN","FEB","MAR","APR", "MAY","JUN","JUL","AUG", 
    "SEP", "OCO", "DEC"};
 
-#define L1_CARRIER_FREQ 1575420000.0
-#define SPEED_OF_LIGHT 299792458.0
-#define GPS_EPOCH  315964800 /*  GPS epoch in Unix time */
-
 struct epoch_t {
       /* mid-7 */
       unsigned gps_week;

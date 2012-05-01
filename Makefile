@@ -31,7 +31,9 @@ OBJS=	sirf_codec_ssb.o \
 	output_nmea.o \
 	output_rinex.o \
 	output_rinex_nav.o \
+	output_rtcm.o \
 	isgps.o \
+	crc24q.o \
 	subframe.o
 
 ifdef NO_STRLCPY
@@ -69,11 +71,17 @@ output_rinex.o: output_rinex.c sirfdump.h
 output_rinex_nav.o: output_rinex_nav.c sirfdump.h
 	$(CC) $(CFLAGS) -c output_rinex_nav.c
 
+output_rtcm.o: output_rtcm.c sirfdump.h gpsd/crc24q.h
+	$(CC) $(CFLAGS) -c output_rtcm.c
+
 subframe.o: gpsd/gps.h gpsd/subframe.c
 	$(CC) $(CFLAGS) -c gpsd/subframe.c
 
 isgps.o: gpsd/gps.h gpsd/isgps.c
 	$(CC) $(CFLAGS) -c gpsd/isgps.c
+
+crc24q.o: gpsd/crc24q.h gpsd/crc24q.c
+	$(CC) $(CFLAGS) -c gpsd/crc24q.c
 
 strlcat.o: compat/strlcat.c
 	$(CC) $(CFLAGS) -c compat/strlcat.c

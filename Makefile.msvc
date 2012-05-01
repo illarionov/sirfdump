@@ -19,10 +19,10 @@ CFLAGS=$(CFLAGS) /DWIN32 /D_MBCS /D_CRT_SECURE_NO_WARNINGS \
 
 !if "$(DEBUG)" == "1"
 CFLAGS=$(CFLAGS) /D_DEBUG /Od /Z7
-LDFLAGS=$(LDFLAGS) /DEBUG 
+LDFLAGS=$(LDFLAGS) /DEBUG
 !else
 CFLAGS=$(CFLAGS) /DNDEBUG /O2
-LDFLAGS=$(LDFLAGS) 
+LDFLAGS=$(LDFLAGS)
 !endif
 
 OBJS=	sirf_codec_ssb.obj \
@@ -32,10 +32,12 @@ OBJS=	sirf_codec_ssb.obj \
 	output_nmea.obj \
 	output_rinex.obj \
 	output_rinex_nav.obj \
+	output_rtcm.obj \
 	isgps.obj \
 	subframe.obj \
 	strlcat.obj \
 	sirfdump.obj \
+	crc24q.o \
 	ultragetopt.obj
 
 all: sirfdump.exe
@@ -66,11 +68,17 @@ output_rinex.obj: output_rinex.c sirfdump.h
 output_rinex_nav.obj: output_rinex_nav.c sirfdump.h
 	$(CC) $(CFLAGS) -c output_rinex_nav.c
 
+output_rtcm.obj: output_rtcm.c sirfdump.h gpsd/crc24q.h
+	$(CC) $(CFLAGS) -c output_rtcm.c
+
 subframe.obj: gpsd/gps.h gpsd/subframe.c
 	$(CC) $(CFLAGS) -c gpsd/subframe.c
 
 isgps.obj: gpsd/gps.h gpsd/isgps.c
 	$(CC) $(CFLAGS) -c gpsd/isgps.c
+
+crc24q.obj: gpsd/crc24q.h gpsd/crc24q.c
+	$(CC) $(CFLAGS) -c gpsd/crc24q.c
 
 ultragetopt.obj: compat/ultragetopt/ultragetopt.h compat/ultragetopt/ultragetopt.c
 	$(CC) $(CFLAGS) /DHAVE__STRICMP /DHAVE__STRNICMP -c compat/ultragetopt/ultragetopt.c
