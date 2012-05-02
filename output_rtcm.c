@@ -65,8 +65,6 @@ static unsigned set_sbits(uint8_t *buf, unsigned pos, unsigned len, int val);
 void *new_rtcm_ctx(int argc, char **argv)
 {
    struct rtcm_ctx_t *ctx;
-   struct tm *tm;
-   time_t clock;
 
    if (argc || argv) {};
 
@@ -234,7 +232,6 @@ static int handle_mid8_msg(struct rtcm_ctx_t *ctx,
       const tSIRF_MSG_SSB_50BPS_DATA *msg,
       FILE *out_f)
 {
-   unsigned i;
    unsigned pos;
    int data_changed;
    struct nav_sat_data_t *sat;
@@ -264,7 +261,7 @@ static int handle_mid8_msg(struct rtcm_ctx_t *ctx,
    pos = 0;
    pos += set_ubits(msg1019, pos, 12, 1019);
    pos += set_ubits(msg1019, pos, 6, msg->svid);
-   pos += set_ubits(msg1019, pos, 10, ctx->epoch.gps_week);
+   pos += set_ubits(msg1019, pos, 10, sat->sub1.sub1.WN);
    pos += set_ubits(msg1019, pos, 4, sat->sub1.sub1.ura);
    pos += set_ubits(msg1019, pos, 2, sat->sub1.sub1.l2);
    pos += set_sbits(msg1019, pos, 14, sat->sub3.sub3.IDOT);
@@ -370,10 +367,17 @@ static unsigned set_ubits(uint8_t *buf, unsigned pos, int len, unsigned val)
    return len;
 }
 
-/* XXX */
+/* XXX: 2's complement integer*/
 static unsigned set_sbits(uint8_t *buf, unsigned pos, unsigned len, int val)
 {
-   return set_ubits(buf, pos, len, (unsigned)val);
+   unsigned v0;
+
+   if (val >= 0)
+      v0 = val;
+   else
+      v0 = ~((unsigned)-val)+1;
+
+   return set_ubits(buf, pos, len, v0);
 }
 
 static int epoch_printf(FILE *out_f, struct epoch_t *e)

@@ -26,7 +26,7 @@ struct nav_sat_data_t *get_navdata_p(struct nav_data_t *data, unsigned prn)
 {
    assert(data);
 
-   if (prn >= MAX_GPS_PRN)
+   if (prn > MAX_GPS_PRN)
       return NULL;
 
    return &data->prn[prn-1];
@@ -57,7 +57,9 @@ int populate_navdata_from_mid8(
       return data_changed;
 
    dst = get_navdata_p(data, subp.tSVID);
-   assert(dst);
+   /* XXX  */
+   if (dst == NULL)
+      return -2;
 
    switch (subp.subframe_num) {
       case 1:
