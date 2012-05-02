@@ -10,18 +10,9 @@
 #include "sirfdump.h"
 #include "sirf_msg.h"
 #include "sirf_codec_ssb.h"
+#include "nav.h"
 
 extern const char const *MonthName[];
-
-struct nav_data_t {
-   unsigned is_printed;
-   unsigned is_sub1_active;
-   unsigned is_sub2_active;
-   unsigned is_sub3_active;
-   struct subframe_t sub1;
-   struct subframe_t sub2;
-   struct subframe_t sub3;
-};
 
 struct rinex_nav_ctx_t {
 
@@ -32,17 +23,15 @@ struct rinex_nav_ctx_t {
    } file;
 
    int header_printed;
-
    unsigned gps_week;
-
-   struct nav_data_t data[MAX_GPS_PRN];
+   struct nav_data_t navdata;
 };
 
 
 static int print_nav_header(FILE *out_f, const struct rinex_nav_ctx_t *ctx);
 static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn);
 static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
-      tSIRF_MSG_SSB_50BPS_DATA *msg,
+      const tSIRF_MSG_SSB_50BPS_DATA *msg,
       FILE *out_f);
 static double ura2meters(unsigned ura);
 
@@ -71,12 +60,7 @@ void *new_rinex_nav_ctx(int argc, char **argv)
    ctx->header_printed = 0;
    ctx->gps_week = 1024;
 
-   for(i=0; i < MAX_GPS_PRN; i++) {
-      ctx->data[i].is_sub1_active =
-	 ctx->data[i].is_sub2_active =
-	 ctx->data[i].is_sub3_active =
-	 ctx->data[i].is_printed = 0;
-   }
+   init_nav_data(&ctx->navdata);
 
    return ctx;
 }
@@ -129,93 +113,35 @@ int output_rinex_nav(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 
 
 static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
-      tSIRF_MSG_SSB_50BPS_DATA *msg,
+      const tSIRF_MSG_SSB_50BPS_DATA *msg,
       FILE *out_f)
 {
    unsigned i;
-   struct subframe_t subp;
-   struct nav_data_t *dst;
-   uint32_t words[10];
+   int data_changed;
+   struct nav_sat_data_t *dst;
 
    assert(ctx);
    assert(msg);
    assert(out_f);
 
-   for(i=0; i<10; i++)
-      words[i]=msg->word[i];
+   data_changed = populate_navdata_from_mid8(msg, &ctx->navdata);
 
-   if (gpsd_interpret_subframe_raw(&subp, msg->svid, words) <= 0)
+   if (data_changed <= 0)
+      return data_changed;
+
+   dst = get_navdata_p(&ctx->navdata, msg->svid);
+   if (!dst)
       return -1;
 
-   assert(subp.tSVID <= MAX_GPS_PRN);
-
-   if (subp.subframe_num > 3)
-      return 0;
-
-   dst = &ctx->data[subp.tSVID-1];
-
-   switch (subp.subframe_num) {
-      case 1:
-	 if (dst->is_sub1_active
-	       && (dst->sub1.sub1.IODC == dst->sub1.sub1.IODC))
-	    return 0;
-
-	 memcpy(&dst->sub1, &subp, sizeof(subp));
-	 dst->is_sub1_active = 1;
-	 if (dst->is_sub2_active
-	       && ((dst->sub1.sub1.IODC & 0xff) != dst->sub2.sub2.IODE))
-	    dst->is_printed = dst->is_sub2_active = 0;
-	 if (dst->is_sub3_active
-	       && ((dst->sub1.sub1.IODC & 0xff) != dst->sub3.sub3.IODE))
-	    dst->is_printed = dst->is_sub3_active = 0;
-	 break;
-      case 2:
-	 if (dst->is_sub2_active
-	       && (dst->sub2.sub2.IODE == subp.sub2.IODE))
-	    /*  skip subframe */
-	       break;
-
-	 memcpy(&dst->sub2, &subp, sizeof(subp));
-	 dst->is_sub2_active = 1;
-	 if (dst->is_sub1_active
-	       && ((dst->sub1.sub1.IODC & 0xff) != dst->sub2.sub2.IODE))
-	    dst->is_printed = dst->is_sub1_active = 0;
-	 if (dst->is_sub3_active
-	       && (dst->sub3.sub3.IODE != dst->sub2.sub2.IODE))
-	       dst->is_printed = dst->is_sub3_active = 0;
-	 break;
-      case 3:
-	 if (dst->is_sub3_active
-	       && (dst->sub3.sub3.IODE == subp.sub3.IODE))
-	    /*  skip subframe */
-	       break;
-
-	 memcpy(&dst->sub3, &subp, sizeof(subp));
-	 dst->is_sub3_active = 1;
-	 if (dst->is_sub1_active
-	       && ((dst->sub1.sub1.IODC & 0xff) != dst->sub3.sub3.IODE))
-	    dst->is_printed = dst->is_sub1_active = 0;
-	 if (dst->is_sub2_active
-	       && (dst->sub2.sub2.IODE != dst->sub3.sub3.IODE))
-	       dst->is_printed = dst->is_sub2_active = 0;
-	 break;
-      default:
-	 return 0;
-	 break;
-   }
-
-   if (!dst->is_printed
-	 && dst->is_sub1_active
+   if (dst->is_sub1_active
 	 && dst->is_sub2_active
-	 && dst->is_sub3_active
-	 && ((dst->sub1.sub1.IODC & 0xff) == dst->sub2.sub2.IODE)
-	 && ((dst->sub1.sub1.IODC & 0xff) == dst->sub3.sub3.IODE)
-	 ) {
+	 && dst->is_sub3_active) {
+      assert((dst->sub1.sub1.IODC & 0xff) == dst->sub2.sub2.IODE);
+      assert((dst->sub1.sub1.IODC & 0xff) == dst->sub3.sub3.IODE);
 
       if (!ctx->header_printed)
 	 ctx->header_printed = print_nav_header(out_f, ctx);
-
-      dst->is_printed =  print_nav_data(out_f, ctx, subp.tSVID);
+      print_nav_data(out_f, ctx, msg->svid);
    }
 
    return 0;
@@ -247,9 +173,9 @@ static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn
 {
    unsigned wn;
    struct gps_tm toc_tm;
-   const struct nav_data_t *nav_data;
+   const struct nav_sat_data_t *nav_data;
 
-   nav_data = &ctx->data[prn-1];
+   nav_data = get_navdata_p(&ctx->navdata, prn);
 
    /* XXX */
    wn = (ctx->gps_week & 0xfc00) | (nav_data->sub1.sub1.WN & 0x3ff);

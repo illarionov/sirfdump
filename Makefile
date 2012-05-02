@@ -32,6 +32,7 @@ OBJS=	sirf_codec_ssb.o \
 	output_rinex.o \
 	output_rinex_nav.o \
 	output_rtcm.o \
+	nav.o \
 	isgps.o \
 	crc24q.o \
 	subframe.o
@@ -58,6 +59,9 @@ sirf_codec_ascii.o: util/codec/sirf_codec_ascii.c
 
 sirf_codec_nmea.o: util/codec/sirf_codec_nmea.c
 	$(CC) $(CFLAGS) -DSIRF_CODEC_NMEA -c util/codec/sirf_codec_nmea.c
+
+nav.o:  nav.c nav.h
+	$(CC) $(CFLAGS) -c nav.c
 
 output_dump.o: output_dump.c sirfdump.h
 	$(CC) $(CFLAGS) -c output_dump.c
