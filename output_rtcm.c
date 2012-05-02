@@ -6,10 +6,12 @@
 #include <time.h>
 #include <math.h>
 
-#include "sirfdump.h"
-#include "sirf_msg.h"
-#include "sirf_codec_ssb.h"
+#include "gpsd/gps.h"
 #include "gpsd/crc24q.h"
+#include "sirfdump.h"
+#include "sirf_codec_ssb.h"
+#include "sirf_msg.h"
+#include "nav.h"
 
 struct epoch_t {
       /* mid-7 */
@@ -40,6 +42,7 @@ struct epoch_t {
 
 struct rtcm_ctx_t {
    struct epoch_t epoch;
+   struct nav_data_t navdata;
 };
 
 static int handle_nl_meas_data_msg(struct rtcm_ctx_t *ctx,
@@ -48,11 +51,16 @@ static int handle_meas_nav_msg(struct rtcm_ctx_t *ctx,
       tSIRF_MSG_SSB_MEASURED_NAVIGATION *msg);
 static int handle_clock_status_msg(struct rtcm_ctx_t *ctx,
       tSIRF_MSG_SSB_CLOCK_STATUS *msg, FILE *out_f);
+static int handle_mid8_msg(struct rtcm_ctx_t *ctx,
+      const tSIRF_MSG_SSB_50BPS_DATA *msg, FILE *out_f);
 
 static void epoch_clear (struct epoch_t *e);
 static void epoch_close(struct epoch_t *e);
 static int epoch_printf(FILE *out_f, struct epoch_t *e);
 static int rtcm_transport_write(FILE *out_f, void *data, unsigned size);
+
+static unsigned set_ubits(uint8_t *buf, unsigned pos, int len, unsigned val);
+static unsigned set_sbits(uint8_t *buf, unsigned pos, unsigned len, int val);
 
 void *new_rtcm_ctx(int argc, char **argv)
 {
@@ -68,6 +76,7 @@ void *new_rtcm_ctx(int argc, char **argv)
       return NULL;
 
    epoch_clear(&ctx->epoch);
+   init_nav_data(&ctx->navdata);
 
    return ctx;
 }
@@ -83,6 +92,9 @@ int output_rtcm(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
    struct rtcm_ctx_t *ctx;
    tSIRF_UINT32 msg_id, msg_length;
    union {
+      tSIRF_MSG_SSB_50BPS_DATA data_50bps;
+      tSIRF_MSG_SSB_MEASURED_NAVIGATION  meas_nav;
+      tSIRF_MSG_SSB_CLOCK_STATUS clock;
       tSIRF_MSG_SSB_NL_MEAS_DATA nld;
       uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
    } m;
@@ -111,15 +123,17 @@ int output_rtcm(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 	 handle_nl_meas_data_msg(ctx, &m.nld);
 	 break;
       case SIRF_MSG_SSB_MEASURED_NAVIGATION:
-	 handle_meas_nav_msg(ctx, (tSIRF_MSG_SSB_MEASURED_NAVIGATION *)&m);
+	 handle_meas_nav_msg(ctx, &m.meas_nav);
+	 break;
+      case SIRF_MSG_SSB_50BPS_DATA:
+	 handle_mid8_msg(ctx, &m.data_50bps, out_f);
 	 break;
       case SIRF_MSG_SSB_CLOCK_STATUS:
-	 handle_clock_status_msg(ctx, (tSIRF_MSG_SSB_CLOCK_STATUS *)&m, out_f);
+	 handle_clock_status_msg(ctx, &m.clock, out_f);
 	 break;
       default:
 	 break;
    }
-
 
    return err;
 }
@@ -216,6 +230,76 @@ static int handle_clock_status_msg(struct rtcm_ctx_t *ctx,
    return 1;
 }
 
+static int handle_mid8_msg(struct rtcm_ctx_t *ctx,
+      const tSIRF_MSG_SSB_50BPS_DATA *msg,
+      FILE *out_f)
+{
+   unsigned i;
+   unsigned pos;
+   int data_changed;
+   struct nav_sat_data_t *sat;
+   uint8_t msg1019[62];
+
+   assert(ctx);
+   assert(msg);
+   assert(out_f);
+
+   data_changed = populate_navdata_from_mid8(msg, &ctx->navdata);
+
+   if (data_changed < 0)
+      return data_changed;
+
+   sat = get_navdata_p(&ctx->navdata, msg->svid);
+   if (!sat)
+      return -1;
+
+   if (!sat->is_sub1_active
+	 || !sat->is_sub2_active
+	 || !sat->is_sub3_active)
+      return 0;
+   assert((sat->sub1.sub1.IODC & 0xff) == sat->sub2.sub2.IODE);
+   assert((sat->sub1.sub1.IODC & 0xff) == sat->sub3.sub3.IODE);
+
+   /* MSG1019 */
+   pos = 0;
+   pos += set_ubits(msg1019, pos, 12, 1019);
+   pos += set_ubits(msg1019, pos, 6, msg->svid);
+   pos += set_ubits(msg1019, pos, 10, ctx->epoch.gps_week);
+   pos += set_ubits(msg1019, pos, 4, sat->sub1.sub1.ura);
+   pos += set_ubits(msg1019, pos, 2, sat->sub1.sub1.l2);
+   pos += set_sbits(msg1019, pos, 14, sat->sub3.sub3.IDOT);
+   pos += set_ubits(msg1019, pos, 8, sat->sub3.sub3.IODE);
+   pos += set_ubits(msg1019, pos, 16, sat->sub1.sub1.toc);
+   pos += set_sbits(msg1019, pos, 8, sat->sub1.sub1.af2);
+   pos += set_sbits(msg1019, pos, 16, sat->sub1.sub1.af1);
+   pos += set_sbits(msg1019, pos, 22, sat->sub1.sub1.af0);
+   pos += set_ubits(msg1019, pos, 10, sat->sub1.sub1.IODC);
+   pos += set_sbits(msg1019, pos, 16, sat->sub2.sub2.Crs);
+   pos += set_sbits(msg1019, pos, 16, sat->sub2.sub2.deltan);
+   pos += set_sbits(msg1019, pos, 32, sat->sub2.sub2.M0);
+   pos += set_sbits(msg1019, pos, 16, sat->sub2.sub2.Cuc);
+   pos += set_ubits(msg1019, pos, 32, sat->sub2.sub2.e);
+   pos += set_sbits(msg1019, pos, 16, sat->sub2.sub2.Cus);
+   pos += set_ubits(msg1019, pos, 32, sat->sub2.sub2.sqrtA);
+   pos += set_ubits(msg1019, pos, 16, sat->sub1.sub1.toc);
+   pos += set_sbits(msg1019, pos, 16, sat->sub3.sub3.Cic);
+   pos += set_sbits(msg1019, pos, 32, sat->sub3.sub3.Omega0);
+   pos += set_sbits(msg1019, pos, 16, sat->sub3.sub3.Cis);
+   pos += set_sbits(msg1019, pos, 32, sat->sub3.sub3.i0);
+   pos += set_sbits(msg1019, pos, 16, sat->sub3.sub3.Crc);
+   pos += set_sbits(msg1019, pos, 32, sat->sub3.sub3.omega);
+   pos += set_sbits(msg1019, pos, 24, sat->sub3.sub3.Omegad);
+   pos += set_sbits(msg1019, pos, 8, sat->sub1.sub1.Tgd);
+   pos += set_ubits(msg1019, pos, 6, sat->sub1.sub1.hlth);
+   pos += set_ubits(msg1019, pos, 1, sat->sub1.sub1.l2p);
+   pos += set_ubits(msg1019, pos, 1, sat->sub2.sub2.fit);
+   assert(pos==488);
+   msg1019[61] = 0;
+
+   return rtcm_transport_write(out_f, msg1019, 62);
+}
+
+
 static void epoch_clear (struct epoch_t *e)
 {
    unsigned ch;
@@ -287,7 +371,7 @@ static unsigned set_ubits(uint8_t *buf, unsigned pos, int len, unsigned val)
 }
 
 /* XXX */
-static inline unsigned set_sbits(uint8_t *buf, unsigned pos, unsigned len, int val)
+static unsigned set_sbits(uint8_t *buf, unsigned pos, unsigned len, int val)
 {
    return set_ubits(buf, pos, len, (unsigned)val);
 }
@@ -351,7 +435,12 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
       pos += set_ubits(msg1002, pos, 8, (unsigned)(e->ch[chan_id].min_cno / 0.25));
    }
 
-   return rtcm_transport_write(out_f, msg1002, (pos+7)/8);
+   /* padding */
+   if (pos % 24 != 0)
+      pos += set_ubits(msg1002, pos, 24 - pos % 24, 0);
+   assert(pos % 24 == 0);
+
+   return rtcm_transport_write(out_f, msg1002, pos/8);
 }
 
 
