@@ -26,8 +26,6 @@
  * This file is Copyright (c) 2008,2010 by the GPSD project
  * BSD terms apply: see the file COPYING in the distribution root for details.
  */
-#include <sys/uio.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -158,7 +156,7 @@ unsigned crc24q_hash(unsigned char *data, int len)
     return crc;
 }
 
-unsigned crc24q_hashv(struct iovec *iov, int iovcnt)
+unsigned crc24q_hashv(struct crc24_iovec *iov, int iovcnt)
 {
     int j;
     unsigned crc = 0;
@@ -193,7 +191,7 @@ void crc24q_sign(unsigned char *data, int len)
     data[len + 2] = LO(crc);
 }
 
-bool crc24q_check(unsigned char *data, int len)
+unsigned crc24q_check(unsigned char *data, int len)
 {
     unsigned crc = crc24q_hash(data, len - 3);
 

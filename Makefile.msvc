@@ -38,7 +38,7 @@ OBJS=	sirf_codec_ssb.obj \
 	subframe.obj \
 	strlcat.obj \
 	sirfdump.obj \
-	crc24q.o \
+	crc24q.obj \
 	ultragetopt.obj
 
 all: sirfdump.exe

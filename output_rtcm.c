@@ -1,5 +1,4 @@
 
-#include <sys/uio.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -490,7 +489,7 @@ static int rtcm_transport_write(FILE *out_f, void *data, unsigned size)
    unsigned crc24;
    uint8_t  header[3];
    uint8_t  footer[3];
-   struct iovec crc_iovec[] = {
+   struct crc24_iovec crc_iovec[] = {
       {header, sizeof(header)},
       {data, (size_t)size},
    };
