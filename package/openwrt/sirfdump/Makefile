@@ -1,13 +1,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=sirfdump
-PKG_VERSION:=0.2-14
+PKG_VERSION:=0.2-22
 PKG_RELEASE:=1
 
-PKG_BUILD_DIR:=$(BUILD_DIR)/littlesavage-sirfdump-af20e36
-PKG_SOURCE:=littlesavage-sirfdump-v0.2-14-gaf20e36.zip
-PKG_SOURCE_URL:=https://github.com/littlesavage/sirfdump/zipball/af20e364c61937279b2f8a1dcac410841f0c9771
-PKG_MD5SUM:=ff98483f2200eb4f23f7507a6de4436d
+PKG_BUILD_DIR:=$(BUILD_DIR)/littlesavage-sirfdump-45251e0
+PKG_SOURCE:=littlesavage-sirfdump-v0.2-22-g45251e0.zip
+PKG_SOURCE_URL:=https://github.com/littlesavage/sirfdump/zipball/45251e0e37f39975526ec5d112508e9e94879ddb
+PKG_MD5SUM:=80a74b3dc6bedd53e3462ea465dd6441
 PKG_CAT:=unzip
 
 include $(INCLUDE_DIR)/package.mk
