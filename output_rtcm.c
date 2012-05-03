@@ -423,10 +423,10 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
       if (e->ch[chan_id].pseudorange != 0) {
 	 double d_pr;
 
-	 d_pr = 1000.0 * (e->ch[chan_id].pseudorange - (SPEED_OF_LIGHT * (e->clock_bias / 1.0e9)));
+	 d_pr = e->ch[chan_id].pseudorange - (SPEED_OF_LIGHT * (e->clock_bias / 1.0e9));
 
-	 pr = (unsigned)(fmod(d_pr, SPEED_OF_LIGHT) / 0.02);
-	 pr_high = (unsigned)(d_pr / SPEED_OF_LIGHT);
+	 pr = (unsigned)(fmod(d_pr, SPEED_OF_LIGHT/1000.0) / 0.02);
+	 pr_high = (unsigned)(d_pr / (SPEED_OF_LIGHT/1000.0));
 
 	 if ((e->ch[chan_id].carrier_phase != 0)
 	       && (e->ch[chan_id].phase_err_cnt < 50)
