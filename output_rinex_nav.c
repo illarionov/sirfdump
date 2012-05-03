@@ -39,7 +39,6 @@ void *new_rinex_nav_ctx(int argc, char **argv)
 {
    struct rinex_nav_ctx_t *ctx;
    struct tm *tm;
-   unsigned i;
    time_t clock;
 
    if (argc || argv) {};
@@ -116,7 +115,6 @@ static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
       const tSIRF_MSG_SSB_50BPS_DATA *msg,
       FILE *out_f)
 {
-   unsigned i;
    int data_changed;
    struct nav_sat_data_t *dst;
 

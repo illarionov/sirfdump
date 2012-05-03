@@ -31,6 +31,7 @@ struct epoch_t {
 	 double carrier_phase;
 	 unsigned sync_flags;
 	 double min_cno;
+	 unsigned time_in_track;
          unsigned phase_err_cnt;
          unsigned low_power_cnt;
       } ch[SIRF_NUM_CHANNELS];
@@ -165,6 +166,7 @@ static int handle_nl_meas_data_msg(struct rtcm_ctx_t *ctx,
    ctx->epoch.ch[msg->Chnl].carrier_freq = msg->carrier_freq;
    ctx->epoch.ch[msg->Chnl].carrier_phase = msg->carrier_phase;
    ctx->epoch.ch[msg->Chnl].sync_flags = msg->sync_flags;
+   ctx->epoch.ch[msg->Chnl].time_in_track = msg->time_in_track;
    ctx->epoch.ch[msg->Chnl].min_cno = msg->cton[0];
    for (i=1; i<SIRF_NUM_POINTS; i++) {
       if (ctx->epoch.ch[msg->Chnl].min_cno > msg->cton[i])
@@ -412,29 +414,64 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 
    /* Data  */
    for (chan_id=0; chan_id < SIRF_NUM_CHANNELS; ++chan_id) {
-      double pr, phase;
+      unsigned pr, pr_high, phase;
       unsigned lock_time;
 
       if (!e->ch[chan_id].valid)
 	 continue;
 
-      pr = e->ch[chan_id].pseudorange - (SPEED_OF_LIGHT * (e->clock_bias / 1.0e9));
-      phase = e->ch[chan_id].carrier_phase - e->ch[chan_id].pseudorange;
-      /* XXX  */
-      lock_time = 0;
+      if (e->ch[chan_id].pseudorange != 0) {
+	 double d_pr;
+
+	 d_pr = 1000.0 * (e->ch[chan_id].pseudorange - (SPEED_OF_LIGHT * (e->clock_bias / 1.0e9)));
+
+	 pr = (unsigned)(fmod(d_pr, SPEED_OF_LIGHT) / 0.02);
+	 pr_high = (unsigned)(d_pr / SPEED_OF_LIGHT);
+
+	 if ((e->ch[chan_id].carrier_phase != 0)
+	       && (e->ch[chan_id].phase_err_cnt < 50)
+	       && (e->ch[chan_id].sync_flags & 0x02)
+	    ) {
+	    double d_phase;
+	    d_phase = e->ch[chan_id].carrier_phase - e->ch[chan_id].pseudorange;
+	    phase = (int)(d_phase / 0.0005);
+	 }else
+	    phase = -0x080000;
+
+      } else {
+	 pr = 0x080000;
+	 pr_high = 0;
+	 phase = -0x080000;
+      }
+
+      /* XXX: lock_time  */
+      if (e->ch[chan_id].time_in_track >= 937000)
+	 lock_time = 127;
+      else if (e->ch[chan_id].time_in_track >= 744000)
+	 lock_time = (e->ch[chan_id].time_in_track + 3096000) / 32000;
+      else if (e->ch[chan_id].time_in_track >= 360000)
+	 lock_time = (e->ch[chan_id].time_in_track + 1176000) / 16000;
+      else if (e->ch[chan_id].time_in_track >= 168000)
+	 lock_time = (e->ch[chan_id].time_in_track + 408000) / 8000;
+      else if (e->ch[chan_id].time_in_track >= 72000)
+	 lock_time = (e->ch[chan_id].time_in_track + 120000) / 4000;
+      else if (e->ch[chan_id].time_in_track >= 24000)
+	 lock_time = (e->ch[chan_id].time_in_track + 24000) / 2000;
+      else
+	 lock_time = e->ch[chan_id].time_in_track / 1000;
 
       /* DF009 uint6 sattelite id  */
       pos += set_ubits(msg1002, pos, 6, e->ch[chan_id].sat_id);
       /* DF010 bit(1) L1 code indicator  */
       pos += set_ubits(msg1002, pos, 1, 0);
       /* DF011 uint24 pseudorange  */
-      pos += set_ubits(msg1002, pos, 24, (unsigned)(fmod(pr, SPEED_OF_LIGHT / 1000.0) / 0.02));
+      pos += set_ubits(msg1002, pos, 24, pr);
       /* DF012 int20 PhaseRange-Pseudorange  */
-      pos += set_sbits(msg1002, pos, 20, (int)(phase / 0.0005));
+      pos += set_sbits(msg1002, pos, 20, phase);
       /* DF013 uint7 L1 lock time indicator  */
       pos += set_ubits(msg1002, pos, 7, lock_time);
       /* DF014 uint8 L1 pseudorange modulus ambiguity  */
-      pos += set_ubits(msg1002, pos, 8, (unsigned)(pr / (SPEED_OF_LIGHT / 1000.0)));
+      pos += set_ubits(msg1002, pos, 8, pr_high);
       /* DF015 uint8 L1 CNR  */
       pos += set_ubits(msg1002, pos, 8, (unsigned)(e->ch[chan_id].min_cno / 0.25));
    }
