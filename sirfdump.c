@@ -389,6 +389,7 @@ int main(int argc, char *argv[])
       case OUTPUT_RTCM:
 	 ctx->dump_f = &output_rtcm;
 	 ctx->user_ctx = new_rtcm_ctx(argc, argv);
+	 setvbuf(ctx->outfh, NULL, _IONBF, 0);
 	 if (ctx->user_ctx == NULL) {
 	    perror(NULL);
 	    free_ctx(ctx);
