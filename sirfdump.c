@@ -349,9 +349,9 @@ int main(int argc, char *argv[])
    if (ctx->opts.outfile != NULL) {
       ctx->outfh = fopen(ctx->opts.outfile,
 #ifdef WIN32
-	"ab"
+	"wb"
 #else
-	"a"
+	"w"
 #endif
 	);
 

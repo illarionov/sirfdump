@@ -22,14 +22,18 @@ struct rinex_nav_ctx_t {
       char date[21];
    } file;
 
+   fpos_t opt_header_pos;
+   int opt_header_pos_valid;
    int header_printed;
+   int opt_header_printed;
    unsigned gps_week;
    struct nav_data_t navdata;
 };
 
 
-static int print_nav_header(FILE *out_f, const struct rinex_nav_ctx_t *ctx);
-static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn);
+static int print_nav_header(FILE *out_f, struct rinex_nav_ctx_t *ctx, const struct nav_sat_data_t *nav_data);
+static int print_nav_optional_header(FILE *out_f, struct rinex_nav_ctx_t *ctx, const struct nav_sat_data_t *sat);
+static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, const struct nav_sat_data_t *nav_data);
 static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
       const tSIRF_MSG_SSB_50BPS_DATA *msg,
       FILE *out_f);
@@ -56,7 +60,8 @@ void *new_rinex_nav_ctx(int argc, char **argv)
 	 tm->tm_mday, MonthName[tm->tm_mon], tm->tm_year % 100,
 	 tm->tm_hour, tm->tm_min);
 
-   ctx->header_printed = 0;
+   ctx->opt_header_pos_valid = 0;
+   ctx->header_printed = ctx->opt_header_printed = 0;
    ctx->gps_week = 1024;
 
    init_nav_data(&ctx->navdata);
@@ -131,25 +136,25 @@ static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
    if (!dst)
       return -1;
 
-   if (dst->is_sub1_active
-	 && dst->is_sub2_active
-	 && dst->is_sub3_active) {
-      assert((dst->sub1.sub1.IODC & 0xff) == dst->sub2.sub2.IODE);
-      assert((dst->sub1.sub1.IODC & 0xff) == dst->sub3.sub3.IODE);
+   if (!ctx->header_printed)
+      ctx->header_printed = print_nav_header(out_f, ctx, dst);
+   else if (!ctx->opt_header_printed)
+      ctx->opt_header_printed = print_nav_optional_header(out_f, ctx, dst);
+   else if (data_changed & 0x02) /* iono data changed  */
+      print_nav_optional_header(out_f, ctx, dst);
 
-      if (!ctx->header_printed)
-	 ctx->header_printed = print_nav_header(out_f, ctx);
-      print_nav_data(out_f, ctx, msg->svid);
-   }
+   if (data_changed & 0x01)
+      print_nav_data(out_f, ctx, dst);
 
    return 0;
 }
 
-static int print_nav_header(FILE *out_f, const struct rinex_nav_ctx_t *ctx)
+static int print_nav_header(FILE *out_f, struct rinex_nav_ctx_t *ctx, const struct nav_sat_data_t *sat)
 {
 
    assert(ctx);
    assert(out_f);
+   assert(sat);
 
    fprintf(out_f, "%9.2f%-11s%c%-19s%-20s%-20s\n",
 	 2.10,
@@ -161,19 +166,101 @@ static int print_nav_header(FILE *out_f, const struct rinex_nav_ctx_t *ctx)
    fprintf(out_f, "%-20s%-20s%-20s%-20s\n", ctx->file.pgm, ctx->file.run_by, ctx->file.date,
 	 "PGM / RUN BY / DATE");
 
+   if ((ctx->opt_header_printed = print_nav_optional_header(out_f, ctx, sat)) == 0) {
+      ctx->opt_header_pos_valid = !fgetpos(out_f, &ctx->opt_header_pos);
+      fprintf(out_f,
+	    "%-60s%-20s\n"
+	    "%-60s%-20s\n"
+	    "%-60s%-20s\n"
+	    "%-60s%-20s\n",
+	    "", "COMMENT",
+	    "", "COMMENT",
+	    "", "COMMENT",
+	    "", "COMMENT");
+   }else
+      ctx->opt_header_printed = 1;
+
    fprintf(out_f, "%-60s%-20s\n", "",
 	 "END OF HEADER");
 
    return 1;
 }
 
-static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, unsigned prn)
+static int print_nav_optional_header(FILE *out_f, struct rinex_nav_ctx_t *ctx, const struct nav_sat_data_t *sat)
+{
+   unsigned wn;
+   unsigned seek_to_header;
+
+   if (ctx->navdata.sub4_18.is_active == 0)
+      return 0;
+   if (sat->is_sub1_active == 0)
+      return 0;
+
+   seek_to_header = ctx->header_printed
+      && (!ctx->opt_header_printed)
+      && (ctx->opt_header_pos_valid);
+
+   if (seek_to_header) {
+      if (fsetpos(out_f, &ctx->opt_header_pos) != 0)
+	 seek_to_header = 0; /*  not a seekable stream  */
+   }
+
+
+   /* XXX */
+   wn = (ctx->gps_week & 0xfc00)
+      | (sat->sub1.sub1.WN & 0x300)
+      | (ctx->navdata.sub4_18.WNt & 0xff);
+
+   fprintf(out_f,
+	 "  %12.4E%12.4E%12.4E%12.4E%-10s%-20s\n"
+	 "  %12.4E%12.4E%12.4E%12.4E%-10s%-20s\n"
+	 "   %19.12E%19.12E%9u%9u %-20s\n"
+	 "%6u%-54s%-20s\n",
+	 ctx->navdata.sub4_18.ion_alpha[0],
+	 ctx->navdata.sub4_18.ion_alpha[1],
+	 ctx->navdata.sub4_18.ion_alpha[2],
+	 ctx->navdata.sub4_18.ion_alpha[3],
+	 "",
+	 "ION ALPHA",
+
+	 ctx->navdata.sub4_18.ion_beta[0],
+	 ctx->navdata.sub4_18.ion_beta[1],
+	 ctx->navdata.sub4_18.ion_beta[2],
+	 ctx->navdata.sub4_18.ion_beta[3],
+	 "",
+	 "ION BETA",
+
+	 ctx->navdata.sub4_18.a0,
+	 ctx->navdata.sub4_18.a1,
+	 (unsigned)floor(ctx->navdata.sub4_18.tot),
+	 wn,
+	 "DELTA-UTC: A0,A1,T,W",
+
+	 ctx->navdata.sub4_18.leap,
+	 "",
+	 "LEAP SECONDS"
+	 );
+
+   if (seek_to_header)
+      fseek(out_f, 0L, SEEK_END);
+
+   return 1;
+}
+
+static int print_nav_data(FILE *out_f, struct rinex_nav_ctx_t *ctx, const struct nav_sat_data_t *nav_data)
 {
    unsigned wn;
    struct gps_tm toc_tm;
-   const struct nav_sat_data_t *nav_data;
 
-   nav_data = get_navdata_p(&ctx->navdata, prn);
+   assert(nav_data);
+
+   if (!nav_data->is_sub1_active
+	 || !nav_data->is_sub2_active
+	 || !nav_data->is_sub3_active)
+      return 0;
+
+   assert((nav_data->sub1.sub1.IODC & 0xff) == nav_data->sub2.sub2.IODE);
+   assert((nav_data->sub1.sub1.IODC & 0xff) == nav_data->sub3.sub3.IODE);
 
    /* XXX */
    wn = (ctx->gps_week & 0xfc00) | (nav_data->sub1.sub1.WN & 0x3ff);

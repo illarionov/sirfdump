@@ -14,6 +14,8 @@ void init_nav_data(struct nav_data_t *data)
 
    assert(data);
 
+   data->sub4_18.is_active=0;
+
    for(i=0; i < sizeof(data->prn)/sizeof(data->prn[0]); ++i) {
       data->prn[i].is_sub1_active =
 	 data->prn[i].is_sub2_active =
@@ -53,9 +55,6 @@ int populate_navdata_from_mid8(
       return -1;
 
    data_changed = 0;
-   if (subp.subframe_num > 3)
-      return data_changed;
-
    dst = get_navdata_p(data, subp.tSVID);
    /* XXX  */
    if (dst == NULL)
@@ -109,6 +108,39 @@ int populate_navdata_from_mid8(
 	 if (dst->is_sub2_active
 	       && (dst->sub2.sub2.IODE != dst->sub3.sub3.IODE))
 	    dst->is_sub2_active = 0;
+	 break;
+      case 4:
+	 if (subp.pageid == 56) {
+	    if ( data->sub4_18.is_active
+		  && ((data->sub4_18.ion_alpha[0] != subp.sub4_18.d_alpha0)
+		     || (data->sub4_18.ion_alpha[1] != subp.sub4_18.d_alpha1)
+		     || (data->sub4_18.ion_alpha[2] != subp.sub4_18.d_alpha2)
+		     || (data->sub4_18.ion_alpha[3] != subp.sub4_18.d_alpha3)
+		     || (data->sub4_18.ion_beta[0] != subp.sub4_18.d_beta0)
+		     || (data->sub4_18.ion_beta[1] != subp.sub4_18.d_beta1)
+		     || (data->sub4_18.ion_beta[2] != subp.sub4_18.d_beta2)
+		     || (data->sub4_18.ion_beta[3] != subp.sub4_18.d_beta3)
+		     ))
+	       data->sub4_18.is_active = 0;
+
+	    if (data->sub4_18.is_active == 0) {
+	       data->sub4_18.ion_alpha[0] = subp.sub4_18.d_alpha0;
+	       data->sub4_18.ion_alpha[1] = subp.sub4_18.d_alpha1;
+	       data->sub4_18.ion_alpha[2] = subp.sub4_18.d_alpha2;
+	       data->sub4_18.ion_alpha[3] = subp.sub4_18.d_alpha3;
+	       data->sub4_18.ion_beta[0] = subp.sub4_18.d_beta0;
+	       data->sub4_18.ion_beta[1] = subp.sub4_18.d_beta1;
+	       data->sub4_18.ion_beta[2] = subp.sub4_18.d_beta2;
+	       data->sub4_18.ion_beta[3] = subp.sub4_18.d_beta3;
+	       data->sub4_18.a0 = subp.sub4_18.d_A0;
+	       data->sub4_18.a1 = subp.sub4_18.d_A1;
+	       data->sub4_18.tot = subp.sub4_18.d_tot;
+	       data->sub4_18.WNt = subp.sub4_18.WNt;
+	       data->sub4_18.leap = subp.sub4_18.leap;
+	       data->sub4_18.is_active = 1;
+	       data_changed |= 0x02;
+	    }
+	 }
 	 break;
       default:
 	 break;

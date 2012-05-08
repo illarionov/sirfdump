@@ -5,6 +5,14 @@
 #include "sirf_msg.h"
 
 struct nav_data_t {
+   struct {
+      double ion_alpha[4];
+      double ion_beta[4];
+      double a0, a1, tot;
+      unsigned WNt;
+      unsigned leap;
+      unsigned is_active;
+   } sub4_18;
    struct nav_sat_data_t {
       unsigned is_printed;
       unsigned is_sub1_active;
