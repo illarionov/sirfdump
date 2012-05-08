@@ -700,7 +700,7 @@ static unsigned gpsd_interpret_subframe(struct subframe_t *subp,
 		/* careful WN is 10 bits, but WNt is 8 bits! */
 		/* WNt (Week Number of LSF) */
 		subp->sub4_18.tot    = ((words[7] >> 8) & 0x0000FF);
-		subp->sub4_18.d_tot  = pow(2.0,12) * subp->sub4_18.d_tot;
+		subp->sub4_18.d_tot  = pow(2.0,12) * subp->sub4_18.tot;
 		subp->sub4_18.WNt    = ((words[7] >> 0) & 0x0000FF);
 		subp->sub4_18.leap  = (int8_t)((words[8] >> 16) & 0x0000FF);
 		subp->sub4_18.WNlsf  = ((words[8] >>  8) & 0x0000FF);
