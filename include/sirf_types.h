@@ -34,7 +34,11 @@
 #define SIRF_TYPES_H_INCLUDED
 
 #include <stdint.h>
+#ifdef _MSC_VER
+#define bool unsigned char
+#else
 #include <stdbool.h>
+#endif
 
 /* ----------------------------------------------------------------------------
  *   Included files

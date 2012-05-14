@@ -188,6 +188,29 @@
    (*((bytestream)++)) = *((const tSIRF_UINT8*)&(hostshort));\
    (*((bytestream)++)) = *((const tSIRF_UINT8*)&(hostshort)+1); }
 
+
+#if !defined (_ENDIAN_LITTLE) && !defined (_ENDIAN_BIG)
+
+#if defined(__FreeBSD__)
+#include <sys/endian.h>
+#endif
+
+#if defined (_BYTE_ORDER)
+#if defined (_LITTLE_ENDIAN) && (_BYTE_ORDER == _LITTLE_ENDIAN)
+#define _ENDIAN_LITTLE
+#elif defined (_BIG_ENDIAN) && (_BYTE_ORDER == _BIG_ENDIAN)
+#define _ENDIAN_BIG
+#endif
+#elif defined (__BYTE_ORDER__)
+#if defined (__ORDER_BIG_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#define _ENDIAN_BIG
+#elif  defined (__ORDER_LITTLE_ENDIAN__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#define _ENDIAN_LITTLE
+#endif
+#endif
+
+#endif
+
 #if defined (_ENDIAN_LITTLE)
    /* import macros for little endian: */
    /* NOTE: must use {} around these macros when calling in a loop */

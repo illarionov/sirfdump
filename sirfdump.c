@@ -5,11 +5,19 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _MSC_VER
+#include <io.h>
+#include "ultragetopt.h"
+#define STDIN_FILENO 0
+#define ssize_t int
+#else
+#include <getopt.h>
 #include <unistd.h>
+#endif
 
 #include "sirfdump.h"
 #include "sirf_msg.h"
@@ -24,7 +32,8 @@ struct opts_t {
       OUTPUT_DUMP,
       OUTPUT_NMEA,
       OUTPUT_RINEX,
-      OUTPUT_RINEX_NAV
+      OUTPUT_RINEX_NAV,
+      OUTPUT_RTCM,
    } output_type;
 };
 
@@ -66,7 +75,7 @@ static void help(void)
    "\nOptions:\n"
    "    -f, --infile                Input file, default: - (stdin)\n"
    "    -F, --outfile               Output file, default: - (stdout)\n"
-   "    -o, --outtype               Output type: dump / nmea / rinex / rinex-nav. default: nmea\n"
+   "    -o, --outtype               Output type: dump / nmea / rinex / rinex-nav / rtcm. default: nmea\n"
    "    -h, --help                  Help\n"
    "    -v, --version               Show version\n"
    "\n"
@@ -101,7 +110,7 @@ static void free_ctx(struct ctx_t *ctx)
       return;
    free(ctx->opts.infile);
    free(ctx->opts.outfile);
-   if (ctx->in.fd < 0 && (ctx->in.fd != STDIN_FILENO))
+   if (ctx->in.fd > 0 && (ctx->in.fd != STDIN_FILENO))
       close(ctx->in.fd);
    if (ctx->outfh && (ctx->outfh != stdout))
       fclose(ctx->outfh);
@@ -269,7 +278,11 @@ int main(int argc, char *argv[])
       return 1;
 
 #ifdef WIN32
+#ifdef _MSC_VER
+   _set_output_format(_TWO_DIGIT_EXPONENT);
+#else
    putenv("PRINTF_EXPONENT_DIGITS=2");
+#endif
 #endif
 
    while ((c = getopt_long(argc, argv, "vh?f:F:o:",longopts,NULL)) != -1) {
@@ -295,6 +308,8 @@ int main(int argc, char *argv[])
 	       ctx->opts.output_type = OUTPUT_RINEX;
 	    }else if (strcmp(optarg, "rinex-nav") == 0) {
 	       ctx->opts.output_type = OUTPUT_RINEX_NAV;
+	    }else if (strcmp(optarg, "rtcm") == 0) {
+	       ctx->opts.output_type = OUTPUT_RTCM;
 	    }else {
 	       fputs("Wrong output type\n", stderr);
 	       return 1;
@@ -334,9 +349,9 @@ int main(int argc, char *argv[])
    if (ctx->opts.outfile != NULL) {
       ctx->outfh = fopen(ctx->opts.outfile,
 #ifdef WIN32
-	"ab"
+	"wb"
 #else
-	"a"
+	"w"
 #endif
 	);
 
@@ -371,6 +386,16 @@ int main(int argc, char *argv[])
 	    return 1;
 	 }
 	 break;
+      case OUTPUT_RTCM:
+	 ctx->dump_f = &output_rtcm;
+	 ctx->user_ctx = new_rtcm_ctx(argc, argv);
+	 setvbuf(ctx->outfh, NULL, _IONBF, 0);
+	 if (ctx->user_ctx == NULL) {
+	    perror(NULL);
+	    free_ctx(ctx);
+	    return 1;
+	 }
+	 break;
       case OUTPUT_DUMP:
       default:
 	 ctx->dump_f = &output_dump;
@@ -386,6 +411,9 @@ int main(int argc, char *argv[])
       case OUTPUT_RINEX_NAV:
 	 free_rinex_nav_ctx(ctx->user_ctx);
 	 break;
+      case OUTPUT_RTCM:
+	 free_rtcm_ctx(ctx->user_ctx);
+	 break;
       default:
 	 break;
    }
@@ -393,5 +421,3 @@ int main(int argc, char *argv[])
    free_ctx(ctx);
    return 0;
 }
-
-

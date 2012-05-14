@@ -13,10 +13,6 @@
 const char * const MonthName[] = {"JAN","FEB","MAR","APR", "MAY","JUN","JUL","AUG", 
    "SEP", "OCO", "DEC"};
 
-#define L1_CARRIER_FREQ 1575420000.0
-#define SPEED_OF_LIGHT 299792458.0
-#define GPS_EPOCH  315964800 /*  GPS epoch in Unix time */
-
 struct epoch_t {
       /* mid-7 */
       unsigned gps_week;
@@ -392,7 +388,7 @@ int gpstime2tm0(unsigned gps_week, double gps_tow, struct gps_tm *res)
 
    assert(res);
 
-   gps_tow = round(gps_tow * 1e7)/1e7;
+   gps_tow = floor(gps_tow * 1e7 + 0.5)/1e7;
    fractpart = modf(gps_tow, &intpart);
    assert(fractpart<1.0);
 

@@ -164,7 +164,7 @@ static tSIRF_VOID AddCheckSum( tSIRF_CHAR *pBuf)
  ******************************************************************************/
 tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GGA(tSIRF_MSG_SSB_GEODETIC_NAVIGATION *data, tSIRF_CHAR *buf )
 {
-   tSIRF_DOUBLE tRet = SIRF_FAILURE;
+   tSIRF_RESULT tRet = SIRF_FAILURE;
    if (( (tSIRF_MSG_SSB_GEODETIC_NAVIGATION *) NULL != data) && (tSIRF_CHAR *) NULL != buf)
    {
       tSIRF_DOUBLE latInDegree = 0;

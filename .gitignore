@@ -1,3 +1,7 @@
 *.o
+*.obj
+*.pdb
+*.suo
+sirfdump.exe
 *~
-sirfdump
+/sirfdump
