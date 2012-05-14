@@ -3226,7 +3226,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8 *payload,
          {
             tSIRF_MSG_SSB_SBAS_PARAM * msg = (tSIRF_MSG_SSB_SBAS_PARAM*) message_structure;
 
-            if ( payload_length < (4 * sizeof(tSIRF_UINT8) + header_len) )
+            if ( payload_length < (12 * sizeof(tSIRF_UINT8) + header_len) )
             {
                tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
             }
@@ -3237,6 +3237,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8 *payload,
                msg->mode      = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->timeout   = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->flg_bits  = SIRFBINARY_IMPORT_UINT8 (ptr);
+	       ptr += 8;
             }
          }
          break;
