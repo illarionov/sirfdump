@@ -600,9 +600,10 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 	    (double)e->ch[chan_id].mid64.code_phase / pow(2,11),
 	    (double)e->ch[chan_id].mid64.code_phase / pow(2,11)/1023.0
 	    );
-	 fprintf(stdout, "   carrier_phase val/mid28: %i/%f\n",
+	 fprintf(stdout, "   carrier_phase val/mid28/mid28_uncorr: %i/%f/%f\n",
 	    e->ch[chan_id].mid64.carrier_phase,
-	    l1
+	    l1,
+	    e->ch[chan_id].carrier_phase * L1_CARRIER_FREQ / SPEED_OF_LIGHT
 	    );
 	 fprintf(stdout,
 	       "   carrier freq val/Hz/drift/acceleration m/s/dopler diff: %i/%f/%u/%f/%i/%f\n",
@@ -644,6 +645,13 @@ static int epoch_printf(FILE *out_f, struct epoch_t *e)
 	       (short)e->ch[chan_id].mid64.mp_only_det_value);
 	 fprintf(stdout, "   sw_time_uncertainty, usec:\t%u\n",
 	       (unsigned)e->ch[chan_id].mid64.sw_time_uncertainty);
+	 /* (BN/50) + (MSN/1000) + (CN/1023/1000)+(CP/65536/1023/1000)   */
+	 fprintf(stdout, "TT: %f",
+	       (e->ch[chan_id].mid64.bit_num / 50.0)
+	         + (e->ch[chan_id].mid64.ms_num / 1000.0)
+		 + ((double)e->ch[chan_id].mid64.code_offset / pow(2,11) / 1023.0 / 1000.0)
+	         + ((double)e->ch[chan_id].mid64.code_phase / pow(2,11)/1023.0/1000.0));
+
 
 	 //fprintf(stderr, "doppler diff: %f code corr: %i\n", d1 - old_d1, e->ch[chan_id].mid64.code_correction);
       }
