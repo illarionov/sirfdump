@@ -1,16 +1,22 @@
 
 #define _GNU_SOURCE
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "sirfdump.h"
 #include "sirf_msg.h"
+#include "sirf_codec_ssb.h"
+
+#define DEFAULT_DST_DIR "."
 
 const char *progname = "sirfsplitter";
 const char *revision = "$Revision: 0.1 $";
@@ -35,10 +41,11 @@ struct ctx_t {
    double gps_tow;
    struct gps_tm gps_time;
 
-   char *out_fname;
+   char out_fname[80];
+   int dst_dir_fd;
    int outfd;
 
-} ctx;
+} Ctx;
 
 
 static void usage(void)
@@ -62,7 +69,7 @@ static void help(void)
  printf(
    "\nOptions:\n"
    "    -f, --infile                Input file, default: - (stdin)\n"
-   "    -F, --dst_dir               Output directory, default: .\n"
+   "    -d, --dst_dir               Destination directory, default: .\n"
    "    -h, --help                  Help\n"
    "    -v, --version               Show version\n"
    "\n"
@@ -75,16 +82,17 @@ static struct ctx_t *init_ctx()
    Ctx.opts.infile = NULL;
    Ctx.opts.dst_dir = NULL;
    Ctx.in.fd = -1;
-   Ctx.in.head = ctx->in.tail = 0;
+   Ctx.in.head = Ctx.in.tail = 0;
    Ctx.in.last_errno = 0;
 
    Ctx.gps_week=0x400;
    Ctx.gps_tow=0;
    gpstime2tm0(Ctx.gps_week, Ctx.gps_tow, &Ctx.gps_time);
-   Ctx.out_fname = NULL;
+   Ctx.out_fname[0] = 0;
    Ctx.outfd = -1;
+   Ctx.dst_dir_fd = -1;
 
-   return Ctx;
+   return &Ctx;
 }
 
 static void free_ctx(struct ctx_t *ctx)
@@ -92,12 +100,12 @@ static void free_ctx(struct ctx_t *ctx)
    if (ctx == NULL)
       return;
    free(ctx->opts.infile);
-   free(ctx->opts.outfile);
    if (ctx->in.fd > 0 && (ctx->in.fd != STDIN_FILENO))
       close(ctx->in.fd);
-   if (ctx->outfd)
-      close(ctx->outfh);
-   free(ctx->out_fname);
+   if (ctx->outfd >= 0)
+      close(ctx->outfd);
+   if (ctx->dst_dir_fd >= 0)
+      close(ctx->dst_dir_fd);
 }
 
 
@@ -151,7 +159,7 @@ void *readpkt(struct input_stream_t *stream, struct transport_msg_t *res_msg)
    unsigned checksum;
    unsigned garbage_bytes;
    unsigned p0;
-   size_t l;
+   ssize_t l;
    uint8_t *res;
 
    garbage_bytes = 0;
@@ -161,7 +169,7 @@ void *readpkt(struct input_stream_t *stream, struct transport_msg_t *res_msg)
    for (;;) {
       while (stream->tail - stream->head < 8) {
 	 l = read_data(stream);
-	 if (l < 0)
+	 if (l <= 0)
 	    return NULL;
       }
 
@@ -181,7 +189,7 @@ void *readpkt(struct input_stream_t *stream, struct transport_msg_t *res_msg)
 
       while (stream->tail - stream->head < 6) {
 	 l = read_data(stream);
-	 if (l < 0)
+	 if (l <= 0)
 	    return NULL;
       }
 
@@ -197,7 +205,7 @@ void *readpkt(struct input_stream_t *stream, struct transport_msg_t *res_msg)
       p0 = 2+2+payload_length;
       while (stream->tail - stream->head < p0+2+2) {
 	 l = read_data(stream);
-	 if (l < 0)
+	 if (l <= 0)
 	    return NULL;
       }
 
@@ -232,25 +240,90 @@ void *readpkt(struct input_stream_t *stream, struct transport_msg_t *res_msg)
 
 static int update_time(struct ctx_t *ctx, unsigned week, double tow)
 {
+   int pos, pos1, err;
    unsigned hour_changed;
 
    struct gps_tm new_gps_time;
 
    gpstime2tm0(week, tow, &new_gps_time);
 
-   hour_changed = (ctx->gps_time.tm_hour != new_gps_time.tm_hour)
-	 || (ctx->gps_time.tm_mday != new_gps_time.tm_mday)
-	 || (ctx->gps_time.tm_mon != new_gps_time.tm_mon)
-	 || (ctx->gps_time.tm_year != new_gps_time.tm_year)
-	 || (ctx->out_fname == NULL);
+   hour_changed = (ctx->gps_time.hour != new_gps_time.hour)
+	 || (ctx->gps_time.day != new_gps_time.day)
+	 || (ctx->gps_time.month != new_gps_time.month)
+	 || (ctx->gps_time.year != new_gps_time.year)
+	 || (ctx->out_fname[0] == '\0');
 
+   ctx->gps_week = week;
+   ctx->gps_tow = tow;
    gpstime2tm0(week, tow, &ctx->gps_time);
 
+
    if (!hour_changed)
-      return 0;
+      return 1;
 
+   close(ctx->outfd);
 
-   
+   ctx->outfd = -1;
+   pos = 0;
+
+   /* year  */
+   pos = sprintf(&ctx->out_fname[pos], "%04u",
+	 ctx->gps_time.year);
+   if (pos < 0) {
+      perror("sprintf() error");
+      ctx->out_fname[0] = 0;
+      return -1;
+   }
+   assert((size_t)pos < sizeof(ctx->out_fname));
+   err = mkdirat(ctx->dst_dir_fd, ctx->out_fname, 0777);
+   if ( (err < 0) && (errno != EEXIST)) {
+      perror("mkdir() year error");
+      ctx->out_fname[0] = 0;
+      return -1;
+   }
+
+   /* day of year  */
+   pos1 = sprintf(&ctx->out_fname[pos], "/%02u-%02u",
+	 ctx->gps_time.month, ctx->gps_time.day);
+   if (pos1 < 0) {
+      perror("sprintf() error");
+      ctx->out_fname[0] = 0;
+      return -1;
+   }
+   pos += pos1;
+   assert((size_t)pos < sizeof(ctx->out_fname));
+   err = mkdirat(ctx->dst_dir_fd, ctx->out_fname, 0777);
+   if ( (err < 0) && (errno != EEXIST)) {
+      perror("mkdir() day of year error");
+      ctx->out_fname[0] = 0;
+      return -1;
+   }
+
+   /* hour  */
+   pos1 = sprintf(&ctx->out_fname[pos], "/%02u.srf",
+	 ctx->gps_time.hour);
+   if (pos1 < 0) {
+      perror("sprintf() error");
+      ctx->out_fname[0] = 0;
+      return -1;
+   }
+   pos += pos1;
+   assert((size_t)pos < sizeof(ctx->out_fname));
+
+   ctx->outfd = openat(ctx->dst_dir_fd,
+	 ctx->out_fname,
+	 O_CREAT | O_WRONLY | O_APPEND,
+	 0666
+	 );
+
+   if (ctx->outfd < 0) {
+      perror("openat() error");
+      ctx->out_fname[0] = 0;
+      return -1;
+   }
+
+   fprintf(stderr, "%s %i\n", ctx->out_fname, ctx->outfd);
+
    return hour_changed;
 }
 
@@ -261,8 +334,6 @@ int main(int argc, char *argv[])
    uint8_t *pkt;
    struct ctx_t *ctx;
    int err;
-   unsigned week;
-   double tow;
    struct transport_msg_t msg;
 
    static struct option longopts[] = {
@@ -320,8 +391,20 @@ int main(int argc, char *argv[])
    }else
       ctx->in.fd = STDIN_FILENO;
 
+   /* destination dir */
+   ctx->dst_dir_fd = open(ctx->opts.dst_dir ? ctx->opts.dst_dir : ".",
+	 O_DIRECTORY);
+
+   if (ctx->dst_dir_fd < 0) {
+      perror("open() destination dir error");
+      free_ctx(ctx);
+      return 1;
+   }
+
    while ( (pkt = readpkt(&ctx->in, &msg)) != NULL ) {
-      size_t r;
+      ssize_t r;
+      unsigned gps_week;
+      double gps_tow;
       tSIRF_UINT32 msg_id, msg_length;
       union {
 	 tSIRF_MSG_SSB_NL_MEAS_DATA nld;
@@ -330,12 +413,14 @@ int main(int argc, char *argv[])
 	 uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
       } m;
 
-      if ( SIRF_CODEC_SSB_Decode(msg->payload,
-	    msg->payload_length,
+      msg_id=0;
+
+      if ( SIRF_CODEC_SSB_Decode(msg.payload,
+	    msg.payload_length,
 	    &msg_id,
 	    m.u8,
 	    &msg_length) != 0) {
-	 fprintf(stderr,"SIRF_CODEC_SSB_Decode() error\n");
+	 /* fprintf(stderr,"SIRF_CODEC_SSB_Decode() error. Msg %04x\n", msg_id & 0xffff); */
       }else {
 	 switch (msg_id) {
 	    case SIRF_MSG_SSB_NL_MEAS_DATA:
@@ -348,7 +433,7 @@ int main(int argc, char *argv[])
 	       update_time(ctx, gps_week, gps_tow);
 	       break;
 	    case SIRF_MSG_SSB_CLOCK_STATUS:
-	       update_time(ctx, m.clock.gps_week, m.clock,gps_tow);
+	       update_time(ctx, m.clock.gps_week, m.clock.gps_tow / 100.0);
 	       break;
 	    default:
 	       break;
@@ -356,27 +441,27 @@ int main(int argc, char *argv[])
       }
 
       /* write packet */
-      r = write(STDOUT_FILENO, pkt, ctx->in.payload_length+8);
+      r = write(STDOUT_FILENO, pkt, msg.payload_length+8);
       if (r < 0) {
 	 ctx->in.last_errno = errno;
 	 perror("stdout write() error");
 	 break;
-      }else if (r < ctx->in.payload_length+8) {
+      }else if ((unsigned)r < msg.payload_length+8) {
 	 fprintf(stderr, "stdout write(): written less then requested (%i < %i)\n",
-	       r, ctx->in.payload_length+8);
+	       r, msg.payload_length+8);
 	 ctx->in.last_errno = 1;
 	 break;
       }
 
-      if (ctx->outfd > 0) {
-	 r = write(ctx->outfd, pkt, ctx->in.payload_length+8);
+      if (ctx->outfd >= 0) {
+	 r = write(ctx->outfd, pkt, msg.payload_length+8);
 	 if (r < 0) {
 	    ctx->in.last_errno = errno;
 	    perror("outfd write() error");
 	    break;
-	 }else if (r < ctx->in.payload_length+8) {
+	 }else if ((unsigned)r < msg.payload_length+8) {
 	    fprintf(stderr, "outfd write(): written less then requested (%i < %i)\n",
-		  r, ctx->in.payload_length+8);
+		  r, msg.payload_length+8);
 	    ctx->in.last_errno = 1;
 	    break;
 	 }

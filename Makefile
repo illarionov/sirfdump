@@ -44,7 +44,7 @@ endif
 all: sirfdump
 
 clean:
-	rm -f *.o sirfdump
+	rm -f *.o sirfdump sirfsplitter
 
 sirfdump: ${OBJS} sirfdump.c sirfdump.h
 	$(CC) $(CFLAGS) $(LDFLAGS) \
@@ -89,6 +89,11 @@ crc24q.o: gpsd/crc24q.h gpsd/crc24q.c
 
 strlcat.o: compat/strlcat.c
 	$(CC) $(CFLAGS) -c compat/strlcat.c
+
+sirfsplitter: output_rinex.o sirf_codec_ssb.o sirfsplitter.c sirfdump.h
+	$(CC) $(CFLAGS) $(LDFLAGS) \
+	sirfsplitter.c output_rinex.o sirf_codec_ssb.o \
+	-o sirfsplitter
 
 install:
 	mkdir -p ${DESTDIR}/bin 2> /dev/null
