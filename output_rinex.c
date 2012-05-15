@@ -358,6 +358,7 @@ int gpstime2tm0(unsigned gps_week, double gps_tow, struct gps_tm *res)
    res->min = tm->tm_min;
    res->hour = tm->tm_hour;
    res->day = tm->tm_mday;
+   res->yday = tm->tm_yday + 1;
    res->month = tm->tm_mon + 1;
    res->year = tm->tm_year + 1900;
 

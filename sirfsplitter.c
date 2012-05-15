@@ -17,12 +17,14 @@
 #include "sirf_codec_ssb.h"
 
 #define DEFAULT_DST_DIR "."
+#define DEFAULT_STATION_NAME "sirf"
 
 const char *progname = "sirfsplitter";
 const char *revision = "$Revision: 0.1 $";
 
 struct opts_t {
    char *infile;
+   char station_name[5];
    char *dst_dir;
 };
 
@@ -63,12 +65,13 @@ static void version(void)
 static void help(void)
 {
 
- printf("%s - Sirf binary logger\t\t%s\n",
+ printf("%s - Splits Sirf binary log into separate files on hourly basis\t\t%s\n",
        progname, revision);
  usage();
  printf(
    "\nOptions:\n"
    "    -f, --infile                Input file, default: - (stdin)\n"
+   "    -s, --station               Station name\n"
    "    -d, --dst_dir               Destination directory, default: .\n"
    "    -h, --help                  Help\n"
    "    -v, --version               Show version\n"
@@ -80,6 +83,8 @@ static void help(void)
 static struct ctx_t *init_ctx()
 {
    Ctx.opts.infile = NULL;
+   strncpy(Ctx.opts.station_name, DEFAULT_STATION_NAME, sizeof(Ctx.opts.station_name));
+   Ctx.opts.station_name[sizeof(Ctx.opts.station_name)-1] = 0;
    Ctx.opts.dst_dir = NULL;
    Ctx.in.fd = -1;
    Ctx.in.head = Ctx.in.tail = 0;
@@ -283,8 +288,9 @@ static int update_time(struct ctx_t *ctx, unsigned week, double tow)
    }
 
    /* day of year  */
-   pos1 = sprintf(&ctx->out_fname[pos], "/%02u-%02u",
-	 ctx->gps_time.month, ctx->gps_time.day);
+   assert( (ctx->gps_time.yday > 0) && (ctx->gps_time.yday <= 366));
+   pos1 = sprintf(&ctx->out_fname[pos], "/%03u",
+	 ctx->gps_time.yday);
    if (pos1 < 0) {
       perror("sprintf() error");
       ctx->out_fname[0] = 0;
@@ -300,8 +306,9 @@ static int update_time(struct ctx_t *ctx, unsigned week, double tow)
    }
 
    /* hour  */
-   pos1 = sprintf(&ctx->out_fname[pos], "/%02u.srf",
-	 ctx->gps_time.hour);
+   assert(ctx->gps_time.hour < 24);
+   pos1 = sprintf(&ctx->out_fname[pos], "/%.4s%03u%c.srf",
+	 ctx->opts.station_name, ctx->gps_time.yday, 'a' + ctx->gps_time.hour);
    if (pos1 < 0) {
       perror("sprintf() error");
       ctx->out_fname[0] = 0;
@@ -322,7 +329,7 @@ static int update_time(struct ctx_t *ctx, unsigned week, double tow)
       return -1;
    }
 
-   fprintf(stderr, "%s %i\n", ctx->out_fname, ctx->outfd);
+   fprintf(stderr, "%s\n", ctx->out_fname);
 
    return hour_changed;
 }
@@ -340,6 +347,7 @@ int main(int argc, char *argv[])
       {"version",     no_argument,       0, 'v'},
       {"help",        no_argument,       0, 'h'},
       {"infile",      required_argument, 0, 'f'},
+      {"station",     required_argument, 0, 'f'},
       {"dst_dir",     required_argument, 0, 'd'},
       {0, 0, 0, 0}
    };
@@ -347,7 +355,7 @@ int main(int argc, char *argv[])
    ctx = init_ctx();
    assert(ctx);
 
-   while ((c = getopt_long(argc, argv, "vh?f:d:",longopts,NULL)) != -1) {
+   while ((c = getopt_long(argc, argv, "vh?f:d:s:",longopts,NULL)) != -1) {
       switch (c) {
 	 case 'f':
 	    if (set_file(&ctx->opts.infile, optarg) != 0) {
@@ -360,6 +368,10 @@ int main(int argc, char *argv[])
 	       free_ctx(ctx);
 	       return 1;
 	    }
+	    break;
+	 case 's':
+	    strncpy(ctx->opts.station_name, optarg, sizeof(ctx->opts.station_name));
+	    ctx->opts.station_name[sizeof(ctx->opts.station_name)-1]='\0';
 	    break;
 	 case 'v':
 	    version();
@@ -425,7 +437,8 @@ int main(int argc, char *argv[])
 	 switch (msg_id) {
 	    case SIRF_MSG_SSB_NL_MEAS_DATA:
 	       /* XXX: stalled gps_week */
-	       update_time(ctx, ctx->gps_week, m.nld.gps_sw_time);
+	       if (ctx->outfd >= 0)
+		  update_time(ctx, ctx->gps_week, m.nld.gps_sw_time);
 	       break;
 	    case SIRF_MSG_SSB_MEASURED_NAVIGATION:
 	       gps_week = (ctx->gps_week & 0xfc00) | (m.mn.gps_week & 0x3ff);
@@ -447,7 +460,7 @@ int main(int argc, char *argv[])
 	 perror("stdout write() error");
 	 break;
       }else if ((unsigned)r < msg.payload_length+8) {
-	 fprintf(stderr, "stdout write(): written less then requested (%i < %i)\n",
+	 fprintf(stderr, "stdout write(): wrote less than requested (%i < %i)\n",
 	       r, msg.payload_length+8);
 	 ctx->in.last_errno = 1;
 	 break;
@@ -460,7 +473,7 @@ int main(int argc, char *argv[])
 	    perror("outfd write() error");
 	    break;
 	 }else if ((unsigned)r < msg.payload_length+8) {
-	    fprintf(stderr, "outfd write(): written less then requested (%i < %i)\n",
+	    fprintf(stderr, "outfd write(): wrote less than requested (%i < %i)\n",
 		  r, msg.payload_length+8);
 	    ctx->in.last_errno = 1;
 	    break;

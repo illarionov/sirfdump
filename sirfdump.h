@@ -19,6 +19,7 @@ struct transport_msg_t {
 
 struct gps_tm {
    unsigned year, month, day, hour, min;
+   unsigned yday;
    double sec;
 };
 
