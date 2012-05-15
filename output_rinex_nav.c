@@ -138,9 +138,9 @@ static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
 
    if (!ctx->header_printed)
       ctx->header_printed = print_nav_header(out_f, ctx, dst);
-   else if (!ctx->opt_header_printed)
+   else if (!ctx->opt_header_printed && (data_changed & 0x02))
       ctx->opt_header_printed = print_nav_optional_header(out_f, ctx, dst);
-   else if (data_changed & 0x02) /* iono data changed  */
+   else if (0 && (data_changed & 0x02)) /* iono data changed  */
       print_nav_optional_header(out_f, ctx, dst);
 
    if (data_changed & 0x01)
