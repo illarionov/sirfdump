@@ -7,6 +7,7 @@
 
 #include "sirfdump.h"
 #include "sirf_msg.h"
+#include "sirf_codec.h"
 #include "sirf_codec_ssb.h"
 
 const char * const MonthName[] = {"JAN","FEB","MAR","APR", "MAY","JUN","JUL","AUG", 
@@ -73,6 +74,8 @@ struct rinex_ctx_t {
    int header_printed;
 
    struct epoch_t epoch;
+
+   unsigned sirf_flags;
 };
 
 static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
@@ -87,7 +90,7 @@ static void epoch_clear (struct epoch_t *e);
 static void epoch_close(struct epoch_t *e);
 static int epoch_printf(FILE *out_f, struct epoch_t *e);
 
-void *new_rinex_ctx(int argc, char **argv)
+void *new_rinex_ctx(int argc, char **argv, unsigned gsw230_byte_order)
 {
    struct rinex_ctx_t *ctx;
    struct tm *tm;
@@ -132,6 +135,8 @@ void *new_rinex_ctx(int argc, char **argv)
    ctx->first_obs_found = 0;
    ctx->header_printed = 0;
 
+   ctx->sirf_flags = gsw230_byte_order ? SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER : 0;
+
    epoch_clear(&ctx->epoch);
 
    return ctx;
@@ -163,8 +168,9 @@ int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 
    ctx = (struct rinex_ctx_t *)user_ctx;
 
-   err = SIRF_CODEC_SSB_Decode(msg->payload,
+   err = SIRF_CODEC_SSB_Decode_Ex(msg->payload,
 	 msg->payload_length,
+	 (tSIRF_UINT32)ctx->sirf_flags,
 	 &msg_id,
 	 m.u8,
 	 &msg_length);

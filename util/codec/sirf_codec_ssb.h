@@ -63,6 +63,14 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8* payload,
                                     tSIRF_UINT32 *message_id,
                                     tSIRF_VOID *message_structure,
                                     tSIRF_UINT32 *message_length );
+
+tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8* payload,
+                                    tSIRF_UINT32 payload_length,
+				    tSIRF_UINT32 sirf_flags,
+                                    tSIRF_UINT32 *message_id,
+                                    tSIRF_VOID *message_structure,
+                                    tSIRF_UINT32 *message_length );
+
 #ifdef __cplusplus
 }
 #endif

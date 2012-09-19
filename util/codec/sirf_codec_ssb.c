@@ -2136,7 +2136,31 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8 *payload,
                                     tSIRF_UINT32 payload_length,
                                     tSIRF_UINT32 *message_id,
                                     tSIRF_VOID   *message_structure,
-                                    tSIRF_UINT32 *message_length )
+                                    tSIRF_UINT32 *message_length ) {
+   return SIRF_CODEC_SSB_Decode_Ex(payload, payload_length, 0, message_id,
+	 message_structure, message_length);
+}
+
+/***************************************************************************
+ * @brief:   Convert a byte stream to a formatted SSB structure
+ * @param[in]:  payload - contains the byte stream, in protocol format
+ * @param[in]   payload_length - the size of same, including overhead
+ * @param[in]   payload_length - the size of same, including overhead
+ * @param[in]   sirf_flags - SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER for GSW2.3 - 2.99
+ * @param[out]  message_id - SSB message id, derived from the input
+ * @param[out]  message_structure - data structure keyed to the message id
+ * @param[out]  message_length - pointer to the length of the message
+ * @return:  SIRF_SUCCESS, SIRF_CODEC_SSB_NULL_POINTER, or
+ *           SIRF_CODEC_SSB_LENGTH_ERROR
+***************************************************************************/
+
+tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
+                                    tSIRF_UINT32 payload_length,
+				    tSIRF_UINT32 sirf_flags,
+                                    tSIRF_UINT32 *message_id,
+                                    tSIRF_VOID   *message_structure,
+                                    tSIRF_UINT32 *message_length
+				    )
 {
    tSIRF_RESULT tRet = SIRF_SUCCESS;
 
@@ -2641,10 +2665,10 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8 *payload,
                msg->Chnl                  = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->Timetag               = SIRFBINARY_IMPORT_UINT32(ptr);
                msg->svid                  = SIRFBINARY_IMPORT_UINT8 (ptr);
-               SIRFBINARY_IMPORT_DOUBLE(msg->gps_sw_time,            ptr);
-               SIRFBINARY_IMPORT_DOUBLE(msg->pseudorange,            ptr);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->gps_sw_time,            ptr, sirf_flags);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->pseudorange,            ptr, sirf_flags);
                SIRFBINARY_IMPORT_FLOAT (msg->carrier_freq,           ptr);
-               SIRFBINARY_IMPORT_DOUBLE(msg->carrier_phase,          ptr);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->carrier_phase,          ptr, sirf_flags);
                msg->time_in_track         = SIRFBINARY_IMPORT_UINT16(ptr);
                msg->sync_flags            = SIRFBINARY_IMPORT_UINT8 (ptr);
                for (i = 0; i < SIRF_NUM_POINTS; i++)
@@ -2699,16 +2723,16 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8 *payload,
             {
                *message_length = sizeof(*msg);
                msg->svid       = SIRFBINARY_IMPORT_UINT8(ptr);
-               SIRFBINARY_IMPORT_DOUBLE (msg->time,       ptr);
+               SIRFBINARY_IMPORT_DOUBLE_EX (msg->time,       ptr, sirf_flags);
                for (i = 0; i < 3; i++)
                {
-                  SIRFBINARY_IMPORT_DOUBLE(msg->pos[i],  ptr);
+                  SIRFBINARY_IMPORT_DOUBLE_EX(msg->pos[i],  ptr, sirf_flags);
                }
                for (i = 0; i < 3; i++)
                {
-                  SIRFBINARY_IMPORT_DOUBLE(msg->vel[i],  ptr);
+                  SIRFBINARY_IMPORT_DOUBLE_EX(msg->vel[i],  ptr, sirf_flags);
                }
-               SIRFBINARY_IMPORT_DOUBLE(msg->clk,        ptr);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->clk,        ptr, sirf_flags);
                SIRFBINARY_IMPORT_FLOAT (msg->clf,        ptr);
                msg->eph        = SIRFBINARY_IMPORT_UINT8(ptr);
                SIRFBINARY_IMPORT_FLOAT (msg->posvar,     ptr);

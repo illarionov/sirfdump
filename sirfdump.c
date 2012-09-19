@@ -35,6 +35,7 @@ struct opts_t {
       OUTPUT_RINEX_NAV,
       OUTPUT_RTCM,
    } output_type;
+   unsigned gsw230_byte_order;
 };
 
 struct input_stream_t {
@@ -51,6 +52,9 @@ struct ctx_t {
    dumpf_t *dump_f;
    void *user_ctx;
 };
+
+
+unsigned output_dump_use_gsw230_byte_order = 0;
 
 
 static void usage(void)
@@ -76,6 +80,7 @@ static void help(void)
    "    -f, --infile                Input file, default: - (stdin)\n"
    "    -F, --outfile               Output file, default: - (stdout)\n"
    "    -o, --outtype               Output type: dump / nmea / rinex / rinex-nav / rtcm. default: nmea\n"
+   "    -2, --gsw230                Use alternate byte order that is used on GSW 2.3.0 - 2.9.9 firmwares\n"
    "    -h, --help                  Help\n"
    "    -v, --version               Show version\n"
    "\n"
@@ -95,6 +100,7 @@ static struct ctx_t *init_ctx()
    }
    ctx->opts.infile = ctx->opts.outfile = NULL;
    ctx->opts.output_type = OUTPUT_NMEA;
+   ctx->opts.gsw230_byte_order = 0;
    ctx->in.fd = -1;
    ctx->in.head = ctx->in.tail = 0;
    ctx->in.last_errno = 0;
@@ -270,6 +276,7 @@ int main(int argc, char *argv[])
       {"infile",      required_argument, 0, 'f'},
       {"outfile",     required_argument, 0, 'F'},
       {"outtype",     required_argument, 0, 'o'},
+      {"gsw230",      no_argument,       0, '2'},
       {0, 0, 0, 0}
    };
 
@@ -285,7 +292,7 @@ int main(int argc, char *argv[])
 #endif
 #endif
 
-   while ((c = getopt_long(argc, argv, "vh?f:F:o:",longopts,NULL)) != -1) {
+   while ((c = getopt_long(argc, argv, "vh?f:F:o:2",longopts,NULL)) != -1) {
       switch (c) {
 	 case 'f':
 	    if (set_file(&ctx->opts.infile, optarg) != 0) {
@@ -314,6 +321,9 @@ int main(int argc, char *argv[])
 	       fputs("Wrong output type\n", stderr);
 	       return 1;
 	    }
+	    break;
+	 case '2':
+	    ctx->opts.gsw230_byte_order = 1;
 	    break;
 	 case 'v':
 	    version();
@@ -370,7 +380,7 @@ int main(int argc, char *argv[])
 	 break;
       case OUTPUT_RINEX:
 	 ctx->dump_f = &output_rinex;
-	 ctx->user_ctx = new_rinex_ctx(argc, argv);
+	 ctx->user_ctx = new_rinex_ctx(argc, argv, ctx->opts.gsw230_byte_order);
 	 if (ctx->user_ctx == NULL) {
 	    perror(NULL);
 	    free_ctx(ctx);
@@ -388,7 +398,7 @@ int main(int argc, char *argv[])
 	 break;
       case OUTPUT_RTCM:
 	 ctx->dump_f = &output_rtcm;
-	 ctx->user_ctx = new_rtcm_ctx(argc, argv);
+	 ctx->user_ctx = new_rtcm_ctx(argc, argv, ctx->opts.gsw230_byte_order);
 	 setvbuf(ctx->outfh, NULL, _IONBF, 0);
 	 if (ctx->user_ctx == NULL) {
 	    perror(NULL);
@@ -398,6 +408,7 @@ int main(int argc, char *argv[])
 	 break;
       case OUTPUT_DUMP:
       default:
+	 output_dump_use_gsw230_byte_order = ctx->opts.gsw230_byte_order;
 	 ctx->dump_f = &output_dump;
 	 break;
    }
@@ -421,3 +432,4 @@ int main(int argc, char *argv[])
    free_ctx(ctx);
    return 0;
 }
+

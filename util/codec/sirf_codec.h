@@ -43,6 +43,8 @@
 #define SIRF_CODEC_ERROR_INVALID_MSG_LENGTH  0x6102
 #define SIRF_CODEC_ERROR_INVALID_PARAMETER   0x6103
 
+#define SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER   0x01
+
 /* Stream converters ------------------------------------------------------- */
 
 #define SIRF_SWAPIN64(bytestream)\
@@ -87,6 +89,9 @@
      (*((bytestream)++)) = *(hostbyte-1);\
      (*((bytestream)++)) = *(hostbyte-2);\
      (*((bytestream)++)) = *(hostbyte-3); }
+
+/* Double format out is bits 63..0 per GSW2.3 - GSW2.99 spec */
+#define SIRF_SWAPOUT_DOUBLE_GSW230 SIRF_SWAPOUT64
 
 /* Currently not used but availabe for integer 64 big endian export */
 #define SIRF_SWAPOUT64(hostint64, bytestream) {\
@@ -159,6 +164,9 @@
    (*((bytestream)++)) = (hostbyte[1]);\
    (*((bytestream)++)) = (hostbyte[2]);\
    (*((bytestream)++)) = (hostbyte[3]); }
+
+/* Double format out is bits 31..0 then 63..32 per GSW3.x spec */
+#define SIRF_COPYOUT_DOUBLE_GSW230 SIRF_COPYOUT64
 
 #define SIRF_COPYOUT64(hostint64, bytestream) {\
    const tSIRF_UINT8 *hostbyte = (const tSIRF_UINT8*)&(hostint64);\
@@ -236,6 +244,14 @@
       SIRF_SWAPOUT_DOUBLE(*(bytestream_i), hostbyte_i);\
       (bytestream_i)+=8; }
 
+#   define SIRFBINARY_IMPORT_DOUBLE_EX(hostdouble_i, bytestream_i, sirf_flags_i) {\
+      tSIRF_UINT8 *hostbyte_i = (tSIRF_UINT8*)&(hostdouble_i);\
+      if ( (sirf_flags_i) & SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER) \
+	 SIRF_SWAPOUT_DOUBLE_GSW230(*(bytestream_i), hostbyte_i) \
+      else \
+	 SIRF_SWAPOUT_DOUBLE(*(bytestream_i), hostbyte_i);\
+      (bytestream_i)+=8; }
+
 #   define SIRFBINARY_EXPORT8(src, dst) (*((dst)++) = (tSIRF_UINT8)(src))
 #   define SIRFBINARY_EXPORT16(src, dst) SIRF_SWAPOUT16((src),(dst))
 #   define SIRFBINARY_EXPORT24(src, dst) SIRF_SWAPOUT24((src),(dst))
@@ -265,6 +281,14 @@
 #   define SIRFBINARY_IMPORT_DOUBLE(hostdouble_i, bytestream_i) {\
       tSIRF_UINT8 *hostbyte_i = (tSIRF_UINT8*)&(hostdouble_i);\
       SIRF_COPYOUT_DOUBLE(*(bytestream_i), hostbyte_i);\
+      (bytestream_i)+=8; }
+
+#   define SIRFBINARY_IMPORT_DOUBLE_EX(hostdouble_i, bytestream_i, sirf_flags_i) {\
+      tSIRF_UINT8 *hostbyte_i = (tSIRF_UINT8*)&(hostdouble_i);\
+      if ( (sirf_flags_i) & SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER) \
+	 SIRF_COPYOUT_DOUBLE_GSW230(*(bytestream_i), hostbyte_i) \
+      else \
+	 SIRF_COPYOUT_DOUBLE(*(bytestream_i), hostbyte_i);\
       (bytestream_i)+=8; }
 
 #   define SIRFBINARY_EXPORT8( src, dst) (*((dst)++) = (tSIRF_UINT8)(src))
