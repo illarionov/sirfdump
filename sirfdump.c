@@ -23,7 +23,7 @@
 #include "sirf_msg.h"
 
 const char *progname = "sirfdump";
-const char *revision = "$Revision: 0.2 $";
+const char *revision = "$Revision: 0.3 $";
 
 struct opts_t {
    char *infile;
