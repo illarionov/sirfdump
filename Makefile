@@ -47,9 +47,9 @@ clean:
 	rm -f *.o sirfdump sirfsplitter
 
 sirfdump: ${OBJS} sirfdump.c sirfdump.h
-	$(CC) $(CFLAGS) $(LDFLAGS) \
+	$(CC) $(CFLAGS) \
 	sirfdump.c ${OBJS} \
-	-o sirfdump
+	-o sirfdump $(LDFLAGS)
 
 sirf_codec_ssb.o: util/codec/sirf_codec_ssb.c
 	$(CC) $(CFLAGS) -c util/codec/sirf_codec_ssb.c
@@ -91,9 +91,9 @@ strlcat.o: compat/strlcat.c
 	$(CC) $(CFLAGS) -c compat/strlcat.c
 
 sirfsplitter: output_rinex.o sirf_codec_ssb.o sirfsplitter.c sirfdump.h
-	$(CC) $(CFLAGS) $(LDFLAGS) \
+	$(CC) $(CFLAGS) \
 	sirfsplitter.c output_rinex.o sirf_codec_ssb.o \
-	-o sirfsplitter
+	-o sirfsplitter $(LDFLAGS)
 
 install:
 	mkdir -p ${DESTDIR}/bin 2> /dev/null
