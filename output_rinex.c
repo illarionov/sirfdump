@@ -11,7 +11,7 @@
 #include "sirf_codec_ssb.h"
 
 const char * const MonthName[] = {"JAN","FEB","MAR","APR", "MAY","JUN","JUL","AUG", 
-   "SEP", "OCO", "DEC"};
+   "SEP", "OCT", "NOV", "DEC"};
 
 struct epoch_t {
       /* mid-7 */
