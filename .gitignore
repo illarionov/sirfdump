@@ -5,3 +5,8 @@
 sirfdump.exe
 *~
 /sirfdump
+
+wince/*.aps
+wince/*.ncb
+wince/*.user
+wince/Pocket*/
