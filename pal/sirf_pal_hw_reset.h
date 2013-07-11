@@ -6,7 +6,7 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2005-2009 by SiRF Technology, Inc.  All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -47,9 +47,9 @@
 extern "C" {
 #endif
 
-tSIRF_RESULT SIRF_PAL_HW_SetTrackerResetPort( tSIRF_HANDLE port );
-
-tSIRF_RESULT SIRF_PAL_HW_TrackerReset( tSIRF_UINT32 level );
+tSIRF_RESULT SIRF_PAL_HW_WriteRESET( tSIRF_UINT32 level );
+tSIRF_RESULT SIRF_PAL_HW_OpenRESET( tSIRF_UINT32 level );
+tSIRF_RESULT SIRF_PAL_HW_CloseRESET( void );
 
 /* Leave C naming convention */
 #ifdef __cplusplus

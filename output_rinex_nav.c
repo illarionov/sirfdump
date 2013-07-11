@@ -82,6 +82,7 @@ int output_rinex_nav(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
    int err;
    struct rinex_nav_ctx_t *ctx;
    tSIRF_UINT32 msg_id, msg_length;
+   tSIRF_UINT32 options;
    union {
       tSIRF_MSG_SSB_50BPS_DATA data_50bps;
       tSIRF_MSG_SSB_CLOCK_STATUS data_clock;
@@ -96,11 +97,13 @@ int output_rinex_nav(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 
    ctx = (struct rinex_nav_ctx_t *)user_ctx;
 
+   options = 0;
    err = SIRF_CODEC_SSB_Decode(msg->payload,
 	 msg->payload_length,
 	 &msg_id,
 	 m.u8,
-	 &msg_length);
+	 &msg_length,
+         &options);
 
    if (err)
       return err;

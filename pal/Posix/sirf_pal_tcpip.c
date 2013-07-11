@@ -35,7 +35,9 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
+#ifndef OS_ANDROID
 #include <sys/timeb.h>
+#endif
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/time.h>
@@ -44,11 +46,13 @@
 #include <netdb.h>
 #include <sys/socket.h>
 
+#include "gps_logging.h"
 
 
 /* ----------------------------------------------------------------------------
  *   Local Functions
  * ------------------------------------------------------------------------- */
+
 
 /**
  * @brief Test if a socket handle is valid.
@@ -98,12 +102,15 @@ tSIRF_RESULT SIRF_PAL_NET_Destroy(tSIRF_VOID)
 tSIRF_RESULT SIRF_PAL_NET_CreateSocket( tSIRF_SOCKET *socket_handle, 
                                         tSIRF_UINT32 socket_type )
 {
-   char           opt_c;
+   int            opt_c;
    int            result = 0;
+   struct linger  linger;
+   char *gprs_int = "pdp0";
 
+   SIRF_LOGD("create socket In"); 
    DEBUGCHK(socket_handle);
    *socket_handle = (tSIRF_SOCKET)socket(AF_INET, SOCK_STREAM, 0);
-
+   
    if (!IsValidSocket(*socket_handle))
    {
       DEBUGMSG(1,(DEBUGTXT("socket() failed, errno=%d\n"), errno));
@@ -138,7 +145,7 @@ tSIRF_RESULT SIRF_PAL_NET_CreateSocket( tSIRF_SOCKET *socket_handle,
    result = setsockopt(*socket_handle, 
                        SOL_SOCKET, 
                        SO_REUSEADDR, 
-                       (char*)&opt_c, 
+                       (void*)&opt_c,
                        sizeof(opt_c));
    if (0!=result) 
    {
@@ -147,12 +154,13 @@ tSIRF_RESULT SIRF_PAL_NET_CreateSocket( tSIRF_SOCKET *socket_handle,
       return SIRF_PAL_NET_ERROR;
    }
 
-   opt_c = 1;
+   linger.l_onoff = 0;
+   linger.l_linger = 1;
    result = setsockopt(*socket_handle, 
                        SOL_SOCKET, 
-                       SO_DONTLINGER, 
-                       (char*)&opt_c, 
-                       sizeof(opt_c));
+                       SO_LINGER,
+                       (void*)&linger,
+                       sizeof(linger));
    if (0!=result) 
    {
       DEBUGMSG(1,(DEBUGTXT("setsockopt() failed, errno=%d\n"), errno));
@@ -164,7 +172,7 @@ tSIRF_RESULT SIRF_PAL_NET_CreateSocket( tSIRF_SOCKET *socket_handle,
    result = setsockopt(*socket_handle, 
                        IPPROTO_TCP, 
                        TCP_NODELAY, 
-                       (char*)&opt_c, 
+                       (void*)&opt_c,
                        sizeof(opt_c));
    if (0!=result) 
    {
@@ -172,6 +180,15 @@ tSIRF_RESULT SIRF_PAL_NET_CreateSocket( tSIRF_SOCKET *socket_handle,
       SIRF_PAL_NET_CloseSocket(*socket_handle);
       return SIRF_PAL_NET_ERROR;
    }
+
+   /* bind to GPRS interface, like ccinet0 */
+   // SIRF_LOGD("Binding socket %s\r\n",gprs_interface);
+   if (setsockopt(*socket_handle, SOL_SOCKET, SO_BINDTODEVICE, gprs_int, sizeof(gprs_int)) < 0)
+   {
+      SIRF_PAL_NET_CloseSocket(*socket_handle);
+      return SIRF_PAL_NET_ERROR;
+   }  //remove this comment once get gprs_interface from Borqs/Samsung
+   SIRF_LOGD("Bind socket success");
 
    return SIRF_SUCCESS;
 
@@ -494,6 +511,8 @@ tSIRF_RESULT SIRF_PAL_NET_Connect( tSIRF_SOCKET socket_handle,
    tSIRF_SOCKADDR       sockaddr;
    struct hostent *     host_addrs;
 
+char * local_addr = "66.230.192.56";
+
    DEBUGCHK((SIRF_PAL_NET_INVALID_SOCKET != socket_handle) && addr);
 
    if (SIRF_PAL_NET_SECURITY_NONE != security)
@@ -503,16 +522,25 @@ tSIRF_RESULT SIRF_PAL_NET_Connect( tSIRF_SOCKET socket_handle,
 
    /* convert from dotted notation to sockaddr: */
    { 
+#ifndef OS_ANDROID
       /* Use TCP if DNS lookup needed */
       sethostent(1);
+#endif
 
+      SIRF_LOGD("gethostbyname in ");
       do
       {
-         host_addrs = gethostbyname( addr );
+         //host_addrs = gethostbyname( addr );
+            host_addrs = gethostbyname(local_addr);
       }
       while (NULL == host_addrs && TRY_AGAIN == h_errno);
+    
 
+#ifndef OS_ANDROID
       endhostent();
+#endif
+
+      SIRF_LOGD("gethostbyname out ");
 
       if (NULL == host_addrs) return SIRF_PAL_NET_ERROR;
    }

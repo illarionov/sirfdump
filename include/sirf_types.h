@@ -6,7 +6,7 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2006-2008 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2006-2009 by SiRF Technology, Inc.  All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -33,27 +33,34 @@
 #ifndef SIRF_TYPES_H_INCLUDED
 #define SIRF_TYPES_H_INCLUDED
 
-#include <stdint.h>
-#ifdef _MSC_VER
-#define bool unsigned char
+#ifdef WINCE
+#include "wince.h"
 #else
-#include <stdbool.h>
+#include <stdint.h>
 #endif
+
+#include "sirf_host_sdk_version.h"
 
 /* ----------------------------------------------------------------------------
  *   Included files
  * ------------------------------------------------------------------------- */
 
+/* ----------------------------------------------------------------------------
+ *   SiRF definitions
+ * ------------------------------------------------------------------------- */
+#define SIRF_INVALID_HANDLE         ((void *)(-1))
+
+#define SIRF_FALSE                  (0)
+#define SIRF_TRUE                   (!SIRF_FALSE)
+
+#define SIRF_TIMEOUT_INFINITE       (0xFFFFFFFF)
 
 /* ----------------------------------------------------------------------------
  *   SiRF data types
  * ------------------------------------------------------------------------- */
-
-
-
 #define tSIRF_VOID void
 
-typedef bool		        tSIRF_BOOL;
+typedef unsigned long int       tSIRF_BOOL;
 typedef unsigned char           tSIRF_UCHAR;
 
 typedef char                    tSIRF_CHAR;
@@ -72,28 +79,14 @@ typedef float                   tSIRF_FLOAT;
 
 typedef void *                  tSIRF_HANDLE;
 
-typedef unsigned long int       tSIRF_RESULT;
-
+#if defined(_MSC_VER) && (_MSC_VER < 1400)
+#include <basetsd.h>
+typedef INT64 tSIRF_INT64;
+typedef UINT64 tSIRF_UINT64;
+#else
 typedef int64_t tSIRF_INT64;
 typedef uint64_t tSIRF_UINT64;
-
-#ifdef TOOLCHAIN_VC8
-   /** Support snprintf on Visual Studio 8 (2005) */
-   #define snprintf _snprintf
 #endif
-/* ----------------------------------------------------------------------------
- *   SiRF constants
- * ------------------------------------------------------------------------- */
-
-
-#define SIRF_FALSE                        (0)
-#define SIRF_TRUE               (!SIRF_FALSE)
-
-#define SIRF_SUCCESS                      (0)
-#define SIRF_FAILURE                      (1)
-#define SIRF_TIMEOUT_INFINITE    (0xFFFFFFFF)
-
-
 
 #endif /* !SIRF_TYPES_H_INCLUDED */
 

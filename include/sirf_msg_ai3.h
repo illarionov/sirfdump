@@ -30,6 +30,7 @@
  *   Include Files
  *----------------------------------------------------------------------------*/
 
+#include "sirf_msg_ssb.h"
 #include "sirf_types.h"
 
 /*-----------------------------------------------------------------------------
@@ -105,26 +106,15 @@
 
 /* AI3 2.2 = AI3 2.1 + AI3NavBits */
 #ifdef AI3_ICD_2_2
-   #define AI3_DUAL_POS_METHOD
-   #define AI3_EPH_ALM_POLL_ENABLE
    #define AI3_ICD_1_6
    #define AI3_ICD_1_9
    #define AI3_ICD_2_0
    #define AI3_ICD_2_1
    #define SIRF_MSG_AI3_ICD_VERSION 0x22
-   #define MS_ASSIST
-   #define ENABLE_ACQ_ASSIST
-   #define SLC_EE
-   #define NAV_BIT_STRIPPING_HI_AI3 
 #endif /*AI3_ICD_2_1*/
 
 #define SIRF_MSG_AI3_ICD_VERSION_MAJOR (SIRF_MSG_AI3_ICD_VERSION >> 4)
 #define SIRF_MSG_AI3_ICD_VERSION_MINOR (SIRF_MSG_AI3_ICD_VERSION & 0x0F)
-
-
-#ifdef F_ICD_2_1
-   #define SLC_TP
-#endif
 
 #define SIRF_MSG_AI3_MAX_STRUCT_SIZE (sizeof(tSIRF_MSG_AI3_REQ))
 #ifdef AI3_ICD_2_2

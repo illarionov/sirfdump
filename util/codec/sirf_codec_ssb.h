@@ -3,11 +3,12 @@
  * @{
  */
 
- /**************************************************************************
+ /***************************************************************************
  *                                                                         *
  *                   SiRF Technology, Inc. GPS Software                    *
  *                                                                         *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc. All rights reserved.*
+ *    Copyright (c) 2005 - 2009 by SiRF Technology, Inc.  All rights       *
+ *    reserved.                                                            *
  *                                                                         *
  *    This Software is protected by United States copyright laws and       *
  *    international treaties.  You may not reverse engineer, decompile     *
@@ -36,14 +37,8 @@
 #ifndef __SIRF_CODEC_SSB_H__
 #define __SIRF_CODEC_SSB_H__
 
+#include "sirf_errors.h"
 #include "sirf_types.h"
-
-/* Return values ========================================================== */
-
-#define SIRF_CODEC_SSB_NULL_POINTER        0x7000
-#define SIRF_CODEC_SSB_INVALID_MSG_ID      0x7001
-#define SIRF_CODEC_SSB_LENGTH_ERROR        0x7002
-
 
 /* =============================================================================
  * Prototype Definitions
@@ -52,28 +47,24 @@
 extern "C" {
 #endif
 
-tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
-                                    tSIRF_VOID *message_structure,
-                                    tSIRF_UINT32 message_length,
-                                    tSIRF_UINT8 *packet,
-                                    tSIRF_UINT32 *packet_length );
+tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32  message_id, 
+                                    tSIRF_VOID   *message_structure,
+                                    tSIRF_UINT32  message_length,
+                                    tSIRF_UINT8  *packet,
+                                    tSIRF_UINT32 *packet_length,
+                                    tSIRF_UINT32 *options );
 
-tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8* payload,
-                                    tSIRF_UINT32 payload_length,
+tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8  *payload,
+                                    tSIRF_UINT32  payload_length,
                                     tSIRF_UINT32 *message_id,
-                                    tSIRF_VOID *message_structure,
-                                    tSIRF_UINT32 *message_length );
+                                    tSIRF_VOID   *message_structure,
+                                    tSIRF_UINT32 *message_length,
+                                    tSIRF_UINT32 *options);
 
-tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8* payload,
-                                    tSIRF_UINT32 payload_length,
-				    tSIRF_UINT32 sirf_flags,
-                                    tSIRF_UINT32 *message_id,
-                                    tSIRF_VOID *message_structure,
-                                    tSIRF_UINT32 *message_length );
-
+/* Leave C naming convention */
 #ifdef __cplusplus
 }
-#endif
+#endif /*__cplusplus*/
 
 #endif /* __SIRF_CODEC_SSB_H__ */
 

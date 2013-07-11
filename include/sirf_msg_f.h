@@ -6,7 +6,8 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2005-2009 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2005-2010 by SiRF Technology, a CSR plc Company.
+ *    All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -30,6 +31,7 @@
  *   Include Files
  *----------------------------------------------------------------------------*/
 
+#include "sirf_msg_ssb.h"
 #include "sirf_types.h"
 
 /* The maximum message length that will ever be used in a message buffer. */
@@ -316,6 +318,7 @@ typedef struct  tSIRF_MSG_F_FREQ_TRANSFER_RSP_tag
 #define SIRF_MSG_F_FTRSP_RCI_REFERENCE_CLOCK_IS_OFF              ( 0x02 )
 #define SIRF_MSG_F_FTRSP_RCI_PLEASE_TURN_OFF_REFERENCE_CLOCK     ( 0x04 )
 #define SIRF_MSG_F_FTRSP_RCI_NOMINAL_FREQ_INCLUDED_HERE          ( 0x08 )
+#define SIRF_MSG_F_FTRSP_RCI_USE_TRANSFER_DATA                   ( 0x80 )
 
 /*-----------------------------------------------------------------------------
     7.5.8.1 Approximate MS Position Request
@@ -382,7 +385,7 @@ typedef struct  tSIRF_MSG_F_TIME_FREQ_APROX_POS_RSP_tag
    tSIRF_UINT8  time_accuracy;         /* time accuracy status with above scale*/
    tSIRF_UINT8  freq_acc_scale;        /* 0 = 0.00390625, 0xFF = unknown */
    tSIRF_UINT8  freq_accuracy;         /* scaled frequency accuracy status */
-   tSIRF_UINT16 scaled_freq_offset;    /* frequency offset measured by the SLC */
+   tSIRF_INT16 scaled_freq_offset;    /* frequency offset measured by the SLC */
    tSIRF_UINT32 freq_time_tag;         /* time when frequency measurement taken*/
    tSIRF_UINT32 slc_hor_unc;           /* horizontal uncertaingy in meters,
                                          0xFF = unknown */
@@ -726,6 +729,7 @@ typedef struct  tSIRF_MSG_F_SET_BLANK_tag
 
 /* Table 69 */
 #define SIRF_MSG_F_SET_BLANK_ENABLE                (0x00)
+#define SIRF_MSG_F_SET_BLANK_DISABLE               (0x01)
 #define SIRF_MSG_F_SET_BLANK_MODE_2_SLOT_BLANKING  (0x01)
 #define SIRF_MSG_F_SET_BLANK_MODE_4_SLOT_BLANKING  (0x02)
 

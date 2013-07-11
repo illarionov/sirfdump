@@ -7,7 +7,7 @@
  *                                                                         *
  *                   SiRF Technology, Inc. GPS Software                    *
  *                                                                         *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc. All rights reserved.*
+ *    Copyright (c) 2005-2009 by SiRF Technology, Inc. All rights reserved.*
  *                                                                         *
  *    This Software is protected by United States copyright laws and       *
  *    international treaties.  You may not reverse engineer, decompile     *
@@ -36,31 +36,26 @@
 #ifndef __SIRF_CODEC_ASCII_H__
 #define __SIRF_CODEC_ASCII_H__
 
+#include "sirf_errors.h"
 #include "sirf_types.h"
-
-/* Return values ========================================================== */
-#define SIRF_CODEC_ASCII_UNKNOWN_MESSAGE_ID     0x6000
-#define SIRF_CODEC_ASCII_BAD_FORMAT             0x6001
-#define SIRF_CODEC_ASCII_NO_NUMBER              0x6002
-#define SIRF_CODEC_ASCII_NO_COMMA               0x6003
-#define SIRF_CODEC_ASCII_LENGTH_ERROR           0x6004
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-/* Prototypes ============================================================= */
-
-tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32  message_id,
+tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32  message_id, 
                                       tSIRF_VOID   *message_structure,
                                       tSIRF_UINT32  message_length,
-                                      tSIRF_CHAR   *lpszText,
-                                      tSIRF_UINT32 *lpszText_length );
+                                      tSIRF_UINT8  *lpszText, 
+                                      tSIRF_UINT32 *lpszText_length,
+                                      tSIRF_UINT32 *options );
 
-tSIRF_RESULT SIRF_CODEC_ASCII_Decode( tSIRF_CHAR   *linestr,
+tSIRF_RESULT SIRF_CODEC_ASCII_Decode( tSIRF_UINT8  *linestr,
+                                      tSIRF_UINT32  line_length,
                                       tSIRF_UINT32 *message_id,
                                       tSIRF_VOID   *message_structure,
-                                      tSIRF_UINT32 *message_length );
+                                      tSIRF_UINT32 *message_length,
+                                      tSIRF_UINT32 *options );
 
 #ifdef __cplusplus
 }

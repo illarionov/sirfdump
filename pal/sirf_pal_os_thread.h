@@ -6,7 +6,8 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2005-2009 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2005-2010 by SiRF Technology, a CSR plc Company.
+ *    All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -33,6 +34,7 @@
 #ifndef SIRF_PAL_OS_THREAD_H_INCLUDED
 #define SIRF_PAL_OS_THREAD_H_INCLUDED
 
+#include "sirf_errors.h"
 #include "sirf_types.h"
 
 
@@ -40,7 +42,7 @@
 /* ----------------------------------------------------------------------------
  *    Preprocessor Definitions
  * ------------------------------------------------------------------------- */
-
+#ifndef PVT_BUILD
 /* Thread compatibility declarations */
 #if defined ( OS_WIN32 ) || defined ( OS_WIN32_MFC ) || defined ( OS_WINCE )
    #define tSIRF_THREAD                   tSIRF_HANDLE
@@ -67,7 +69,15 @@
    #define SIRF_PAL_OS_THREAD_UNUSED     (void)index;
    #define SIRF_PAL_OS_THREAD_START()
    #define SIRF_PAL_OS_THREAD_RETURN
-#elif defined ( OS_QNX ) || defined( OS_POSIX ) || defined ( OS_LINUX )
+#elif defined( OS_POSIX ) || defined ( OS_LINUX )
+   #define tSIRF_THREAD                   tSIRF_HANDLE
+   #define SIRF_PAL_OS_THREAD_PARAMS      void *param
+   #define SIRF_PAL_OS_THREAD_RETURNTYPE  void
+   #define SIRF_PAL_OS_THREAD_CALLTYPE
+   #define SIRF_PAL_OS_THREAD_UNUSED     (void)param;
+   #define SIRF_PAL_OS_THREAD_START()     SIRF_PAL_OS_THREAD_Entry();
+   #define SIRF_PAL_OS_THREAD_RETURN()    return SIRF_PAL_OS_THREAD_Return();
+#elif defined ( OS_QNX )
    #define tSIRF_THREAD                   tSIRF_HANDLE
    #define SIRF_PAL_OS_THREAD_PARAMS      void *param
    #define SIRF_PAL_OS_THREAD_RETURNTYPE  void *
@@ -75,14 +85,6 @@
    #define SIRF_PAL_OS_THREAD_UNUSED     (void)param;
    #define SIRF_PAL_OS_THREAD_START()     SIRF_PAL_OS_THREAD_Entry();
    #define SIRF_PAL_OS_THREAD_RETURN()    return SIRF_PAL_OS_THREAD_Return();
-#elif defined( OS_SYMBIAN )
-   #define tSIRF_THREAD                   int
-   #define SIRF_PAL_OS_THREAD_PARAMS      void *param
-   #define SIRF_PAL_OS_THREAD_RETURNTYPE  int
-   #define SIRF_PAL_OS_THREAD_CALLTYPE
-   #define SIRF_PAL_OS_THREAD_UNUSED
-   #define SIRF_PAL_OS_THREAD_START()     void *ThreadCleanupStack; SIRF_PAL_OS_THREAD_Entry( &ThreadCleanupStack );
-   #define SIRF_PAL_OS_THREAD_RETURN()    return SIRF_PAL_OS_THREAD_Return( ThreadCleanupStack );
 #elif defined ( OS_RTXC )
    #define tSIRF_THREAD                   tSIRF_HANDLE
    #define SIRF_PAL_OS_THREAD_PARAMS      void
@@ -92,7 +94,7 @@
    #define SIRF_PAL_OS_THREAD_START
    #define SIRF_PAL_OS_THREAD_RETURN
 #elif defined ( OS_UCOSII )
-   #define tSIRF_THREAD                   unsigned char
+   #define tSIRF_THREAD                   tSIRF_UINT32
    #define SIRF_PAL_OS_THREAD_PARAMS      unsigned int argc, void *argv
    #define SIRF_PAL_OS_THREAD_RETURNTYPE  void
    #define SIRF_PAL_OS_THREAD_CALLTYPE
@@ -140,17 +142,9 @@ tSIRF_RESULT SIRF_PAL_OS_THREAD_Delete( tSIRF_THREAD thread_handle );
 
 tSIRF_VOID SIRF_PAL_OS_THREAD_Sleep( tSIRF_UINT32 milliseconds );
 
-
 /* Additional function(s): */
-
-#ifdef OS_SYMBIAN
-   void SIRF_PAL_OS_THREAD_Entry( void **cleanup_stack );
-   SIRF_PAL_OS_THREAD_RETURNTYPE SIRF_PAL_OS_THREAD_Return( void *cleanup_stack );
-#else
-   tSIRF_VOID SIRF_PAL_OS_THREAD_Entry( tSIRF_VOID );
-   SIRF_PAL_OS_THREAD_RETURNTYPE SIRF_PAL_OS_THREAD_Return( tSIRF_VOID );
-#endif
-
+tSIRF_VOID SIRF_PAL_OS_THREAD_Entry( tSIRF_VOID );
+SIRF_PAL_OS_THREAD_RETURNTYPE SIRF_PAL_OS_THREAD_Return( tSIRF_VOID );
 
 /* Leave C naming convention */
 #ifdef __cplusplus
@@ -181,7 +175,7 @@ tSIRF_VOID SIRF_PAL_OS_THREAD_Sleep( tSIRF_UINT32 milliseconds );
 
 #endif /* defined ( OS_WIN32 ) || defined ( OS_WIN32_MFC ) || defined ( OS_WINCE ) */
 
-
+#endif /* #ifndef PVT_BUILD */
 
 #endif /* !SIRF_PAL_OS_THREAD_H_INCLUDED */
 

@@ -6,7 +6,8 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2005-2009 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2005 - 2011 by SiRF Technology, a CSR plc Company.
+ *    All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -48,7 +49,12 @@
 #include "sirf_msg.h"
 #include "sirf_codec.h"
 #include "sirf_codec_ssb.h"
-#include "sirf_proto_common.h"
+#ifdef SIRF_AGPS
+#include "sirf_codec_ssb_agps.h"
+#endif
+#ifdef PVT_BUILD
+#include "sirf_cck_params.h"
+#endif /* PVT_BUILD */
 
 /* ----------------------------------------------------------------------------
  *   Definitions
@@ -85,7 +91,8 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
                                     tSIRF_VOID *message_structure,
                                     tSIRF_UINT32 message_length,
                                     tSIRF_UINT8 *packet,
-                                    tSIRF_UINT32 *packet_length )
+                                    tSIRF_UINT32 *packet_length,
+                                    tSIRF_UINT32 *options )
 {
    tSIRF_RESULT tRet = SIRF_SUCCESS;
 
@@ -100,6 +107,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
    /* Otherwise, process the message */
    {
       tSIRF_UINT32 i, j;
+      tSIRF_INT32 k;
       tSIRF_UINT8 *ptr = packet;
       tSIRF_UINT8 header_len = 0;
 
@@ -242,18 +250,29 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
       break;
       case SIRF_MSG_SSB_SW_VERSION:   /* 0x06 */
       {
-         tSIRF_MSG_SSB_SW_VERSION * msg = (tSIRF_MSG_SSB_SW_VERSION*) message_structure;
-
-         /* Check to make sure that the length of the buffer we are writing into is big enough.
-            Also make sure that the requested copy length does not exceed our capacity. */
-         if ( *packet_length < ( (message_length * sizeof(tSIRF_UINT8)) + header_len) )
+         tSIRF_MSG_SSB_SW_VERSION * msg = (tSIRF_MSG_SSB_SW_VERSION *) message_structure;
+            
+         if ( *packet_length < ( (2 + msg->sirf_ver_bytes + msg->cust_ver_bytes) * sizeof(tSIRF_UINT8) + header_len))
          {
             tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
          }
+         else if( (msg->sirf_ver_bytes > MAX_VERSION_LENGTH) ||
+                     (msg->cust_ver_bytes > MAX_VERSION_LENGTH) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+         }
          else
          {
-            memcpy(ptr, msg->sw_version, message_length);
-            ptr += message_length;
+            SIRFBINARY_EXPORT8(msg->sirf_ver_bytes, ptr);
+            SIRFBINARY_EXPORT8(msg->cust_ver_bytes, ptr);
+            for (i = 0; i < msg->sirf_ver_bytes; i++)
+            {
+               SIRFBINARY_EXPORT8(msg->sirf_ver_str[i], ptr);
+            }
+            for (i = 0; i < msg->cust_ver_bytes; i++)
+            {
+               SIRFBINARY_EXPORT8(msg->cust_ver_str[i], ptr);
+            }
          }
       }
       break;
@@ -279,8 +298,8 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
-      case SIRF_MSG_SSB_50BPS_DATA:          /* 0x08 */
-      case SIRF_MSG_SSB_50BPS_DATA_VERIFIED: /* 0x52 */
+      case SIRF_MSG_SSB_50BPS_DATA: /* 0x08 */
+      case SIRF_MSG_SSB_EE_50BPS_DATA_VERIFIED: /* 0x38, 0x05 */
       {
          tSIRF_MSG_SSB_50BPS_DATA * msg = (tSIRF_MSG_SSB_50BPS_DATA*) message_structure;
 
@@ -337,9 +356,20 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
             {
                msg->param_cnt = SIRF_MSG_SSB_MAX_ERROR_PARAMS;
             }
-            for (i = 0; i < SIRF_MSG_SSB_MAX_ERROR_PARAMS; i++)
+            if (SIRF_MSG_SSB_ERRID_MI_WDOREXCEPTIONCONDITION == msg->err_id)
             {
-               SIRFBINARY_EXPORT32(msg->param[i],    ptr);
+               char *p = (char *)&msg->param[0];
+               for (i = 0; i < (SIRF_MSG_SSB_MAX_ERROR_PARAMS*4); i++)
+               {
+                  SIRFBINARY_EXPORT8(*p++,    ptr);
+               }
+            }
+            else
+            {
+               for (i = 0; i < SIRF_MSG_SSB_MAX_ERROR_PARAMS; i++)
+               {
+                  SIRFBINARY_EXPORT32(msg->param[i],    ptr);
+               }
             }
          }
       }
@@ -383,6 +413,10 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
                                   header_len) )
          {
             tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else if (msg->svid_cnt > SIRF_MAX_SVID_CNT)
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
          }
          else
          {
@@ -469,7 +503,9 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
          else
          {
-            SIRFBINARY_EXPORT32(msg->reserved_1,             ptr);
+            SIRFBINARY_EXPORT8 (msg->reserved_1a,            ptr);
+            SIRFBINARY_EXPORT16(msg->reserved_1b,            ptr);
+            SIRFBINARY_EXPORT8 (msg->pos_mode_enable,        ptr);
             SIRFBINARY_EXPORT8 (msg->alt_mode,               ptr);
             SIRFBINARY_EXPORT8 (msg->alt_src,                ptr);
             SIRFBINARY_EXPORT16(msg->alt_input,              ptr);
@@ -706,7 +742,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
-      
+
       case SIRF_MSG_SSB_NL_AUX_INIT_DATA:  /* 0x40 0x01 */
       {
          tSIRF_MSG_SSB_NL_AUX_INIT_DATA *msg = (tSIRF_MSG_SSB_NL_AUX_INIT_DATA *) message_structure;
@@ -720,10 +756,10 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
          else
          {
-            SIRFBINARY_EXPORT32 (msg->time_init_unc, ptr);   
-            SIRFBINARY_EXPORT16 (msg->saved_pos_week, ptr);  
-            SIRFBINARY_EXPORT32 (msg->saved_pos_tow, ptr);   
-            SIRFBINARY_EXPORT16 (msg->saved_pos_ehe, ptr);   
+            SIRFBINARY_EXPORT32 (msg->time_init_unc, ptr);
+            SIRFBINARY_EXPORT16 (msg->saved_pos_week, ptr);
+            SIRFBINARY_EXPORT32 (msg->saved_pos_tow, ptr);
+            SIRFBINARY_EXPORT16 (msg->saved_pos_ehe, ptr);
             SIRFBINARY_EXPORT16 (msg->saved_pos_eve, ptr);
             SIRFBINARY_EXPORT8  (msg->sw_version, ptr);
             SIRFBINARY_EXPORT8  (msg->icd_version, ptr);
@@ -803,7 +839,208 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
+
+      case SIRF_MSG_SSB_MPM_STATUS_SVD: /* 0x4D 0x01 */
+      {
+         tSIRF_MSG_SSB_MPM_STATUS_SVD * msg = (tSIRF_MSG_SSB_MPM_STATUS_SVD*) message_structure;
+
+         if ( *packet_length < ( sizeof(tSIRF_UINT32) +
+                                 3 * sizeof(tSIRF_UINT16) +
+                                 2 * sizeof(tSIRF_UINT8) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16(msg->timeinFPMode,    ptr);
+            SIRFBINARY_EXPORT16(msg->rtcUncAtWakeUp,ptr);
+            SIRFBINARY_EXPORT16(msg->totalRtcCorr,  ptr);
+            SIRFBINARY_EXPORT32(msg->gpsTow,        ptr);
+            SIRFBINARY_EXPORT8(msg->unusedTokens,   ptr);
+            SIRFBINARY_EXPORT8(msg->trTemp,         ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_MPM_STATUS_EPH: /* 0x4D 0x02 */
+      {
+         tSIRF_MSG_SSB_MPM_STATUS_EPH * msg = (tSIRF_MSG_SSB_MPM_STATUS_EPH*) message_structure;
+
+         if ( *packet_length < ( 3 *sizeof(tSIRF_UINT32) +
+                                 3 * sizeof(tSIRF_UINT16) +
+                                 2 * sizeof(tSIRF_UINT8) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16(msg->timeinFPMode,    ptr);
+            SIRFBINARY_EXPORT32(msg->svBitMaskBefore, ptr);
+            SIRFBINARY_EXPORT32(msg->svBitMaskAfter,  ptr);
+            SIRFBINARY_EXPORT8(msg->navSuccess,       ptr);
+            SIRFBINARY_EXPORT16(msg->rtcUncAtWakeUp,  ptr);
+            SIRFBINARY_EXPORT16(msg->totalRtcCorr,    ptr);
+            SIRFBINARY_EXPORT32(msg->gpsTow,          ptr);
+            SIRFBINARY_EXPORT8(msg->unusedTokens,     ptr);
+            SIRFBINARY_EXPORT8(msg->trTemp,           ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_MPM_STATUS_ALM: /* 0x4D 0x03 */
+      {
+         tSIRF_MSG_SSB_MPM_STATUS_ALM * msg = (tSIRF_MSG_SSB_MPM_STATUS_ALM*) message_structure;
+
+         if ( *packet_length < ( sizeof(tSIRF_UINT32) +
+                                 3 * sizeof(tSIRF_UINT16) +
+                                 4 * sizeof(tSIRF_UINT8) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16(msg->timeinFPMode,      ptr);
+            SIRFBINARY_EXPORT8(msg->idAlmCollected,     ptr);
+            SIRFBINARY_EXPORT8(msg->collectionSuccess,  ptr);
+            SIRFBINARY_EXPORT8(msg->navSuccess,         ptr);
+            SIRFBINARY_EXPORT16(msg->rtcUncAtWakeUp,    ptr);
+            SIRFBINARY_EXPORT16(msg->totalRtcCorr,      ptr);
+            SIRFBINARY_EXPORT32(msg->gpsTow,            ptr);
+            SIRFBINARY_EXPORT8(msg->unusedTokens,       ptr);
+            SIRFBINARY_EXPORT8(msg->trTemp,             ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_MPM_STATUS_UPD: /* 0x4D 0x04 */
+      {
+         tSIRF_MSG_SSB_MPM_STATUS_UPD * msg = (tSIRF_MSG_SSB_MPM_STATUS_UPD*) message_structure;
+
+         if ( *packet_length < ( sizeof(tSIRF_UINT32) +
+                                 4 * sizeof(tSIRF_INT32) +
+                                 2 * sizeof(tSIRF_UINT16) +
+                                 sizeof(tSIRF_INT16) +
+                                 6 * sizeof(tSIRF_UINT8) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16(msg->rtcUncAtWakeUp,    ptr);
+            SIRFBINARY_EXPORT16(msg->totalRtcCorr,      ptr);
+            SIRFBINARY_EXPORT32(msg->gpsTow,            ptr);
+            SIRFBINARY_EXPORT8(msg->unusedTokens,       ptr);
+            SIRFBINARY_EXPORT8(msg->trTemp,             ptr);
+            SIRFBINARY_EXPORT8(msg->uNavStatus,         ptr);
+            SIRFBINARY_EXPORT8(msg->numBESVs,           ptr);
+            SIRFBINARY_EXPORT8(msg->numEESVs,           ptr);
+            SIRFBINARY_EXPORT8(msg->numAlmSVs,          ptr);
+            SIRFBINARY_EXPORT16(msg->uNavTimeCorr,      ptr);
+            SIRFBINARY_EXPORT32(msg->meanCodeRes,       ptr);
+            SIRFBINARY_EXPORT32(msg->stdPR,             ptr);
+            SIRFBINARY_EXPORT32(msg->meanDoppRes,       ptr);
+            SIRFBINARY_EXPORT32(msg->stdDR,             ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_MPM_STATUS_REC: /* 0x4D 0x05 */
+      {
+         tSIRF_MSG_SSB_MPM_STATUS_REC * msg = (tSIRF_MSG_SSB_MPM_STATUS_REC*) message_structure;
+
+         if ( *packet_length < ( 2 *sizeof(tSIRF_INT32) +
+                                 3 * sizeof(tSIRF_UINT16) +
+                                 4 * sizeof(tSIRF_UINT8) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16(msg->timeinFPMode,   ptr);
+            SIRFBINARY_EXPORT8(msg->bitSyncDone,     ptr);
+            SIRFBINARY_EXPORT8(msg->frameSyncDone,   ptr);
+            SIRFBINARY_EXPORT32(msg->totalTimeCorr,  ptr);
+            SIRFBINARY_EXPORT16(msg->rtcUncAtWakeUp, ptr);
+            SIRFBINARY_EXPORT16(msg->totalRtcCorr,   ptr);
+            SIRFBINARY_EXPORT32(msg->gpsTow,         ptr);
+            SIRFBINARY_EXPORT8(msg->unusedTokens,    ptr);
+            SIRFBINARY_EXPORT8(msg->trTemp,          ptr);
+         }
+      }
+      break;
+
+      case  SIRF_MSG_SSB_PWR_MODE_FPM_RSP:   /* 0x5A, 0x0 */
+      /* SIRF_MSG_SSB_PWR_MODE_APM_RSP 0x5A, 0x1 is encoded in SIRF_CODEC_SSB_AGPS_Encode() */
+      case  SIRF_MSG_SSB_PWR_MODE_TP_RSP:    /* 0x5A, 0x3 */
+      case  SIRF_MSG_SSB_PWR_MODE_PTF_RSP:   /* 0x5A, 0x4 */
+      case  SIRF_MSG_SSB_PWR_MODE_ERR_RSP:   /* 0x5A, 0x5 */
+      {
+         const tSIRF_MSG_SSB_PWR_MODE_RSP * msg = (const tSIRF_MSG_SSB_PWR_MODE_RSP*) message_structure;
+
+         if ( (sizeof(*msg) != message_length) || 
+            (*packet_length < ( 8 * sizeof(tSIRF_UINT8) + header_len)))
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            break;
+         }
+         SIRFBINARY_EXPORT8(msg->reserved,ptr);
+      }
+      break;
       
+      case SIRF_MSG_SSB_CW_DATA: /* 0x5C 0x1 */
+      {
+         tSIRF_MSG_SSB_CW_DATA * msg = (tSIRF_MSG_SSB_CW_DATA*) message_structure;
+
+         if ( *packet_length < ( (SIRF_CW_PEAKS * sizeof(tSIRF_INT32)) +
+                                 (SIRF_CW_PEAKS * sizeof(tSIRF_UINT16)) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            for (i=0; i < SIRF_CW_PEAKS; i++)
+            {
+               SIRFBINARY_EXPORT32 (msg->freq[i], ptr);
+            }
+
+            for (i=0; i < SIRF_CW_PEAKS; i++)
+            {
+               SIRFBINARY_EXPORT16 (msg->cno[i], ptr);
+            }
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_CW_FILTER: /* 0x5C 0x2 */
+      {
+         tSIRF_MSG_SSB_CW_FILTER * msg = (tSIRF_MSG_SSB_CW_FILTER*) message_structure;
+
+         if ( *packet_length < ( (2 * sizeof(tSIRF_UINT8)) +
+                                 (SIRF_CW_PEAKS * sizeof(tSIRF_UINT8)) +
+                                 (SIRF_CW_PEAKS * sizeof(tSIRF_INT8)) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8 (msg->sampling, ptr);
+            SIRFBINARY_EXPORT8 (msg->adc, ptr);
+            for (i=0; i < SIRF_CW_PEAKS; i++)
+            {
+               SIRFBINARY_EXPORT8 (msg->freqbin[i], ptr);
+               SIRFBINARY_EXPORT8 (msg->nbin[i], ptr);
+            }
+         }
+      }
+      break;
+
       case SIRF_MSG_SSB_GEODETIC_NAVIGATION: /* 0x29 */
       {
          tSIRF_MSG_SSB_GEODETIC_NAVIGATION * msg = (tSIRF_MSG_SSB_GEODETIC_NAVIGATION*) message_structure;
@@ -855,6 +1092,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
+
       case SIRF_MSG_SSB_ADC_ODOMETER_DATA: /* 0x2D */
       {
          /* programmers note: the "_1HZ" version is just ten of the non- "_1HZ" version,
@@ -1168,7 +1406,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
       {
          tSIRF_MSG_SSB_SBAS_PARAM * msg = (tSIRF_MSG_SSB_SBAS_PARAM*) message_structure;
 
-         if ( *packet_length < (4 * sizeof(tSIRF_UINT8) + header_len) )
+         if ( *packet_length < (12 * sizeof(tSIRF_UINT8) + header_len) )
          {
             tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
          }
@@ -1178,6 +1416,14 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
             SIRFBINARY_EXPORT8 (msg->mode,     ptr);
             SIRFBINARY_EXPORT8 (msg->timeout,  ptr);
             SIRFBINARY_EXPORT8 (msg->flg_bits, ptr);
+            SIRFBINARY_EXPORT8 (msg->spare[0], ptr);
+            SIRFBINARY_EXPORT8 (msg->spare[1], ptr);
+            SIRFBINARY_EXPORT8 (msg->spare[2], ptr);
+            SIRFBINARY_EXPORT8 (msg->spare[3], ptr);
+            SIRFBINARY_EXPORT8 (msg->spare[4], ptr);
+            SIRFBINARY_EXPORT8 (msg->spare[5], ptr);
+            SIRFBINARY_EXPORT8 (msg->spare[6], ptr);
+            SIRFBINARY_EXPORT8 (msg->spare[7], ptr);
          }
       }
       break;
@@ -1222,10 +1468,27 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
+      case SIRF_MSG_SSB_TRACKER_LOADER_STATE: /* 0x0633 (51, 6) */
+      {
+         tSIRF_MSG_SSB_TRACKER_LOADER_STATE *msg = (tSIRF_MSG_SSB_TRACKER_LOADER_STATE*)message_structure;
+
+         if ( *packet_length < ( 4 * sizeof(tSIRF_UINT32) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT32( msg->loader_state,       ptr );
+            SIRFBINARY_EXPORT32( msg->percentage_loaded,  ptr );
+            SIRFBINARY_EXPORT32( msg->loader_error,       ptr );
+            SIRFBINARY_EXPORT32( msg->time_tag,           ptr );
+         }
+      }
+      break;
       case SIRF_MSG_SSB_SIRFNAV_START: /* 0x0733 (51, 7) */
       {
          tSIRF_MSG_SSB_SIRFNAV_START* msg = (tSIRF_MSG_SSB_SIRFNAV_START*) message_structure;
-         
+
          if ( *packet_length < (4 * sizeof(tSIRF_UINT32) + header_len) )
          {
             tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
@@ -1242,7 +1505,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
       case SIRF_MSG_SSB_SIRFNAV_STOP: /* 0x0833 (51, 8) */
       {
          tSIRF_MSG_SSB_SIRFNAV_STOP* msg = (tSIRF_MSG_SSB_SIRFNAV_STOP*) message_structure;
-         
+
          if ( *packet_length < (1 * sizeof(tSIRF_UINT32) + header_len) )
          {
             tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
@@ -1370,7 +1633,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
-      /* added for GSW_CLM */
+
       case SIRF_MSG_SSB_EE_EPHEMERIS_AGE:     /* 0x11 0x38 */
       {
          tSIRF_MSG_EE_AGE *msg = (tSIRF_MSG_EE_AGE*) message_structure;
@@ -1391,6 +1654,221 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
+#ifdef EMB_SIF
+      /* added for Embedded CLM */
+      case SIRF_MSG_SSB_SIF_ACK_NACK:     /* 0x20 0x38 */
+      {
+         tSIRF_MSG_SSB_SIF_ACK_NACK *msg = (tSIRF_MSG_SSB_SIF_ACK_NACK*) message_structure;
+
+         if ( *packet_length < ( 4 * sizeof(tSIRF_UINT8) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->ackMsgId, ptr);
+            SIRFBINARY_EXPORT8(msg->ackSid,  ptr);
+            SIRFBINARY_EXPORT8(msg->ackNack, ptr);
+            SIRFBINARY_EXPORT8(msg->reason, ptr);
+         }
+      }
+      break;
+      case SIRF_MSG_SSB_SIF_EE_AGE:     /* 0x21 0x38 */
+      {
+         tSIRF_MSG_SSB_SIF_GET_EE_AGE *msg = (tSIRF_MSG_SSB_SIF_GET_EE_AGE*) message_structure;
+
+         if ( *packet_length < ( 1 * sizeof(tSIRF_UINT8) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->numSAT, ptr);
+            if ( *packet_length < ( 1 * sizeof(tSIRF_UINT8) +
+                                  ((3 * sizeof(tSIRF_UINT8) + 6 * sizeof(tSIRF_UINT16)) * msg->numSAT) +
+                                  header_len) )
+            {
+                tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else if (msg->numSAT > SIRF_MAX_SVID_CNT)
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+            }
+            else
+            {
+                for(i=0;i<msg->numSAT;i++)
+                {
+                    SIRFBINARY_EXPORT8(msg->eeAgeStruct[i].prnNum, ptr);
+                    SIRFBINARY_EXPORT8(msg->eeAgeStruct[i].ephPosFlag, ptr);
+                    SIRFBINARY_EXPORT16(msg->eeAgeStruct[i].eePosAge, ptr);
+                    SIRFBINARY_EXPORT16(msg->eeAgeStruct[i].cgeePosGPSWeek, ptr);
+                    SIRFBINARY_EXPORT16(msg->eeAgeStruct[i].cgeePosTOE, ptr);
+                    SIRFBINARY_EXPORT8(msg->eeAgeStruct[i].ephClkFlag, ptr);
+                    SIRFBINARY_EXPORT16(msg->eeAgeStruct[i].eeClkAge, ptr);
+                    SIRFBINARY_EXPORT16(msg->eeAgeStruct[i].cgeeClkGPSWeek, ptr);
+                    SIRFBINARY_EXPORT16(msg->eeAgeStruct[i].cgeeClkTOE, ptr);
+                }
+            }
+         }
+      }
+      break;
+      case SIRF_MSG_SSB_SIF_SGEE_AGE:     /* 0x22 0x38 */
+      {
+         tSIRF_MSG_SSB_SIF_SGEE_AGE *msg = (tSIRF_MSG_SSB_SIF_SGEE_AGE*) message_structure;
+
+         if ( *packet_length < ( 2 * sizeof(tSIRF_UINT32) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT32(msg->sgeeAge, ptr);
+            SIRFBINARY_EXPORT32(msg->predictionInterval,  ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_SIF_PKT_INVOKE_DLD:     /* 0x23 0x38 */
+      {
+         tSIRF_MSG_SSB_SIF_PKT_INVOKE_DLD *msg = (tSIRF_MSG_SSB_SIF_PKT_INVOKE_DLD*) message_structure;
+
+         if ( *packet_length < ( sizeof(tSIRF_UINT8) + sizeof(tSIRF_UINT32) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->start, ptr);
+            SIRFBINARY_EXPORT32(msg->waitTime, ptr);
+         }
+      }
+      break;
+      case SIRF_MSG_SSB_SIF_PKT_ERASE:     /* 0x24 0x38 */
+      {
+         tSIRF_MSG_SSB_SIF_PKT_ERASE *msg = (tSIRF_MSG_SSB_SIF_PKT_ERASE*) message_structure;
+
+         if ( *packet_length < ( sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->NVMID, ptr);
+         }
+      }
+      break;
+      case SIRF_MSG_SSB_SIF_STR_PKT_DATA:     /* 0x25 0x38 */
+      {
+         tSIRF_MSG_SSB_SIF_STR_PKT_DATA *msg = (tSIRF_MSG_SSB_SIF_STR_PKT_DATA*) message_structure;
+         /* Check we have minimum size of packet assuming we still dont know actual data size*/
+         if ( *packet_length < ( sizeof(tSIRF_UINT8) + sizeof(tSIRF_UINT16) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->NVMID, ptr);
+            SIRFBINARY_EXPORT16(msg->size,  ptr);
+            /* Check we have received specified data*/
+            if ( *packet_length < ( sizeof(tSIRF_UINT8) + msg->size * sizeof(tSIRF_UINT8)
+                        + 2 * sizeof(tSIRF_UINT16) + sizeof(tSIRF_UINT32) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else if (msg->size > SIF_MAX_PKT_DATA)
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+            }
+            else
+            {
+                SIRFBINARY_EXPORT32(msg->offset, ptr);
+                SIRFBINARY_EXPORT16(msg->seqNum, ptr);
+                for (i=0; i<msg->size; i++)            /** msg->size of data to be copied */
+                {
+                   SIRFBINARY_EXPORT8 (msg->data[i], ptr);
+                }
+            }
+         }
+      }
+      break;
+      case SIRF_MSG_SSB_SIF_RCV_PKT_DATA:     /* 0x26 0x38 */
+      {
+         tSIRF_MSG_SSB_SIF_RCV_PKT_DATA *msg = (tSIRF_MSG_SSB_SIF_RCV_PKT_DATA*) message_structure;
+
+         if ( *packet_length < ( 2 * sizeof(tSIRF_UINT8) + msg->numBlocks * sizeof(tSIRF_UINT16) + msg->numBlocks * sizeof(tSIRF_UINT32) + sizeof(tSIRF_UINT16) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else if (msg->numBlocks > MAX_RCV_BLOCKS)
+         {
+               tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->NVMID, ptr);
+            SIRFBINARY_EXPORT16(msg->seqNum, ptr);
+            SIRFBINARY_EXPORT8(msg->numBlocks, ptr);
+            for (i=0; i<msg->numBlocks; i++)            /** msg->size of data to be copied */
+            {
+                SIRFBINARY_EXPORT16(msg->size[i],  ptr);
+                SIRFBINARY_EXPORT32(msg->offset[i], ptr);
+            }
+         }
+      }
+      break;
+      case SIRF_MSG_SSB_SIF_NVM_HEADER_DATA:     /* 0x27 0x38 */
+      {
+         tSIRF_MSG_SSB_SIF_NVM_HEADER_DATA *msg = (tSIRF_MSG_SSB_SIF_NVM_HEADER_DATA*) message_structure;
+
+         if ( *packet_length < ( 2* sizeof(tSIRF_UINT16) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            if ( *packet_length < ( 2* sizeof(tSIRF_UINT16) + msg->pktSize * sizeof(tSIRF_UINT8) +
+                                 header_len) )
+            {
+                tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else if (msg->pktSize > BBRAM_SGEE_HEADER_SIZE_DEFINE)
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+            }
+            else
+            {
+                SIRFBINARY_EXPORT16(msg->offset, ptr);
+                SIRFBINARY_EXPORT16(msg->pktSize, ptr);
+                for (i=0; i<msg->pktSize; i++)            /** msg->size of data to be copied */
+                {
+                    SIRFBINARY_EXPORT8(msg->pktData[i],  ptr);
+                }
+            }
+         }
+      }
+      break;
+      case SIRF_MSG_SSB_SIF_GET_HOST_HEADER: /* 0x28 0x38 */
+      {
+         /* similar to E8 1D */
+         tSIRF_MSG_SSB_SIF_GET_NVM_HEADER *msg = (tSIRF_MSG_SSB_SIF_GET_NVM_HEADER*) message_structure;
+
+         if ( *packet_length < ( 1 * sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->reserved, ptr);
+         }
+      }
+      break;
+#endif /* EMB_SIF */
       case SIRF_MSG_SSB_EE_ACK:       /* 0xFF 0x38 */
       {
          tSIRF_MSG_SSB_EE_ACK *msg = (tSIRF_MSG_SSB_EE_ACK*) message_structure;
@@ -1431,6 +1909,738 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
+      case SIRF_MSG_SSB_TEST_MODE_DATA_8:     /* 0x08 0x3F */
+      {
+         tSIRF_MSG_SSB_TEST_MODE_DATA_8 *msg = (tSIRF_MSG_SSB_TEST_MODE_DATA_8*) message_structure;
+
+         if ( *packet_length < ( 1 * sizeof(tSIRF_INT32) +
+                                 1 * sizeof(tSIRF_UINT16) +
+                                 1 * sizeof(tSIRF_UINT16) +
+                                 1 * sizeof(tSIRF_UINT16) +
+                                 1 * sizeof(tSIRF_UINT16) +
+                                 1 * sizeof(tSIRF_UINT8) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT32(msg->spurDoppler,  ptr);  /* spur freq */
+            SIRFBINARY_EXPORT16(msg->spurCN0, ptr);       /* spur cn0 */
+            SIRFBINARY_EXPORT16(msg->jitter, ptr);        /* Osc Phase Jitter */
+            SIRFBINARY_EXPORT16(msg->rtcFrequency,  ptr); /* RTC Frequency */
+            SIRFBINARY_EXPORT16(msg->etoAcqRatio, ptr);   /* EClk to AcqClk Ratio */
+            SIRFBINARY_EXPORT8(msg->tSyncAGCGain, ptr);   /* tSync and AGCGain */
+         }
+      }
+      break;
+#ifdef ENABLE_TM9
+      case SIRF_MSG_SSB_TEST_MODE_DATA_9:     /* 0x09 0x3F */
+      {
+         tSIRF_MSG_SSB_TEST_MODE_DATA_9 *msg = (tSIRF_MSG_SSB_TEST_MODE_DATA_9*) message_structure;
+
+         if ( *packet_length < ( 1 * sizeof(tSIRF_UINT8) +
+                                 1 * sizeof(tSIRF_UINT8) +
+                                 SIRF_MSG_SSB_TEST_MODE_DATA_9_PKT_LEN * sizeof(tSIRF_UINT8) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->iqbuf_seq_num, ptr);  /* buf sequence number */
+            SIRFBINARY_EXPORT8(msg->packet_seq_num, ptr); /* packet sequence number */
+            for(i=0;i<SIRF_MSG_SSB_TEST_MODE_DATA_9_PKT_LEN;i++)
+            {
+               SIRFBINARY_EXPORT8(msg->iqsample[i], ptr);    /* IQ samples */
+            }
+         }
+      }
+      break;
+#endif
+      case SIRF_MSG_SSB_GPIO_READ: /* 0xC041 (65,192) */
+      {
+         tSIRF_MSG_SSB_GPIO_READ *msg = (tSIRF_MSG_SSB_GPIO_READ*)message_structure;
+
+         if ( *packet_length < ( 1 * sizeof(tSIRF_UINT16) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16( msg->gpio_state,       ptr );
+         }
+      }
+      break;
+
+      /* Not Used 0x00, 0x5D */
+
+      case SIRF_MSG_SSB_XO_DEFAULTS_OUT:   /* 0x01, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_DEFAULTS_OUT *msg = (tSIRF_MSG_SSB_XO_DEFAULTS_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_DEFAULTS_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            SIRFBINARY_EXPORT8 (msg->source, ptr);          /** Bit Mask with the source of entries */
+            SIRFBINARY_EXPORT8 (msg->agingRateUnc, ptr);    /** aging rate uncertainty */
+            SIRFBINARY_EXPORT8 (msg->initialOffsetUnc, ptr);/** initial offset uncertainty */
+            SIRFBINARY_EXPORT8 (msg->spare1, ptr);
+            SIRFBINARY_EXPORT32(msg->clockDrift, ptr);      /** clock drift */
+            SIRFBINARY_EXPORT16(msg->tempUnc, ptr);         /** temperature uncertainty */
+            SIRFBINARY_EXPORT16(msg->mfgWeek, ptr);         /** manufacturing wn for aging */
+            SIRFBINARY_EXPORT32(msg->spare2, ptr);
+#else
+            /* 4T build goes through MEI.
+             * NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            SIRFBINARY_EXPORT8 (msg->source, ptr);          /** Bit Mask with the source of entries */
+            SIRFBINARY_EXPORT8 (msg->agingRateUnc, ptr);    /** aging rate uncertainty */
+            SIRFBINARY_EXPORT8 (msg->initialOffsetUnc, ptr);/** initial offset uncertainty */
+            SIRFBINARY_EXPORT8 (msg->spare1, ptr);
+            SIRF_COPYOUT32(msg->clockDrift, ptr);           /** clock drift */
+            SIRF_COPYOUT16(msg->tempUnc, ptr);              /** temperature uncertainty */
+            SIRF_COPYOUT16(msg->mfgWeek, ptr);              /** manufacturing wn for aging */
+            SIRF_COPYOUT32(msg->spare2, ptr);
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_TCXO_TABLE_OUT:   /* 0x02, 0x5D */
+      {
+         tSIRF_MSG_SSB_TCXO_TABLE_OUT *msg = (tSIRF_MSG_SSB_TCXO_TABLE_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_TCXO_TABLE_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            SIRFBINARY_EXPORT32(msg->ctr, ptr);             /** Counter incremented with each output */
+            SIRFBINARY_EXPORT16(msg->offset, ptr);          /** frequency offset bias from CD default */
+            SIRFBINARY_EXPORT16(msg->globalMin, ptr);       /** minimum xo error observed */
+            SIRFBINARY_EXPORT16(msg->globalMax, ptr);       /** maximum xo error observed */
+            SIRFBINARY_EXPORT16(msg->firstWeek, ptr);       /** full gps week of first table update. */
+            SIRFBINARY_EXPORT16(msg->lastWeek, ptr);        /** full gps week of last table update */
+            SIRFBINARY_EXPORT16(msg->lsb, ptr);             /** array LSB of Min[] and Max[] */
+            SIRFBINARY_EXPORT8 (msg->agingBin, ptr);        /** Bin of last aging update. */
+            SIRFBINARY_EXPORT8 (msg->agingUpcount, ptr);    /** Aging detection accumulator */
+            SIRFBINARY_EXPORT8 (msg->binCnt, ptr);          /** count of min bins filled */
+            SIRFBINARY_EXPORT8 (msg->spare, ptr);           /** not used */
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            SIRF_COPYOUT32(msg->ctr, ptr);                  /** Counter incremented with each output */
+            SIRF_COPYOUT16(msg->offset, ptr);               /** frequency offset bias from CD default */
+            SIRF_COPYOUT16(msg->globalMin, ptr);            /** minimum xo error observed */
+            SIRF_COPYOUT16(msg->globalMax, ptr);            /** maximum xo error observed */
+            SIRF_COPYOUT16(msg->firstWeek, ptr);            /** full gps week of first table update. */
+            SIRF_COPYOUT16(msg->lastWeek, ptr);             /** full gps week of last table update */
+            SIRF_COPYOUT16(msg->lsb, ptr);                  /** array LSB of Min[] and Max[] */
+            SIRFBINARY_EXPORT8 (msg->agingBin, ptr);        /** Bin of last aging update. */
+            SIRFBINARY_EXPORT8 (msg->agingUpcount, ptr);    /** Aging detection accumulator */
+            SIRFBINARY_EXPORT8 (msg->binCnt, ptr);          /** count of min bins filled */
+            SIRFBINARY_EXPORT8 (msg->spare, ptr);           /** not used */
+#endif /* PVT_BUILD */
+
+            for (i=0; i<SSB_XOT_TABLE_SIZE; i++)            /** Min XO error at each temperature */
+            {
+               SIRFBINARY_EXPORT8 (msg->min[i], ptr);
+            }
+            for (i=0; i<SSB_XOT_TABLE_SIZE; i++)               /** Max XO error at each temperature */
+            {
+               SIRFBINARY_EXPORT8 (msg->max[i], ptr);
+            }
+         }
+      }
+      break;
+
+      /* Not Used 0x03, 0x5D */
+
+      case SIRF_MSG_SSB_XO_TEMP_REC_OUT:   /* 0x04, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_TEMP_REC_OUT *msg = (tSIRF_MSG_SSB_XO_TEMP_REC_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_TEMP_REC_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            SIRFBINARY_EXPORT32(msg->currentTimeCount, ptr);     /** time since power on, ms */
+            SIRFBINARY_EXPORT16(msg->trTime, ptr);               /** Latest TRec time. */
+            SIRFBINARY_EXPORT8 (msg->trTemp, ptr);          /** Latest TRec temperature. */
+            SIRFBINARY_EXPORT8 (msg->nCnt,   ptr);          /** Rec N Count. */
+            SIRFBINARY_EXPORT8 (msg->totCnt, ptr);          /** Total Rec Count. */
+            SIRFBINARY_EXPORT8 (msg->status, ptr);          /** Echo Test Control mode */
+            SIRFBINARY_EXPORT16(msg->ctr, ptr);                  /** counter for output messages.
+                                                             *  uninitialized and wraparound counter. */
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            SIRF_COPYOUT32(msg->currentTimeCount, ptr);     /** time since power on, ms */
+            SIRF_COPYOUT16(msg->trTime, ptr);               /** Latest TRec time. */
+            SIRFBINARY_EXPORT8 (msg->trTemp, ptr);          /** Latest TRec temperature. */
+            SIRFBINARY_EXPORT8 (msg->nCnt,   ptr);          /** Rec N Count. */
+            SIRFBINARY_EXPORT8 (msg->totCnt, ptr);          /** Total Rec Count. */
+            SIRFBINARY_EXPORT8 (msg->status, ptr);          /** Echo Test Control mode */
+            SIRF_COPYOUT16(msg->ctr, ptr);                  /** counter for output messages.
+                                                             *  uninitialized and wraparound counter. */
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_XO_EARC_OUT:   /* 0x05, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_EARC_OUT *msg = (tSIRF_MSG_SSB_XO_EARC_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_EARC_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            SIRFBINARY_EXPORT32(msg->currentTimeCount,  ptr);    /** time since power on, ms */
+            SIRFBINARY_EXPORT32(msg->acqclkLsw,         ptr);    /** acqclk, lsw */
+            SIRFBINARY_EXPORT32(msg->rtcWclkSec,        ptr);    /** rtc wclk secs */
+            SIRFBINARY_EXPORT16(msg->rtcWclkCtr,        ptr);    /** rtc wclk ctr */
+            SIRFBINARY_EXPORT16(msg->EARC_r0,           ptr);    /** earc r0 */
+            SIRFBINARY_EXPORT16(msg->EARC_r1,           ptr);    /** earc r1 */
+            SIRFBINARY_EXPORT32(msg->spare,             ptr);
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            SIRF_COPYOUT32(msg->currentTimeCount,  ptr);    /** time since power on, ms */
+            SIRF_COPYOUT32(msg->acqclkLsw,         ptr);    /** acqclk, lsw */
+            SIRF_COPYOUT32(msg->rtcWclkSec,        ptr);    /** rtc wclk secs */
+            SIRF_COPYOUT16(msg->rtcWclkCtr,        ptr);    /** rtc wclk ctr */
+            SIRF_COPYOUT16(msg->EARC_r0,           ptr);    /** earc r0 */
+            SIRF_COPYOUT16(msg->EARC_r1,           ptr);    /** earc r1 */
+            SIRF_COPYOUT32(msg->spare,             ptr);
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_XO_RTC_ALARM_OUT:   /* 0x06, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_RTC_ALARM_OUT *msg = (tSIRF_MSG_SSB_XO_RTC_ALARM_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_RTC_ALARM_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            SIRFBINARY_EXPORT32(msg->currentTimeCount,  ptr);    /** time since power on, ms */
+            SIRFBINARY_EXPORT32(msg->acqclkLsw,         ptr);    /** acqclk, lsw */
+            SIRFBINARY_EXPORT32(msg->rtcWclkSec,        ptr);    /** rtc wclk secs */
+            SIRFBINARY_EXPORT16(msg->rtcWclkCtr,        ptr);    /** rtc wclk ctr */
+            SIRFBINARY_EXPORT16(msg->spare,             ptr);
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            SIRF_COPYOUT32(msg->currentTimeCount,  ptr);    /** time since power on, ms */
+            SIRF_COPYOUT32(msg->acqclkLsw,         ptr);    /** acqclk, lsw */
+            SIRF_COPYOUT32(msg->rtcWclkSec,        ptr);    /** rtc wclk secs */
+            SIRF_COPYOUT16(msg->rtcWclkCtr,        ptr);    /** rtc wclk ctr */
+            SIRF_COPYOUT16(msg->spare,             ptr);
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_XO_RTC_CAL_OUT:   /* 0x07, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_RTC_CAL_OUT *msg = (tSIRF_MSG_SSB_XO_RTC_CAL_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_RTC_CAL_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            SIRFBINARY_EXPORT32(msg->currentTimeCount,  ptr);    /** time since power on, ms */
+            SIRFBINARY_EXPORT32(msg->acqclkLsw,         ptr);    /** acqclk, lsw */
+            SIRFBINARY_EXPORT32(msg->gpsTimeSec,        ptr);    /** gps time, secs */
+            SIRFBINARY_EXPORT32(msg->gpsTimeFrac,       ptr);    /** gps time, fractional nsecs */
+            SIRFBINARY_EXPORT32(msg->rtcWclkSec,        ptr);    /** rtc time, seconds */
+            SIRFBINARY_EXPORT16(msg->rtcWclkCtr,        ptr);    /** rtc time, counter */
+            SIRFBINARY_EXPORT16(msg->rtcFreqUnc,        ptr);    /** rtc freq unc, ppb */
+            SIRFBINARY_EXPORT32(msg->rtcDriftInt,       ptr);    /** rtc drift ratio, integer */
+            SIRFBINARY_EXPORT32(msg->rtcDriftFrac,      ptr);    /** rtc drift ratio, frac */
+            SIRFBINARY_EXPORT32(msg->rtcTimeUnc,        ptr);    /** rtc time unc, usec */
+            SIRFBINARY_EXPORT32(msg->rtcFreqOffset,     ptr);    /** rtc freq offset, ppb*/
+            SIRFBINARY_EXPORT32(msg->xoFreqOffset,      ptr);    /** rtc freq offset, ppb */
+            SIRFBINARY_EXPORT16(msg->gpsWeek,           ptr);    /** gps week */
+            SIRFBINARY_EXPORT16(msg->spare,             ptr);
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            SIRF_COPYOUT32(msg->currentTimeCount,  ptr);    /** time since power on, ms */
+            SIRF_COPYOUT32(msg->acqclkLsw,         ptr);    /** acqclk, lsw */
+            SIRF_COPYOUT32(msg->gpsTimeSec,        ptr);    /** gps time, secs */
+            SIRF_COPYOUT32(msg->gpsTimeFrac,       ptr);    /** gps time, fractional nsecs */
+            SIRF_COPYOUT32(msg->rtcWclkSec,        ptr);    /** rtc time, seconds */
+            SIRF_COPYOUT16(msg->rtcWclkCtr,        ptr);    /** rtc time, counter */
+            SIRF_COPYOUT16(msg->rtcFreqUnc,        ptr);    /** rtc freq unc, ppb */
+            SIRF_COPYOUT32(msg->rtcDriftInt,       ptr);    /** rtc drift ratio, integer */
+            SIRF_COPYOUT32(msg->rtcDriftFrac,      ptr);    /** rtc drift ratio, frac */
+            SIRF_COPYOUT32(msg->rtcTimeUnc,        ptr);    /** rtc time unc, usec */
+            SIRF_COPYOUT32(msg->rtcFreqOffset,     ptr);    /** rtc freq offset, ppb*/
+            SIRF_COPYOUT32(msg->xoFreqOffset,      ptr);    /** rtc freq offset, ppb */
+            SIRF_COPYOUT16(msg->gpsWeek,           ptr);    /** gps week */
+            SIRF_COPYOUT16(msg->spare,             ptr);
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      /* Not Used. 0x08, 0x5D */
+
+      case SIRF_MSG_SSB_XO_MPM_ACQ_OUT:   /* 0x09, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_MPM_ACQ_OUT *msg = (tSIRF_MSG_SSB_XO_MPM_ACQ_OUT *) message_structure;
+
+         /* The message records are serially positioned in the buffer */
+         tSIRF_MSG_SSB_XO_MPM_ACQ_OUT_REC *mPRec = (tSIRF_MSG_SSB_XO_MPM_ACQ_OUT_REC *)&msg->pRec;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_MPM_ACQ_OUT_LEN
+                             + (msg->numRecs) * SIRF_MSG_SSB_XO_MPM_ACQ_OUT_REC_LEN
+                             + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            SIRFBINARY_EXPORT8 (msg->numRecs,         ptr);    /** numRecs */
+            SIRFBINARY_EXPORT8 (msg->spare1,          ptr);    /** spare */
+            SIRFBINARY_EXPORT16(msg->spare2,          ptr);    /** spare */
+            SIRFBINARY_EXPORT32(msg->currentTimeCount,ptr);    /** time since power on, ms */
+            SIRFBINARY_EXPORT32(msg->acqclkLsw,       ptr);    /** acqclk, lsw */
+
+            /** following fields all based on numRecs */
+            for (i=0; i<msg->numRecs; i++, msg->pRec++)
+            {
+               SIRFBINARY_EXPORT32(mPRec->codePhase,  ptr);    /** code Phase */
+               SIRFBINARY_EXPORT32(mPRec->doppler,    ptr);    /** doppler */
+               SIRFBINARY_EXPORT32(mPRec->codeOffset, ptr);    /** code Offset */
+               SIRFBINARY_EXPORT32(mPRec->peakMag,    ptr);    /** peak Magnitude */
+               SIRFBINARY_EXPORT16(mPRec->status,     ptr);    /** status */
+               SIRFBINARY_EXPORT8 (mPRec->prn,        ptr);    /** svid */
+               SIRFBINARY_EXPORT8 (mPRec->spare,      ptr);
+            }
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            SIRFBINARY_EXPORT8 (msg->numRecs,      ptr);    /** numRecs */
+            SIRFBINARY_EXPORT8 (msg->spare1,       ptr);    /** spare */
+            SIRF_COPYOUT16(msg->spare2,            ptr);    /** spare */
+            SIRF_COPYOUT32(msg->currentTimeCount,  ptr);    /** time since power on, ms */
+            SIRF_COPYOUT32(msg->acqclkLsw,         ptr);    /** acqclk, lsw */
+
+            /** following fields all based on numRecs */
+            for (i=0; i<msg->numRecs; i++, msg->pRec++)
+            {
+               SIRF_COPYOUT32(mPRec->codePhase,ptr);    /** code Phase */
+               SIRF_COPYOUT32(mPRec->doppler,  ptr);    /** doppler */
+               SIRF_COPYOUT32(mPRec->codeOffset,ptr);   /** code Offset */
+               SIRF_COPYOUT32(mPRec->peakMag,  ptr);    /** peak Magnitude */
+               SIRF_COPYOUT16(mPRec->status,   ptr);    /** status */
+               SIRFBINARY_EXPORT8 (mPRec->prn, ptr);    /** svid */
+               SIRFBINARY_EXPORT8 (mPRec->spare,ptr);
+            }
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_XO_MPM_PREPOS_OUT:   /* 0x0A, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_MPM_PREPOS_OUT *msg = (tSIRF_MSG_SSB_XO_MPM_PREPOS_OUT *) message_structure;
+
+         /* The message records are serially positioned in the buffer */
+         tSIRF_MSG_SSB_XO_MPM_PREPOS_OUT_REC *mPRec = (tSIRF_MSG_SSB_XO_MPM_PREPOS_OUT_REC *)&msg->pRec;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_MPM_PREPOS_OUT_LEN
+                             + (msg->numRecs) * SIRF_MSG_SSB_XO_MPM_PREPOS_OUT_REC_LEN
+                             + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            SIRFBINARY_EXPORT8 (msg->numRecs,         ptr);    /** numRecs */
+            SIRFBINARY_EXPORT8 (msg->spare1,          ptr);
+            SIRFBINARY_EXPORT16(msg->spare2,          ptr);
+            SIRFBINARY_EXPORT32(msg->currentTimeCount,ptr);    /** time since power on, ms */
+            SIRFBINARY_EXPORT32(msg->acqclkLsw,       ptr);    /** acqclk, lsw */
+
+            /** following fields all based on numRecs */
+            for (i=0; i<msg->numRecs; i++, mPRec++)
+            {
+               SIRFBINARY_EXPORT32(mPRec->pr,         ptr);    /** psuedoRange, 0.1 m*/
+               SIRFBINARY_EXPORT16(mPRec->prr,        ptr);    /** psuedoRangeRate, m/s */
+               SIRFBINARY_EXPORT8 (mPRec->prn,        ptr);    /** svid */
+               SIRFBINARY_EXPORT8 (mPRec->spare,      ptr);
+            }
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            SIRFBINARY_EXPORT8 (msg->numRecs,      ptr);    /** numRecs */
+            SIRFBINARY_EXPORT8 (msg->spare1,       ptr);
+            SIRF_COPYOUT16(msg->spare2,            ptr);
+            SIRF_COPYOUT32(msg->currentTimeCount,  ptr);    /** time since power on, ms */
+            SIRF_COPYOUT32(msg->acqclkLsw,         ptr);    /** acqclk, lsw */
+
+            /** following fields all based on numRecs */
+            for (i=0; i<msg->numRecs; i++, mPRec++)
+            {
+               SIRF_COPYOUT32(mPRec->pr,       ptr);    /** psuedoRange, 0.1 m*/
+               SIRF_COPYOUT16(mPRec->prr,      ptr);    /** psuedoRangeRate, m/s */
+               SIRFBINARY_EXPORT8 (mPRec->prn, ptr);    /** svid */
+               SIRFBINARY_EXPORT8 (mPRec->spare,ptr);
+            }
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_XO_UNL_MEAS_OUT:   /* 0x0B, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_UNL_MEAS_OUT *msg = (tSIRF_MSG_SSB_XO_UNL_MEAS_OUT *) message_structure;
+
+         /* The message records are serially positioned in the buffer */
+         tSIRF_MSG_SSB_XO_UNL_MEAS_OUT_REC *mPRec = (tSIRF_MSG_SSB_XO_UNL_MEAS_OUT_REC *)&msg->pRec;
+
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_UNL_MEAS_OUT_LEN
+                             + (msg->numRecs) * SIRF_MSG_SSB_XO_UNL_MEAS_OUT_REC_LEN
+                             + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            SIRFBINARY_EXPORT8 (msg->numRecs,         ptr);    /**< numRecs */
+            SIRFBINARY_EXPORT8 (msg->mode,            ptr);    /**< mode */
+            SIRFBINARY_EXPORT16(msg->spare,           ptr);
+            SIRFBINARY_EXPORT32(msg->currentTimeCount,ptr);    /**< time since power on, ms */
+            SIRFBINARY_EXPORT32(msg->acqclkLsw,       ptr);    /**< acqclk, lsw */
+            SIRFBINARY_EXPORT32(msg->timeCorr,        ptr);    /**< time correction */
+            SIRFBINARY_EXPORT32(msg->timeCorrUnc,     ptr);    /**< time correction unc */
+            SIRFBINARY_EXPORT16(msg->freqCorr,        ptr);    /**< frequency correction */
+            SIRFBINARY_EXPORT16(msg->freqCorrUnc,     ptr);    /**< frequency correction unc */
+
+            /** following fields all based on numRecs */
+            for (i=0; i<msg->numRecs; i++, mPRec++)
+            {
+               SIRFBINARY_EXPORT32(mPRec->pr,         ptr);    /**< psuedoRange, 0.1 m */
+               SIRFBINARY_EXPORT16(mPRec->prr,        ptr);    /**< psuedoRangeRate, m/s */
+               SIRFBINARY_EXPORT16(mPRec->cno,        ptr);    /**< CNo 0.1 dbHz */
+               SIRFBINARY_EXPORT8(mPRec->prn,         ptr);    /**< svid */
+               SIRFBINARY_EXPORT8(mPRec->spare1,      ptr);
+               SIRFBINARY_EXPORT16(mPRec->spare2,     ptr);
+            }
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            SIRFBINARY_EXPORT8 (msg->numRecs,      ptr);    /**< numRecs */
+            SIRFBINARY_EXPORT8 (msg->mode,         ptr);    /**< mode */
+            SIRF_COPYOUT16(msg->spare,             ptr);
+            SIRF_COPYOUT32(msg->currentTimeCount,  ptr);    /**< time since power on, ms */
+            SIRF_COPYOUT32(msg->acqclkLsw,         ptr);    /**< acqclk, lsw */
+            SIRF_COPYOUT32(msg->timeCorr,          ptr);    /**< time correction */
+            SIRF_COPYOUT32(msg->timeCorrUnc,       ptr);    /**< time correction unc */
+            SIRF_COPYOUT16(msg->freqCorr,          ptr);    /**< frequency correction */
+            SIRF_COPYOUT16(msg->freqCorrUnc,       ptr);    /**< frequency correction unc */
+
+            /** following fields all based on numRecs */
+            for (i=0; i<msg->numRecs; i++, mPRec++)
+            {
+               SIRF_COPYOUT32(mPRec->pr,           ptr);    /**< psuedoRange, 0.1 m */
+               SIRF_COPYOUT16(mPRec->prr,          ptr);    /**< psuedoRangeRate, m/s */
+               SIRF_COPYOUT16(mPRec->cno,          ptr);    /**< CNo 0.1 dbHz */
+               SIRFBINARY_EXPORT8(mPRec->prn,      ptr);    /**< svid */
+               SIRFBINARY_EXPORT8(mPRec->spare1,   ptr);
+               SIRF_COPYOUT16(mPRec->spare2,       ptr);
+            }
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_XO_UNCERTAINTY_OUT:   /* 0x0C, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_UNCERTAINTY_OUT *msg = (tSIRF_MSG_SSB_XO_UNCERTAINTY_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_UNCERTAINTY_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            SIRFBINARY_EXPORT32(msg->currentTimeCount,ptr);    /** time since power on, ms */
+            SIRFBINARY_EXPORT32(msg->acqclkLsw,       ptr);    /** acqclk, lsw */
+            SIRFBINARY_EXPORT32(msg->freq,            ptr);    /** freq, ppb */
+            SIRFBINARY_EXPORT16(msg->freqUncNom,      ptr);    /** freq unc nominal, ppb */
+            SIRFBINARY_EXPORT16(msg->freqUncFull,     ptr);    /** freq unc full, ppb */
+            SIRFBINARY_EXPORT16(msg->tempUncNom,      ptr);    /** temperature unc nominal, ppb */
+            SIRFBINARY_EXPORT16(msg->tempUncFull,     ptr);    /** temperature unc full, ppb */
+            SIRFBINARY_EXPORT16(msg->ageUncNom,       ptr);    /** age unc nominal, ppb */
+            SIRFBINARY_EXPORT16(msg->ageUncFull,      ptr);    /** age unc full, ppb */
+            SIRFBINARY_EXPORT16(msg->measUncNom,      ptr);    /** meas unc nominal, ppb */
+            SIRFBINARY_EXPORT16(msg->measUncFull,     ptr);    /** meas unc full, ppb */
+            SIRFBINARY_EXPORT16(msg->gpsWeek,         ptr);    /** gps week */
+            SIRFBINARY_EXPORT8 (msg->trTemp,          ptr);    /** Latest TRec temperature. */
+            SIRFBINARY_EXPORT8 (msg->spare,           ptr);
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            SIRF_COPYOUT32(msg->currentTimeCount,  ptr);    /** time since power on, ms */
+            SIRF_COPYOUT32(msg->acqclkLsw,         ptr);    /** acqclk, lsw */
+            SIRF_COPYOUT32(msg->freq,              ptr);    /** freq, ppb */
+            SIRF_COPYOUT16(msg->freqUncNom,        ptr);    /** freq unc nominal, ppb */
+            SIRF_COPYOUT16(msg->freqUncFull,       ptr);    /** freq unc full, ppb */
+            SIRF_COPYOUT16(msg->tempUncNom,        ptr);    /** temperature unc nominal, ppb */
+            SIRF_COPYOUT16(msg->tempUncFull,       ptr);    /** temperature unc full, ppb */
+            SIRF_COPYOUT16(msg->ageUncNom,         ptr);    /** age unc nominal, ppb */
+            SIRF_COPYOUT16(msg->ageUncFull,        ptr);    /** age unc full, ppb */
+            SIRF_COPYOUT16(msg->measUncNom,        ptr);    /** meas unc nominal, ppb */
+            SIRF_COPYOUT16(msg->measUncFull,       ptr);    /** meas unc full, ppb */
+            SIRF_COPYOUT16(msg->gpsWeek,           ptr);    /** gps week */
+            SIRFBINARY_EXPORT8(msg->trTemp,        ptr);    /** Latest TRec temperature. */
+            SIRFBINARY_EXPORT8(msg->spare,         ptr);
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_XO_SYS_TIME_OUT:   /* 0x0D, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_SYS_TIME_OUT *msg = (tSIRF_MSG_SSB_XO_SYS_TIME_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_SYS_TIME_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            SIRFBINARY_EXPORT32(msg->currentTimeCount,  ptr);    /** time since power on, ms */
+            SIRFBINARY_EXPORT32(msg->acqclkMsw,         ptr);    /** acqclk, msw */
+            SIRFBINARY_EXPORT32(msg->acqclkLsw,         ptr);    /** acqclk, lsw */
+            SIRFBINARY_EXPORT32(msg->gpsTimeSec,        ptr);    /** gps time, secs */
+            SIRFBINARY_EXPORT32(msg->gpsTimeFrac,       ptr);    /** gps time, fractional nsecs */
+            SIRFBINARY_EXPORT32(msg->rtcWclkSec,        ptr);    /** rtc wclk secs */
+            SIRFBINARY_EXPORT16(msg->rtcWclkCtr,        ptr);    /** rtc wclk ctr */
+            SIRFBINARY_EXPORT16(msg->clockBias,         ptr);    /** clock bias */
+            SIRFBINARY_EXPORT16(msg->clockDrift,        ptr);    /** clock drift */
+            SIRFBINARY_EXPORT16(msg->spare,             ptr);
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            SIRF_COPYOUT32(msg->currentTimeCount,  ptr);    /** time since power on, ms */
+            SIRF_COPYOUT32(msg->acqclkMsw,         ptr);    /** acqclk, msw */
+            SIRF_COPYOUT32(msg->acqclkLsw,         ptr);    /** acqclk, lsw */
+            SIRF_COPYOUT32(msg->gpsTimeSec,        ptr);    /** gps time, secs */
+            SIRF_COPYOUT32(msg->gpsTimeFrac,       ptr);    /** gps time, fractional nsecs */
+            SIRF_COPYOUT32(msg->rtcWclkSec,        ptr);    /** rtc wclk secs */
+            SIRF_COPYOUT16(msg->rtcWclkCtr,        ptr);    /** rtc wclk ctr */
+            SIRF_COPYOUT16(msg->clockBias,         ptr);    /** clock bias */
+            SIRF_COPYOUT16(msg->clockDrift,        ptr);    /** clock drift */
+            SIRF_COPYOUT16(msg->spare,             ptr);
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_XO_RTC_TABLE_OUT:   /* 0x0E, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_RTC_TABLE_OUT *msg = (tSIRF_MSG_SSB_XO_RTC_TABLE_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_RTC_TABLE_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped. */
+            for (i=0; i<SSB_XO_RTC_TABLE_SIZE; i++)
+            {
+               SIRFBINARY_EXPORT16(msg->val[i], ptr);
+            }
+            SIRFBINARY_EXPORT16(msg->fMax,   ptr);    /** Max value = (1 - f) * 1e-6 */
+            SIRFBINARY_EXPORT16(msg->spare,  ptr);
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+            for (i=0; i<SSB_XO_RTC_TABLE_SIZE; i++)
+            {
+               SIRF_COPYOUT16(msg->val[i], ptr);
+            }
+            SIRF_COPYOUT16(msg->fMax,   ptr);    /** Max value = (1 - f) * 1e-6 */
+            SIRF_COPYOUT16(msg->spare,  ptr);
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+#ifdef XO_ENABLED
+
+      case SIRF_MSG_SSB_XO_POLY_OUT:   /* 0x0F, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_POLY_OUT *msg = (tSIRF_MSG_SSB_XO_POLY_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_POLY_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped.
+             * If 4T is added, they pass through MEI and do not get swapped */
+            SIRFBINARY_EXPORT32(msg->C[0],      ptr);          /** polynomial co-efficients */
+            SIRFBINARY_EXPORT32(msg->C[1],      ptr);
+            SIRFBINARY_EXPORT32(msg->C[2],      ptr);
+            SIRFBINARY_EXPORT32(msg->C[3],      ptr);
+            SIRFBINARY_EXPORT16(msg->tempUnc,   ptr);          /** temperature uncertainty */
+            SIRFBINARY_EXPORT8(msg->polySource, ptr);          /** Source of the initial Polynomial values */
+            SIRFBINARY_EXPORT8(msg->spare1,     ptr);
+            SIRFBINARY_EXPORT32(msg->spare2,    ptr);
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+
+            /* TBD */
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_XO_TABLE_OUT:   /* 0x10, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_TABLE_OUT *msg = (tSIRF_MSG_SSB_XO_TABLE_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_TABLE_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped.
+             * If 4T is added, they pass through MEI and do not get swapped */
+
+            /** T for XO update */
+            SIRFBINARY_EXPORT8(msg->calT, ptr);
+
+            /** Active susbsystem, T = XO, F= TCXO. */
+            SIRFBINARY_EXPORT8(msg->xoActive, ptr);
+
+            /** Source of XoActive */
+            SIRFBINARY_EXPORT8(msg->xoActiveSource, ptr);
+
+            /** Update Mode
+             * 0 = no updates
+             * 1 = update C0 term when 1 bin filled
+             * 2 = update C0, C1 term when 2-4 bins filled
+             * 3 = update all C terms when 5 or more bins filled */
+            SIRFBINARY_EXPORT8(msg->updMode, ptr);
+
+            /** Average frequency for the bin, in ppb  */
+            for (i=0; i<SSB_XO_MODEL_SIZE; i++)
+            {
+               SIRFBINARY_EXPORT16(msg->fMean[i], ptr);
+            }
+
+            /** Average Temperature for the bin, 1/256 T  */
+            for (i=0; i<SSB_XO_MODEL_SIZE; i++)
+            {
+               SIRFBINARY_EXPORT16(msg->tMean[i], ptr);
+            }
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+
+            /* TBD */
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_XO_DENSITY_OUT:   /* 0x11, 0x5D */
+      {
+         tSIRF_MSG_SSB_XO_DENSITY_OUT *msg = (tSIRF_MSG_SSB_XO_DENSITY_OUT *) message_structure;
+
+         if ( *packet_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_DENSITY_OUT_LEN + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+#ifdef PVT_BUILD
+            /* For 4E, the words need to be swapped.
+             * If 4T is added, they pass through MEI and do not get swapped */
+
+            for (i=0; i<SSB_XO_MODEL_SIZE; i++)
+            {
+               SIRFBINARY_EXPORT8(msg->bin[i], ptr);
+            }
+#else
+            /* 4T build goes through MEI. */
+            /* NOTE: This message has already been stored based on the endian
+             * so it does need to be swapped again. EXPORT8 = COPYOUT8. */
+
+            /* TBD */
+#endif /* PVT_BUILD */
+         }
+      }
+      break;
+
+#endif /* XO_ENABLED */
+
       case SIRF_MSG_SSB_DOP_VALUES: /* 0x42 */
       {
          tSIRF_MSG_SSB_DOP_VALUES *msg = (tSIRF_MSG_SSB_DOP_VALUES*) message_structure;
@@ -1523,13 +2733,16 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
       {
          tSIRF_MSG_SSB_POLL_SW_VERSION * msg = (tSIRF_MSG_SSB_POLL_SW_VERSION*) message_structure;
 
-         if ( *packet_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
+         if ( *packet_length < header_len )
          {
             tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
          }
          else
          {
-            SIRFBINARY_EXPORT8 (msg->reserved, ptr);
+            if ( *packet_length >= (1 * sizeof(tSIRF_UINT8) + header_len) )
+            {
+               SIRFBINARY_EXPORT8 (msg->reserved, ptr);
+            }
          }
       }
       break;
@@ -1566,7 +2779,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
             SIRFBINARY_EXPORT8 (msg->enable_3d,          ptr);
             SIRFBINARY_EXPORT8 (msg->enable_con_alt,     ptr);
             SIRFBINARY_EXPORT8 (msg->degraded_mode,      ptr);
-            SIRFBINARY_EXPORT8 (msg->pad,                ptr);
+            SIRFBINARY_EXPORT8 (msg->pos_mode_enable,    ptr);
             SIRFBINARY_EXPORT8 (msg->dr_enable,          ptr);
             SIRFBINARY_EXPORT16(msg->alt_input,          ptr);
             SIRFBINARY_EXPORT8 (msg->alt_mode,           ptr);
@@ -1791,6 +3004,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
+
       case SIRF_MSG_SSB_DEMO_STOP_GPS_ENGINE: /* 0x06 0xA1 */
       {
          tSIRF_MSG_SSB_DEMO_STOP_GPS_ENGINE *msg = (tSIRF_MSG_SSB_DEMO_STOP_GPS_ENGINE*) message_structure;
@@ -1808,6 +3022,55 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
       case SIRF_MSG_SSB_SIRFNAV_STORE_NOW: /* 0x07A1 */
       {
          /* Nothing to do here, message has no data */
+      }
+      break;
+      case SIRF_MSG_SSB_DEMO_START_NAV_ENGINE: /* 0x08A1 */
+      {
+         tSIRF_UINT8 temp[MAX_PORT_NUM_STRING_LENGTH];
+         tSIRF_UINT32 i;
+
+         tSIRF_MSG_SSB_DEMO_START_NAV_ENGINE *msg = (tSIRF_MSG_SSB_DEMO_START_NAV_ENGINE*) message_structure;
+
+         /* Add correct size */
+         if ( *packet_length < ( (unsigned) SIRF_CONFIG_SIZE + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT32 (msg->config.start_mode                    , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.uart_max_preamble             , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.uart_idle_byte_wakeup_delay   , ptr);
+            SIRFBINARY_EXPORT32 (msg->config.ref_clk_offset                , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.uart_hw_fc                    , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.lna_type                      , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.debug_settings                , ptr);
+            SIRFBINARY_EXPORT16 (msg->config.ref_clk_warmup_delay          , ptr);
+            SIRFBINARY_EXPORT32 (msg->config.ref_clk_frequency             , ptr);
+            SIRFBINARY_EXPORT32 (msg->config.ref_clk_uncertainty           , ptr);
+            SIRFBINARY_EXPORT32 (msg->config.uart_baud_rate                , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.io_pin_configuration_mode     , ptr);
+            for (i=0; i<SIRFNAV_UI_CTRL_NUM_GPIO_PINS_CONFIG; i++)
+            {
+               SIRFBINARY_EXPORT16 (msg->config.io_pin_configuration[i]    , ptr);
+            }
+            SIRFBINARY_EXPORT16 (msg->config.i2c_host_address              , ptr);
+            SIRFBINARY_EXPORT16 (msg->config.i2c_tracker_address           , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.i2c_mode                      , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.i2c_rate                      , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.spi_rate                      , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.on_off_control                , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.flash_mode                    , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.storage_mode                  , ptr);
+            memcpy(&temp, msg->config.tracker_port, sizeof(msg->config.tracker_port));
+            for (i=0; i<MAX_PORT_NUM_STRING_LENGTH; i++)
+            {
+               SIRFBINARY_EXPORT8 (temp[i]                                 , ptr);
+            }
+            SIRFBINARY_EXPORT8  (msg->config.tracker_port_select           , ptr);
+            SIRFBINARY_EXPORT32 (msg->config.weak_signal_enabled           , ptr);
+            SIRFBINARY_EXPORT8  (msg->config.backup_LDO_mode_enabled       , ptr);
+         }
       }
       break;
       case SIRF_MSG_SSB_SET_MSG_RATE: /* 0xA6 */
@@ -1834,17 +3097,17 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
       {
          tSIRF_MSG_SSB_SET_SBAS_PRN * msg = (tSIRF_MSG_SSB_SET_SBAS_PRN*) message_structure;
 
-         if ( *packet_length < ( 1 * sizeof(tSIRF_UINT8) +
-                                 2 * sizeof(tSIRF_UINT32) +
-                                 header_len) )
+         if ( *packet_length < ( 5 * sizeof(tSIRF_UINT8) + header_len) )
          {
             tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
          }
          else
          {
-            SIRFBINARY_EXPORT8 (msg->prn,         ptr);
-            SIRFBINARY_EXPORT32(msg->reserved[0], ptr);
-            SIRFBINARY_EXPORT32(msg->reserved[1], ptr);
+            SIRFBINARY_EXPORT8 (msg->prnOrRegion, ptr);
+            SIRFBINARY_EXPORT8 (msg->mode,        ptr);
+            SIRFBINARY_EXPORT8 (msg->flagBits,    ptr);
+            SIRFBINARY_EXPORT8 (msg->region,      ptr);
+            SIRFBINARY_EXPORT8 (msg->regionPRN,   ptr);
          }
       }
       break;
@@ -1877,14 +3140,13 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
       {
          tSIRF_MSG_SSB_DR_SET_NAV_MODE * msg = (tSIRF_MSG_SSB_DR_SET_NAV_MODE*) message_structure;
 
-         if ( *packet_length < (2 * sizeof(tSIRF_UINT8) + header_len) )
+         if ( *packet_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
          {
             tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
          }
          else
          {
             SIRFBINARY_EXPORT8 (msg->mode,ptr);
-            SIRFBINARY_EXPORT8( msg->reserved, ptr );
          }
       }
       break;
@@ -1938,6 +3200,10 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          {
             tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
          }
+         else if (msg->num_of_data_sets > MAX_DR_CAR_BUS_DATA_SETS)
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+         }
          else
          {
             SIRFBINARY_EXPORT8 (msg->sensor_data_type, ptr);
@@ -1986,6 +3252,41 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
+      case SIRF_MSG_SSB_DR_SENSOR_DATA: /* 0x19 0xAC */
+      {
+         tSIRF_MSG_SSB_DR_SENSOR_DATA *msg = (tSIRF_MSG_SSB_DR_SENSOR_DATA*) message_structure;
+
+         if ( *packet_length < ( 2 * sizeof(tSIRF_UINT8) +
+                                 (1 + (1+SIRF_MSG_SSB_DR_SENSOR_DATA_SET_MAX) * msg->num_of_data_sets) * sizeof(tSIRF_UINT16) +
+                                 msg->num_of_data_sets * sizeof(tSIRF_UINT32) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else if (msg->num_of_data_sets > SIRF_MSG_SSB_DR_SENSOR_DATA_MAX)
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8 (msg->sensor_data_type, ptr);
+            SIRFBINARY_EXPORT8 (msg->num_of_data_sets, ptr);
+            SIRFBINARY_EXPORT16(msg->reserved,         ptr);
+
+            for ( i = 0; i < (msg->num_of_data_sets); i++ )
+            {
+               SIRFBINARY_EXPORT16(msg->data_set[i].valid_data_indication,  ptr);
+               SIRFBINARY_EXPORT32(msg->data_set[i].data_set_time_tag,      ptr);
+
+               for ( j=0; j<SIRF_MSG_SSB_DR_SENSOR_DATA_SET_MAX; j++ )
+               {
+                  SIRFBINARY_EXPORT16(msg->data_set[i].data[j],             ptr);
+               }
+            }
+         }
+      }
+      break;
+
       case SIRF_MSG_SSB_MMF_DATA: /* 0x50 0xAC */
       {
          tSIRF_MSG_SSB_MMF_DATA *msg = (tSIRF_MSG_SSB_MMF_DATA*) message_structure;
@@ -2030,6 +3331,305 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
+
+      case SIRF_MSG_SSB_GPIO_WRITE: /* 0xB2 0x30 (178,48) */
+      {
+         tSIRF_MSG_SSB_GPIO_WRITE *msg = (tSIRF_MSG_SSB_GPIO_WRITE*)message_structure;
+
+         if ( *packet_length < (2 * sizeof(tSIRF_UINT16) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16(msg->gpio_to_write, ptr);
+            SIRFBINARY_EXPORT16(msg->gpio_state,    ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_GPIO_MODE_SET: /* 0xB2 0x31 (178,49) */
+      {
+         tSIRF_MSG_SSB_GPIO_MODE_SET *msg = (tSIRF_MSG_SSB_GPIO_MODE_SET*)message_structure;
+
+         if ( *packet_length < (3 * sizeof(tSIRF_UINT16) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16(msg->gpio_to_set, ptr);
+            SIRFBINARY_EXPORT16(msg->gpio_mode,   ptr);
+            SIRFBINARY_EXPORT16(msg->gpio_state,  ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_TRK_HW_TEST_CONFIG: /* 0xCF */
+      {
+         tSIRF_MSG_SSB_TRK_HW_TEST_CONFIG *msg = (tSIRF_MSG_SSB_TRK_HW_TEST_CONFIG*) message_structure;
+
+         if ( *packet_length < (2 * sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->RFTestPoint,             ptr);
+            SIRFBINARY_EXPORT8(msg->INTCpuPause,             ptr);
+         }
+      }
+      break;
+      case SIRF_MSG_SSB_SET_IF_TESTPOINT: /* 0xD2 */
+      {
+         tSIRF_MSG_SSB_SET_IF_TESTPOINT *msg = (tSIRF_MSG_SSB_SET_IF_TESTPOINT*) message_structure;
+
+         if ( *packet_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->test_point_control,      ptr);
+         }
+      }
+      break;
+      case SIRF_MSG_SSB_TRKR_PEEKPOKE_RSP:   /* 0x04 0xB2 */
+      {
+         tSIRF_MSG_SSB_TRKR_PEEKPOKE_CMD *msg = (tSIRF_MSG_SSB_TRKR_PEEKPOKE_CMD*) message_structure;
+
+         /* 4-byte or n-byte poke response sent to SLD */
+         SIRFBINARY_EXPORT8(msg->type, ptr);
+
+         /* send the rest of the data only if peek or multi-peek response */
+         if (msg->type == 0)        /* 4-byte peek response */
+         {
+            /* Simpler version of mei_reverseBytes() */
+            SIRFBINARY_EXPORT32(msg->address,   ptr);
+            for (k=3 ; k>=0 ; k--)
+            {
+               SIRFBINARY_EXPORT8(msg->data[k], ptr);
+            }
+         }
+         else if (msg->type == 2)   /* n-byte peek response */
+         {
+            SIRFBINARY_EXPORT32(msg->address,   ptr);
+            SIRFBINARY_EXPORT16(msg->numbytes,  ptr);
+            if(msg->numbytes > MAX_DATA_SIZE)
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+            }
+            else
+            {
+               for (k = 0; k < msg->numbytes; k++)
+               {
+                  SIRFBINARY_EXPORT8(msg->data[k], ptr);
+               }
+            }
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_TRKR_FLASHSTORE_RSP:   /* 0x05 0xB2 */
+      {
+         tSIRF_MSG_SSB_TRKR_FLASHSTORE_CMD *msg = (tSIRF_MSG_SSB_TRKR_FLASHSTORE_CMD*) message_structure;
+
+         if ( *packet_length < (1 * sizeof(tSIRF_RESULT) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            /* ACK/NAK sent to SLD */
+            SIRFBINARY_EXPORT32(msg->ack_result, ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_TRKR_FLASHERASE_RSP:   /* 0x06 0xB2 */
+      {
+         tSIRF_MSG_SSB_TRKR_FLASHERASE_CMD *msg = (tSIRF_MSG_SSB_TRKR_FLASHERASE_CMD*) message_structure;
+
+         if ( *packet_length < (1 * sizeof(tSIRF_RESULT) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            /* ACK/NAK sent to SLD */
+            SIRFBINARY_EXPORT32(msg->ack_result, ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_TRKR_CONFIG_RSP:       /* 0x07 0xB2 */
+      {
+         tSIRF_MSG_SSB_TRKR_CONFIG_CMD *msg = (tSIRF_MSG_SSB_TRKR_CONFIG_CMD*) message_structure;
+
+         if ( *packet_length < (sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            /* ACK/NAK sent to the user */
+            SIRFBINARY_EXPORT8(msg->ack_result, ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_TRKR_CUSTOMIO_RSP:     /* 0x08 0xB2 */
+      {
+         if ( *packet_length < (header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         /* There's no payload sent to the user for this message.  Only the
+            message ID is sufficient for the user to know the custom I/O
+            message was received correctly by the tracker.                    */
+      }
+      break;
+
+#ifdef PVT_BUILD
+      case SIRF_MSG_SSB_TRKR_CONFIG_POLL_RSP:       /* 0x0A 0xB2 */
+      {
+         tSIRF_MSG_SSB_TRKR_CONFIG* msg = (tSIRF_MSG_SSB_TRKR_CONFIG*) message_structure;
+
+         if ( *packet_length < (SIRF_MSG_SSB_TRKR_CONFIG_LENGTH + (tSIRF_UINT32)header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT32(msg->ref_clk_frequency,            ptr);
+            SIRFBINARY_EXPORT16(msg->ref_clk_warmup_delay,         ptr);
+            SIRFBINARY_EXPORT32(msg->ref_clk_uncertainty,          ptr);
+            SIRFBINARY_EXPORT32(msg->ref_clk_offset,               ptr);
+            SIRFBINARY_EXPORT8(msg->ext_lna_enable,                ptr);
+            SIRFBINARY_EXPORT8(msg->io_pin_config_enable,          ptr);
+            for(i=0; i<SIRFNAV_UI_CTRL_NUM_GPIO_PINS_CONFIG; i++)
+            {
+               SIRFBINARY_EXPORT16(msg->io_pin_config[i],          ptr);
+            }
+            SIRFBINARY_EXPORT8(msg->uart_max_preamble,             ptr);
+            SIRFBINARY_EXPORT8(msg->uart_idle_byte_wakeup_delay,   ptr);
+            SIRFBINARY_EXPORT32(msg->uart_baud_rate,               ptr);
+            SIRFBINARY_EXPORT8(msg->uart_hw_fc,                    ptr);
+            SIRFBINARY_EXPORT16(msg->i2c_master_addr,              ptr);
+            SIRFBINARY_EXPORT16(msg->i2c_slave_addr,               ptr);
+            SIRFBINARY_EXPORT8(msg->i2c_rate,                      ptr);
+            SIRFBINARY_EXPORT8(msg->i2c_mode,                      ptr);
+            SIRFBINARY_EXPORT16(msg->i2c_max_msg_length,           ptr);
+            SIRFBINARY_EXPORT8(msg->pwr_ctrl_on_off,               ptr);
+            SIRFBINARY_EXPORT8(msg->backup_LDO_mode_enabled,       ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_CCK_POLL_RSP:       /* 0x0C 0xB2 */
+      {
+         tSIRF_MSG_SSB_CCK_POLL_RSP* msg = (tSIRF_MSG_SSB_CCK_POLL_RSP*) message_structure;
+
+         if ( *packet_length < (sizeof(tSIRF_MSG_SSB_CCK_POLL_RSP) + (tSIRF_UINT32)header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT32(msg->baudRate,                 ptr);
+            SIRFBINARY_EXPORT32(msg->i2cHostAddr,              ptr);
+            SIRFBINARY_EXPORT32(msg->i2c4EAddr,                ptr);
+            SIRFBINARY_EXPORT32(msg->waitStates,               ptr);
+            SIRFBINARY_EXPORT32(msg->tcxoWarmupDelay,          ptr);
+            SIRFBINARY_EXPORT32(msg->cgeeDisableNumSecs,       ptr);
+            SIRFBINARY_EXPORT32(msg->maxEPELimit,              ptr);
+            for(i=0; i<USR_GPIO_PIN_MAX; i++)
+            {
+               SIRFBINARY_EXPORT16(msg->ioPinConfig[i],        ptr);
+            }
+            SIRFBINARY_EXPORT16(msg->maxAlt,                   ptr);
+            for(i=0; i<USR_MAX_NUM_SENSORS; i++)
+            {
+               SIRFBINARY_EXPORT8(msg->drMemsI2CAddTable[i],   ptr);
+            }
+            SIRFBINARY_EXPORT8(msg->drFlashI2CAdd,             ptr);
+            SIRFBINARY_EXPORT8(msg->ioProtocol,                ptr);
+            for(i=0; i<MAX_RATE_CNFG_MSGS; i++)
+            {
+               SIRFBINARY_EXPORT8(msg->ioRate[i],              ptr);
+            }
+            SIRFBINARY_EXPORT8(msg->uartFlowCtrl,              ptr);
+            SIRFBINARY_EXPORT8(msg->tcxoFreq,                  ptr);
+            SIRFBINARY_EXPORT8(msg->tcxoUnc,                   ptr);
+            SIRFBINARY_EXPORT8(msg->trkSmoothing,              ptr);
+            SIRFBINARY_EXPORT8(msg->staticNav,                 ptr);
+            SIRFBINARY_EXPORT8(msg->drTimeout,                 ptr);
+            SIRFBINARY_EXPORT8(msg->revEESupport,              ptr);
+            SIRFBINARY_EXPORT8(msg->startUpPowMode,            ptr);
+            SIRFBINARY_EXPORT8(msg->powCycleTime,              ptr);
+            SIRFBINARY_EXPORT8(msg->spiFirstBit,               ptr);
+            SIRFBINARY_EXPORT8(msg->spiMode,                   ptr);
+            SIRFBINARY_EXPORT8(msg->lnaSetting,                ptr);
+            SIRFBINARY_EXPORT8(msg->eeStorage,                 ptr);
+            SIRFBINARY_EXPORT8(msg->patchStorage,              ptr);
+            SIRFBINARY_EXPORT8(msg->i2cClkRate,                ptr);
+            SIRFBINARY_EXPORT8(msg->i2cMode,                   ptr);
+            SIRFBINARY_EXPORT8(msg->i2cAddType,                ptr);
+            SIRFBINARY_EXPORT8(msg->ioPinConfigEn,             ptr);
+            SIRFBINARY_EXPORT8(msg->hostPortSelect,            ptr);
+            SIRFBINARY_EXPORT8(msg->backupLDOCntl,             ptr);
+            SIRFBINARY_EXPORT8(msg->drI2CRate,                 ptr);
+            SIRFBINARY_EXPORT8(msg->cgeeDisable,               ptr);
+            SIRFBINARY_EXPORT8(msg->fiveHzNav,                 ptr);
+            SIRFBINARY_EXPORT8(msg->sgeeSupport,               ptr);
+            SIRFBINARY_EXPORT8(msg->i2cEepromPart,             ptr);
+            SIRFBINARY_EXPORT32(msg->reserved_1,               ptr);
+            SIRFBINARY_EXPORT32(msg->reserved_2,               ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_SWTB_PMPROMPT_OUT:     /* 0x90 0xB2 */
+      {
+         tSIRF_MSG_SSB_PM_PROMPT_OUT *msg = (tSIRF_MSG_SSB_PM_PROMPT_OUT *)message_structure;
+           /* packet length is compared with the size of the structure, which is determined by
+            * adding all the fields*sizeof(field) of the structure,
+            * alternatively it could be compared with sizeof(structure) */
+         if ( *packet_length < (4 * sizeof(tSIRF_UINT16) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16( msg->ChipId, ptr );
+            SIRFBINARY_EXPORT16( msg->SiliconVersion, ptr );
+            SIRFBINARY_EXPORT16( msg->ROMVersionCode, ptr );
+            SIRFBINARY_EXPORT16( msg->PatchVersionCode, ptr );
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_SWTB_PMACK_OUT:         /* 0x91 0xB2 */
+      {
+         tSIRF_MSG_SSB_PM_ACK_OUT *msg = (tSIRF_MSG_SSB_PM_ACK_OUT *)message_structure;
+          /* packet length is compared with the size of the structure, which is determined by
+           * adding all the fields*sizeof(field) of the structure,
+           * alternatively it could be compared with sizeof(structure) */
+         if ( *packet_length < ( 1 * sizeof(tSIRF_UINT16) +
+                                 2 * sizeof(tSIRF_UINT8) + header_len ) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16( msg->MessageSeqNo, ptr );
+            SIRFBINARY_EXPORT8 ( msg->MessageIdAck, ptr );
+            SIRFBINARY_EXPORT8 ( msg->AckStatus, ptr );
+         }
+      }
+      break;
+#endif /* PVT_BUILD */
+
       case SIRF_MSG_SSB_SIRF_INTERNAL:   /* 0xE1 */
       {
          if ( *packet_length < ( (message_length * sizeof(tSIRF_UINT8)) + header_len) )
@@ -2045,10 +3645,178 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
       break;
 
       case SIRF_MSG_SSB_EE_SEA_PROVIDE_EPH:   /* 0x01 0xE8 */
+      {
+         tSIRF_MSG_SSB_EE_SEA_PROVIDE_EPH *msg = (tSIRF_MSG_SSB_EE_SEA_PROVIDE_EPH*) message_structure;
+           /* packet length is compared with the size of the structure, which is determined by
+            * adding all the fields*sizeof(field) of the structure,
+            *  alrenatively it could be compared with sizeof(structure) */
+         if ( *packet_length < ( (8 + 7 * SV_PER_PACKET) * sizeof(tSIRF_UINT8) +
+                                 (1 + 11 * SV_PER_PACKET) * sizeof(tSIRF_UINT16) +
+                                 (8 * SV_PER_PACKET) * sizeof(tSIRF_UINT32) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16( msg->week,      ptr );
+            SIRFBINARY_EXPORT32( msg->svid_mask, ptr );
+            for( i = 0; i < SV_PER_PACKET; i++ )
+            {
+               SIRFBINARY_EXPORT8 ( msg->extended_ephemeris[i].PRN,      ptr );
+               SIRFBINARY_EXPORT8 ( msg->extended_ephemeris[i].ephemerisValidityFlag, ptr );
+               SIRFBINARY_EXPORT8 ( msg->extended_ephemeris[i].URA,      ptr );
+               SIRFBINARY_EXPORT8 ( msg->extended_ephemeris[i].IODE,     ptr );
+               SIRFBINARY_EXPORT16( msg->extended_ephemeris[i].Crs,      ptr );
+               SIRFBINARY_EXPORT16( msg->extended_ephemeris[i].deltaN,   ptr );
+               SIRFBINARY_EXPORT32( msg->extended_ephemeris[i].M0,       ptr );
+               SIRFBINARY_EXPORT16( msg->extended_ephemeris[i].Cuc,      ptr );
+               SIRFBINARY_EXPORT32( msg->extended_ephemeris[i].eccen,    ptr );
+               SIRFBINARY_EXPORT16( msg->extended_ephemeris[i].Cus,      ptr );
+               SIRFBINARY_EXPORT32( msg->extended_ephemeris[i].sqrtA,    ptr );
+               SIRFBINARY_EXPORT16( msg->extended_ephemeris[i].toe,      ptr );
+               SIRFBINARY_EXPORT16( msg->extended_ephemeris[i].Cic,      ptr );
+               SIRFBINARY_EXPORT32( msg->extended_ephemeris[i].omega0,   ptr );
+               SIRFBINARY_EXPORT16( msg->extended_ephemeris[i].Cis,      ptr );
+               SIRFBINARY_EXPORT32( msg->extended_ephemeris[i].i0,       ptr );
+               SIRFBINARY_EXPORT16( msg->extended_ephemeris[i].Crc,      ptr );
+               SIRFBINARY_EXPORT32( msg->extended_ephemeris[i].w,        ptr );
+               SIRFBINARY_EXPORT32( msg->extended_ephemeris[i].omegaDot, ptr );
+               SIRFBINARY_EXPORT16( msg->extended_ephemeris[i].iDot,     ptr );
+               SIRFBINARY_EXPORT16( msg->extended_ephemeris[i].toc,      ptr );
+               SIRFBINARY_EXPORT8 ( msg->extended_ephemeris[i].Tgd,      ptr );
+               SIRFBINARY_EXPORT8 ( msg->extended_ephemeris[i].af2,      ptr );
+               SIRFBINARY_EXPORT16( msg->extended_ephemeris[i].af1,      ptr );
+               SIRFBINARY_EXPORT32( msg->extended_ephemeris[i].af0,      ptr );
+               SIRFBINARY_EXPORT8 ( msg->extended_ephemeris[i].age,      ptr );
+            }
+            SIRFBINARY_EXPORT8 ( msg->extended_iono.alpha[0], ptr );
+            SIRFBINARY_EXPORT8 ( msg->extended_iono.alpha[1], ptr );
+            SIRFBINARY_EXPORT8 ( msg->extended_iono.alpha[2], ptr );
+            SIRFBINARY_EXPORT8 ( msg->extended_iono.alpha[3], ptr );
+            SIRFBINARY_EXPORT8 ( msg->extended_iono.beta[0],  ptr );
+            SIRFBINARY_EXPORT8 ( msg->extended_iono.beta[1],  ptr );
+            SIRFBINARY_EXPORT8 ( msg->extended_iono.beta[2],  ptr );
+            SIRFBINARY_EXPORT8 ( msg->extended_iono.beta[3],  ptr );
+         }
+      }
+      break;
+
       case SIRF_MSG_SSB_EE_POLL_STATE:    /* 0x02 0xE8 */
+      break;
+
+      case SIRF_MSG_SSB_EE_FILE_DOWNLOAD:
+      {
+         tSIRF_MSG_SSB_EE_FILE_DOWNLOAD *msg = (tSIRF_MSG_SSB_EE_FILE_DOWNLOAD*) message_structure;
+
+         if ( *packet_length < (1 * sizeof(tSIRF_UINT32) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT32 (msg->reserved,             ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_SIF_SET_CONFIG:     /* 0xFC 0xE8*/
+      {
+         tSIRF_MSG_SSB_SIF_SET_CONFIG *msg = (tSIRF_MSG_SSB_SIF_SET_CONFIG*) message_structure;
+
+         if ( *packet_length < ( 5 * sizeof(tSIRF_UINT8) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8 (msg->operation_mode,        ptr);
+            SIRFBINARY_EXPORT8 (msg->file_format,           ptr);
+            SIRFBINARY_EXPORT8 (msg->ext_gps_time_src,      ptr);
+            SIRFBINARY_EXPORT8 (msg->cgee_input_method,     ptr);
+            SIRFBINARY_EXPORT8 (msg->sgee_input_method,     ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_EE_FILE_PART:     /* 0x12 0xE8*/
+      {
+         tSIRF_MSG_SSB_EE_FILE_PART *msg = (tSIRF_MSG_SSB_EE_FILE_PART*) message_structure;
+
+         if ( (*packet_length < ( 4 * sizeof(tSIRF_UINT8) +header_len) )
+                    || (msg->buffSize > SSB_DLD_MAX_PKT_LEN))
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+             SIRFBINARY_EXPORT32 (msg->buffSize,ptr);
+             if ( *packet_length < ( (4 + msg->buffSize) * sizeof(tSIRF_UINT8) +
+                                     header_len) )
+             {
+                tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+             }
+             else
+             {
+                for(i = 0; i < msg->buffSize; i++)
+                {
+                    SIRFBINARY_EXPORT8 (msg->buff[i], ptr);
+                }
+             }
+         }
+      }
+      break;
+
       case SIRF_MSG_SSB_EE_DISABLE_EE_SECS: /* 0xFE 0xE8 */
+      {
+         tSIRF_MSG_SSB_EE_DISABLE_EE_SECS *msg = (tSIRF_MSG_SSB_EE_DISABLE_EE_SECS*) message_structure;
+
+         if ( *packet_length < (1 * sizeof(tSIRF_UINT32) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT32( msg->num_secs, ptr );
+         }
+      }
+      break;
+
+#ifdef EMB_SIF
+      case SIRF_MSG_SSB_SIF_AIDING_STATUS:
+      {
+         tSIRF_MSG_SSB_SIF_AIDING_STATUS *msg = (tSIRF_MSG_SSB_SIF_AIDING_STATUS*) message_structure;
+
+         if ( *packet_length < (2 * sizeof(tSIRF_UINT8)+ 2 * sizeof(tSIRF_UINT32) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8( msg->sgeeDisable, ptr );
+            SIRFBINARY_EXPORT8( msg->cgeeDisable, ptr );
+            SIRFBINARY_EXPORT32( msg->CGEEDisableSeconds, ptr );
+            SIRFBINARY_EXPORT32( msg->CurrentReceiverSeconds, ptr );
+         }
+      }
+      break;
+#endif /*EMB_SIF*/
+
       case SIRF_MSG_SSB_EE_DEBUG:         /* 0xFF 0xE8 */
-         break;
+      {
+         tSIRF_MSG_SSB_EE_PROPRIETARY_DEBUG *msg = (tSIRF_MSG_SSB_EE_PROPRIETARY_DEBUG*) message_structure;
+
+         if ( *packet_length < (1 * sizeof(tSIRF_UINT32) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT32( msg->debug_flags, ptr );
+         }
+      }
+      break;
 
       case SIRF_MSG_SSB_TEXT:         /* 0xFF */
       {
@@ -2076,12 +3844,319 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          }
       }
       break;
+      case SIRF_MSG_SSB_SENSOR_CONFIG:    /* 0xEA 0x1 */
+      {
+         tSIRF_MSG_SSB_SENSOR_CONFIG *msg = (tSIRF_MSG_SSB_SENSOR_CONFIG*) message_structure;
 
+         tSIRF_UINT32 required_length = (sizeof(tSIRF_UINT8) *
+                      ( 3 + msg->numSensors * (14 + 2* (SIRF_MSG_SSB_MAX_SENSOR_INIT_REGS  +
+                                                        SIRF_MSG_SSB_MAX_SENSOR_READ_REGS  +
+                                                        SIRF_MSG_SSB_MAX_SENSOR_CTRL_REGS  )
+                                               )
+                       ) + sizeof(tSIRF_UINT16)* ( 3* msg->numSensors) +  header_len);
+
+         if ( *packet_length < required_length )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else if (msg->numSensors > SIRF_MSG_SSB_MAX_NUM_SENSORS)
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->numSensors,ptr);
+            SIRFBINARY_EXPORT8(msg->i2cSpeed,ptr);
+            for(i = 0; (i < msg->numSensors) && (i < SIRF_MSG_SSB_MAX_NUM_SENSORS); i++)
+            {
+               SIRFBINARY_EXPORT16(msg->Sensors[i].i2cAddress,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].sensorType,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].initTime,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].nBytesResol,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].sampRate,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].sendRate,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].decmMethod,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].acqTime,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].numReadReg,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].measState,ptr);
+               for(j=0;j<msg->Sensors[i].numReadReg;j++)
+               {
+                  SIRFBINARY_EXPORT8(msg->Sensors[i].sensorReadReg[j].readOprMethod,ptr);
+                  SIRFBINARY_EXPORT8(msg->Sensors[i].sensorReadReg[j].dataReadReg,ptr);
+               }
+               SIRFBINARY_EXPORT8(msg->Sensors[i].pwrCtrlReg,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].pwrOffSetting,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].pwrOnSetting,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].numInitReadReg,ptr);
+               for(j=0;j<msg->Sensors[i].numInitReadReg;j++)
+               {
+                  SIRFBINARY_EXPORT8(msg->Sensors[i].sensorInitReg[j].address,ptr);
+                  SIRFBINARY_EXPORT8(msg->Sensors[i].sensorInitReg[j].nBytes,ptr);
+               }
+               SIRFBINARY_EXPORT8(msg->Sensors[i].numCtrlReg,ptr);
+               SIRFBINARY_EXPORT8(msg->Sensors[i].ctrlRegWriteDelay,ptr);
+               for(j=0;j<msg->Sensors[i].numCtrlReg;j++)
+               {
+                  SIRFBINARY_EXPORT8(msg->Sensors[i].sensorCtrlReg[j].address,ptr);
+                  SIRFBINARY_EXPORT8(msg->Sensors[i].sensorCtrlReg[j].value,ptr);
+               }
+            } /* for loop = numSensors */
+
+            SIRFBINARY_EXPORT8(msg->processingRate,ptr);
+
+            for(i=0;i<msg->numSensors;i++)
+            {
+               SIRFBINARY_EXPORT16(msg->sensorScaleZeroPointVal[i].zeroPointVal,ptr);
+               SIRFBINARY_EXPORT16(msg->sensorScaleZeroPointVal[i].scaleFactor,ptr);
+            }
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_SENSOR_SWITCH:    /* 0xEA 0x2 */
+      {
+         tSIRF_MSG_SSB_SENSOR_SWITCH *msg = (tSIRF_MSG_SSB_SENSOR_SWITCH*) message_structure;
+
+         if ( *packet_length  < (sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->sensorSetState,ptr);
+         }
+      }
+      break;
+
+      case  SIRF_MSG_SSB_SENSOR_READINGS:             /*0x48, 0x1*/
+      {
+         tSIRF_MSG_SSB_SENSOR_READINGS *msg = (tSIRF_MSG_SSB_SENSOR_READINGS*) message_structure;
+
+         tSIRF_UINT32 required_length = ((3 + (SIRF_MSG_SSB_MAX_SENSOR_DATA_LEN * msg->numDataSet)) *
+                                         sizeof(tSIRF_UINT8) + sizeof(tSIRF_UINT16) +
+                                         msg->numDataSet * sizeof(tSIRF_UINT32) + header_len);
+
+         if ( *packet_length < required_length  )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else if (msg->numDataSet > SIRF_MSG_SSB_MAX_SENSOR_DATA_SETS)
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16(msg->sensorID,ptr);
+            SIRFBINARY_EXPORT8(msg->dataLength,ptr);
+            SIRFBINARY_EXPORT8(msg->numDataSet,ptr);
+            SIRFBINARY_EXPORT8(msg->dataMode,ptr);
+            for(i=0;i<msg->numDataSet;i++)
+            {
+               SIRFBINARY_EXPORT32(msg->dataSet[i].timeTag,ptr);
+               memcpy(ptr,msg->dataSet[i].data,msg->dataLength);
+               ptr += msg->dataLength;
+            }
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_SENSOR_FACTORY_STORED_PARAMS: /* 0x48, 0x2 */
+      {
+         tSIRF_MSG_SSB_SENSOR_FACTORY_STORED_PARAMS *msg
+                                = (tSIRF_MSG_SSB_SENSOR_FACTORY_STORED_PARAMS*) message_structure;
+
+         tSIRF_UINT32 required_length = (sizeof (tSIRF_UINT8) * (1 + ( ( 1 + SIRF_MSG_SSB_MAX_SENSOR_INIT_REG_DATA_LEN) * msg->numInitReadReg)) +
+                                        sizeof(tSIRF_UINT16) +
+                                        header_len);
+
+        if ( *packet_length < required_length )
+        {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+        }
+        else if (msg->numInitReadReg > SIRF_MSG_SSB_MAX_SENSOR_INIT_REGS)
+        {
+           tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+        }
+         else
+         {
+            SIRFBINARY_EXPORT16(msg->sensorID,ptr);
+            SIRFBINARY_EXPORT8(msg->numInitReadReg,ptr);
+
+            for(i=0;i<msg->numInitReadReg;i++)
+            {
+                SIRFBINARY_EXPORT8(msg->initData[i].nBytes,ptr);
+                memcpy(ptr, msg->initData[i].data,msg->initData[i].nBytes);
+                ptr +=  msg->initData[i].nBytes;
+            } /* for */
+         }        /* else */
+       } /* case */
+      break;
+
+      case SIRF_MSG_SSB_RCVR_STATE:    /* 0x48 0x03 */
+      {
+         tSIRF_MSG_SBB_RCVR_STATE *msg = (tSIRF_MSG_SBB_RCVR_STATE*) message_structure;
+
+         if ( *packet_length  < (sizeof(tSIRF_UINT32) + sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT32(msg->timeStamp, ptr);
+            SIRFBINARY_EXPORT8(msg->rcvrPhysicalState, ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_POINT_N_TELL_OUTPUT:    /* 0x48 0x04 */
+      {
+         tSIRF_MSG_SSB_POINT_N_TELL_OUTPUT *msg = (tSIRF_MSG_SSB_POINT_N_TELL_OUTPUT*) message_structure;
+
+         if ( *packet_length  < ((3*sizeof(tSIRF_UINT32)) + (6*sizeof(tSIRF_UINT16)) + sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT32(msg->timeStamp,ptr);
+            SIRFBINARY_EXPORT32(msg->latitude,ptr);
+            SIRFBINARY_EXPORT32(msg->longitude,ptr);
+            SIRFBINARY_EXPORT16(msg->heading,ptr);
+            SIRFBINARY_EXPORT16(msg->pitch,ptr);
+            SIRFBINARY_EXPORT16(msg->roll,ptr);
+            SIRFBINARY_EXPORT16(msg->headingUnc,ptr);
+            SIRFBINARY_EXPORT16(msg->pitchUnc,ptr);
+            SIRFBINARY_EXPORT16(msg->rollUnc,ptr);
+            SIRFBINARY_EXPORT8(msg->status, ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_SENSOR_CALIBRATION_OUTPUT:    /* 0x48 0x05 */
+      {
+         tSIRF_MSG_SSB_SENSOR_CALIBRATION_OUTPUT *msg = (tSIRF_MSG_SSB_SENSOR_CALIBRATION_OUTPUT*) message_structure;
+         tSIRF_UINT32 i=0;
+
+         if ( *packet_length  < ((40*sizeof(tSIRF_UINT32)) + (6*sizeof(tSIRF_DOUBLE)) + sizeof(tSIRF_UINT8) + sizeof(tSIRF_UINT16) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT16(msg->msgDescriptor,ptr);
+            SIRFBINARY_EXPORT8(msg->sensorType,ptr);
+            SIRFBINARY_EXPORT32(msg->timeStamp,ptr);
+            for(i =0;i<6;i++)
+            {
+               SIRF_SWAPOUT_DOUBLE(msg->CAL_FLD8[i],ptr);
+            }
+
+            for(i =0;i<24;i++)
+            {
+               SIRFBINARY_EXPORT32(msg->CAL_FLD4[i],ptr);
+            }
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_MAG_MODEL_PARAMS:    /* 0x48 0x06 */
+      {
+         tSIRF_MSG_SSB_MAG_MODEL_PARAMS *msg = (tSIRF_MSG_SSB_MAG_MODEL_PARAMS*) message_structure;
+
+         if ( *packet_length  < ((3*sizeof(tSIRF_INT32)) + (7*sizeof(tSIRF_FLOAT)) + sizeof(tSIRF_UINT16) + (3*sizeof(tSIRF_UINT8)) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            SIRFBINARY_EXPORT8(msg->magModelParamSrc,ptr);
+            SIRFBINARY_EXPORT32(msg->latitude,ptr);
+            SIRFBINARY_EXPORT32(msg->longitude,ptr);
+            SIRFBINARY_EXPORT32(msg->altitude,ptr);
+            SIRFBINARY_EXPORT16(msg->year,ptr);
+            SIRFBINARY_EXPORT8(msg->month,ptr);
+            SIRFBINARY_EXPORT8(msg->day,ptr);
+            SIRFBINARY_EXPORT32(msg->declination,ptr);
+            SIRFBINARY_EXPORT32(msg->totalField,ptr);
+            SIRFBINARY_EXPORT32(msg->horizonField,ptr);
+            SIRFBINARY_EXPORT32(msg->inclination,ptr);
+            SIRFBINARY_EXPORT32(msg->northComp,ptr);
+            SIRFBINARY_EXPORT32(msg->eastComp,ptr);
+            SIRFBINARY_EXPORT32(msg->downComp,ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_SIRF_STATS:    /* 0xE1 0x06 */
+         {
+            tSIRF_MSG_SSB_SIRF_STATS *msg = (tSIRF_MSG_SSB_SIRF_STATS *) message_structure;
+
+            if ( *packet_length < ( 4 * sizeof(tSIRF_UINT32) +
+                                    6 * sizeof(tSIRF_UINT16) +
+                                    9 * sizeof(tSIRF_UINT8) +
+                                    header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               SIRFBINARY_EXPORT16(msg->ttff_since_reset,       ptr);
+               SIRFBINARY_EXPORT16(msg->ttff_since_aiding,      ptr);
+               SIRFBINARY_EXPORT16(msg->ttff_first_nav,         ptr);
+               SIRFBINARY_EXPORT32(msg->pos_aiding_error_north, ptr);
+               SIRFBINARY_EXPORT32(msg->pos_aiding_error_east,  ptr);
+               SIRFBINARY_EXPORT32(msg->pos_aiding_error_down,  ptr);
+               SIRFBINARY_EXPORT32(msg->time_aiding_error,      ptr);
+               SIRFBINARY_EXPORT16(msg->freq_aiding_error,      ptr);
+               SIRFBINARY_EXPORT8(msg->hor_pos_uncertainty,     ptr);
+               SIRFBINARY_EXPORT16(msg->ver_pos_uncertainty,    ptr);
+               SIRFBINARY_EXPORT8(msg->time_uncertainty,        ptr);
+               SIRFBINARY_EXPORT8(msg->freq_uncertainty,        ptr);
+               SIRFBINARY_EXPORT8(msg->num_aided_ephemeris,     ptr);
+               SIRFBINARY_EXPORT8(msg->num_aided_acq_assist,    ptr);
+               SIRFBINARY_EXPORT8(msg->nav_mode,                ptr);
+               SIRFBINARY_EXPORT8(msg->pos_mode,                ptr);
+               SIRFBINARY_EXPORT16(msg->nav_status,             ptr);
+               SIRFBINARY_EXPORT8(msg->start_mode,              ptr);
+               SIRFBINARY_EXPORT8(msg->aiding_status,           ptr);
+            }
+         }
+         break;
+
+      case SIRF_MSG_SSB_SIRF_INTERNAL_OUT:    /* 0xE1 0x00 */
+         { 
+            /* Because the subID for this message is 0, it is not being handled/exported at the top this 
+             * function.  It is being exported here instead. */
+            if ( *packet_length < ( (message_length * sizeof(tSIRF_UINT8)) + header_len + (1 * sizeof(tSIRF_UINT8))) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               /* Export the SubID */
+               SIRFBINARY_EXPORT8(0x00, ptr);
+               /* Export the remaining message content */
+               memcpy(ptr, message_structure, message_length);
+               ptr += message_length;
+            }
+         }
+         break;
+
+#ifdef SIRF_AGPS
       default:
-         /* 0x61 to 0x7F and 0xE1 */
-         if (( message_id >= SIRF_MSG_SSB_PASSTHRU_OUTPUT_BEGIN && message_id <= SIRF_MSG_SSB_PASSTHRU_OUTPUT_END)
-              || (SIRF_MSG_SSB_SIRF_INTERNAL_OUT == message_id))
-         { /* pass-thru from tracker:*/
+         {
+            tRet = SIRF_CODEC_SSB_AGPS_Encode(message_id,message_structure,message_length,
+                                              packet,packet_length);
+            if(SIRF_SUCCESS == tRet)
+               {
+                  ptr = packet + (*packet_length);
+               }
+         }
+#else
+      default:
+         /* Pass-thru messages 0x61 to 0x7F */
+         if (message_id >= SIRF_MSG_SSB_PASSTHRU_OUTPUT_BEGIN && message_id <= SIRF_MSG_SSB_PASSTHRU_OUTPUT_END)
+         {
             if ( *packet_length < ( (message_length * sizeof(tSIRF_UINT8)) + header_len) )
             {
                tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
@@ -2096,6 +4171,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
          {
             tRet = SIRF_CODEC_SSB_INVALID_MSG_ID;
          }
+#endif
          break;
 
       } /* switch */
@@ -2115,6 +4191,8 @@ tSIRF_RESULT SIRF_CODEC_SSB_Encode( tSIRF_UINT32 message_id,
    {
       *packet_length = 0;
    }
+
+   *options = SIRF_CODEC_OPTIONS_MAKE_MSG_NUMBER(1,1); /* Message 1 of 1 */
 
    return tRet;
 
@@ -2136,31 +4214,8 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8 *payload,
                                     tSIRF_UINT32 payload_length,
                                     tSIRF_UINT32 *message_id,
                                     tSIRF_VOID   *message_structure,
-                                    tSIRF_UINT32 *message_length ) {
-   return SIRF_CODEC_SSB_Decode_Ex(payload, payload_length, 0, message_id,
-	 message_structure, message_length);
-}
-
-/***************************************************************************
- * @brief:   Convert a byte stream to a formatted SSB structure
- * @param[in]:  payload - contains the byte stream, in protocol format
- * @param[in]   payload_length - the size of same, including overhead
- * @param[in]   payload_length - the size of same, including overhead
- * @param[in]   sirf_flags - SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER for GSW2.3 - 2.99
- * @param[out]  message_id - SSB message id, derived from the input
- * @param[out]  message_structure - data structure keyed to the message id
- * @param[out]  message_length - pointer to the length of the message
- * @return:  SIRF_SUCCESS, SIRF_CODEC_SSB_NULL_POINTER, or
- *           SIRF_CODEC_SSB_LENGTH_ERROR
-***************************************************************************/
-
-tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
-                                    tSIRF_UINT32 payload_length,
-				    tSIRF_UINT32 sirf_flags,
-                                    tSIRF_UINT32 *message_id,
-                                    tSIRF_VOID   *message_structure,
-                                    tSIRF_UINT32 *message_length
-				    )
+                                    tSIRF_UINT32 *message_length,
+                                    tSIRF_UINT32 *options )
 {
    tSIRF_RESULT tRet = SIRF_SUCCESS;
 
@@ -2171,10 +4226,9 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
    {
       tSIRF_UINT8 *ptr = payload;
       tSIRF_UINT32 i, j;
+      tSIRF_INT32 k;
       tSIRF_UINT8 mid, sid = 0;
       tSIRF_UINT8 header_len = 1 * sizeof(tSIRF_UINT8); /* At least the mid byte */
-
-      *message_id = 0;
 
       /* At a minimum, make sure we have room for the first header byte */
       if ( payload_length < header_len )
@@ -2195,9 +4249,25 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
          SIRF_MSG_SSB_DR_OUTPUT            == *message_id ||
          SIRF_MSG_SSB_SIRFNAV_NOTIFICATION == *message_id ||
          SIRF_MSG_SSB_EVENT                == *message_id ||
+         SIRF_MSG_SSB_IC_CONTROL           == *message_id ||
+         SIRF_MSG_SSB_CW_INPUT             == *message_id ||
+         SIRF_MSG_SSB_XO_LEARNING_IN       == *message_id ||
          SIRF_MSG_SSB_EE                   == *message_id ||
+#ifdef SENS_SSB_DATA_INPUT_MODE
+         SIRF_MSG_SSB_RCVR_STATE           == *message_id ||
+         SIRF_MSG_SSB_POINT_N_TELL_OUTPUT  == *message_id ||
+         SIRF_MSG_SSB_SENSOR_READINGS      == *message_id ||
+#endif
+         SIRF_MSG_SSB_SENSOR_DATA          == *message_id ||
+         SIRF_MSG_SSB_SENSOR_CONTROL_INPUT == *message_id ||
+         SIRF_MSG_SSB_EE_INPUT             == *message_id ||
+         SIRF_MSG_SSB_IC_DATA              == *message_id ||
+         SIRF_MSG_SSB_QUEUE_CMD_PARAM      == *message_id ||
+         SIRF_MSG_SSB_TEST_MODE_DATA_ID    == *message_id ||
          SIRF_MSG_SSB_NL_AUX_DATA          == *message_id ||
-         SIRF_MSG_SSB_TRACKER_DATA         == *message_id
+         SIRF_MSG_SSB_SIRF_INTERNAL_OUT    == *message_id ||
+         SIRF_MSG_SSB_MPM_STATUS_OUT       == *message_id ||
+         SIRF_MSG_SSB_PWR_MODE_REQ         == *message_id
          )
       {
          header_len += 1 * sizeof(tSIRF_UINT8);
@@ -2314,14 +4384,6 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             }
          }
          break;
-         case SIRF_MSG_SSB_SW_VERSION: /* 0x06 */
-         {
-            *message_length = payload_length - 1;
-            memcpy(message_structure, ptr, payload_length - 1);
-            *((char*) message_structure + payload_length - 1) = '\0';
-            ptr += payload_length - 1;
-         }
-         break;
          case SIRF_MSG_SSB_CLOCK_STATUS: /* 0x07 */
          {
             tSIRF_MSG_SSB_CLOCK_STATUS * msg = (tSIRF_MSG_SSB_CLOCK_STATUS*) message_structure;
@@ -2345,8 +4407,8 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             }
          }
          break;
-         case SIRF_MSG_SSB_50BPS_DATA:          /* 0x08 */
-         case SIRF_MSG_SSB_50BPS_DATA_VERIFIED: /* 0x52 */
+         case SIRF_MSG_SSB_50BPS_DATA: /* 0x08 */
+         case SIRF_MSG_SSB_EE_50BPS_DATA_VERIFIED: /* 0x38, 0x05 */
          {
             tSIRF_MSG_SSB_50BPS_DATA * msg = (tSIRF_MSG_SSB_50BPS_DATA*) message_structure;
 
@@ -2547,7 +4609,9 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             else
             {
                *message_length = sizeof(*msg);
-               msg->reserved_1             = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->reserved_1a            = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->reserved_1b            = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->pos_mode_enable        = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->alt_mode               = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->alt_src                = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->alt_input              = SIRFBINARY_IMPORT_UINT16(ptr);
@@ -2665,10 +4729,10 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
                msg->Chnl                  = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->Timetag               = SIRFBINARY_IMPORT_UINT32(ptr);
                msg->svid                  = SIRFBINARY_IMPORT_UINT8 (ptr);
-               SIRFBINARY_IMPORT_DOUBLE_EX(msg->gps_sw_time,            ptr, sirf_flags);
-               SIRFBINARY_IMPORT_DOUBLE_EX(msg->pseudorange,            ptr, sirf_flags);
+               SIRFBINARY_IMPORT_DOUBLE(msg->gps_sw_time,            ptr);
+               SIRFBINARY_IMPORT_DOUBLE(msg->pseudorange,            ptr);
                SIRFBINARY_IMPORT_FLOAT (msg->carrier_freq,           ptr);
-               SIRFBINARY_IMPORT_DOUBLE_EX(msg->carrier_phase,          ptr, sirf_flags);
+               SIRFBINARY_IMPORT_DOUBLE(msg->carrier_phase,          ptr);
                msg->time_in_track         = SIRFBINARY_IMPORT_UINT16(ptr);
                msg->sync_flags            = SIRFBINARY_IMPORT_UINT8 (ptr);
                for (i = 0; i < SIRF_NUM_POINTS; i++)
@@ -2723,16 +4787,16 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             {
                *message_length = sizeof(*msg);
                msg->svid       = SIRFBINARY_IMPORT_UINT8(ptr);
-               SIRFBINARY_IMPORT_DOUBLE_EX (msg->time,       ptr, sirf_flags);
+               SIRFBINARY_IMPORT_DOUBLE (msg->time,       ptr);
                for (i = 0; i < 3; i++)
                {
-                  SIRFBINARY_IMPORT_DOUBLE_EX(msg->pos[i],  ptr, sirf_flags);
+                  SIRFBINARY_IMPORT_DOUBLE(msg->pos[i],  ptr);
                }
                for (i = 0; i < 3; i++)
                {
-                  SIRFBINARY_IMPORT_DOUBLE_EX(msg->vel[i],  ptr, sirf_flags);
+                  SIRFBINARY_IMPORT_DOUBLE(msg->vel[i],  ptr);
                }
-               SIRFBINARY_IMPORT_DOUBLE_EX(msg->clk,        ptr, sirf_flags);
+               SIRFBINARY_IMPORT_DOUBLE(msg->clk,        ptr);
                SIRFBINARY_IMPORT_FLOAT (msg->clf,        ptr);
                msg->eph        = SIRFBINARY_IMPORT_UINT8(ptr);
                SIRFBINARY_IMPORT_FLOAT (msg->posvar,     ptr);
@@ -2805,10 +4869,10 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             else
             {
                *message_length = sizeof(*msg);
-               msg->time_init_unc        = SIRFBINARY_IMPORT_UINT32 (ptr);   
-               msg->saved_pos_week       = SIRFBINARY_IMPORT_UINT16 (ptr);  
-               msg->saved_pos_tow        = SIRFBINARY_IMPORT_UINT32 (ptr);   
-               msg->saved_pos_ehe        = SIRFBINARY_IMPORT_UINT16 (ptr);   
+               msg->time_init_unc        = SIRFBINARY_IMPORT_UINT32 (ptr);
+               msg->saved_pos_week       = SIRFBINARY_IMPORT_UINT16 (ptr);
+               msg->saved_pos_tow        = SIRFBINARY_IMPORT_UINT32 (ptr);
+               msg->saved_pos_ehe        = SIRFBINARY_IMPORT_UINT16 (ptr);
                msg->saved_pos_eve        = SIRFBINARY_IMPORT_UINT16 (ptr);
                msg->sw_version           = SIRFBINARY_IMPORT_UINT8  (ptr);
                msg->icd_version          = SIRFBINARY_IMPORT_UINT8  (ptr);
@@ -3261,7 +5325,14 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
                msg->mode      = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->timeout   = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->flg_bits  = SIRFBINARY_IMPORT_UINT8 (ptr);
-	       ptr += 8;
+               msg->spare[0]  = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->spare[1]  = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->spare[2]  = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->spare[3]  = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->spare[4]  = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->spare[5]  = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->spare[6]  = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->spare[7]  = SIRFBINARY_IMPORT_UINT8 (ptr);
             }
          }
          break;
@@ -3308,6 +5379,24 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             }
          }
          break;
+      case SIRF_MSG_SSB_TRACKER_LOADER_STATE: /* 0x0633 (51, 6) */
+      {
+         tSIRF_MSG_SSB_TRACKER_LOADER_STATE *msg = (tSIRF_MSG_SSB_TRACKER_LOADER_STATE*)message_structure;
+
+         if ( payload_length < ( 4 * sizeof(tSIRF_UINT32) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            *message_length        = sizeof(*msg);
+            msg->loader_state      = SIRFBINARY_IMPORT_UINT32( ptr );
+            msg->percentage_loaded = SIRFBINARY_IMPORT_UINT32( ptr );
+            msg->loader_error      = SIRFBINARY_IMPORT_UINT32( ptr );
+            msg->time_tag          = SIRFBINARY_IMPORT_UINT32( ptr );
+         }
+      }
+      break;
          case SIRF_MSG_SSB_SIRFNAV_START: /* 0x0733 (51, 7) */
          {
             tSIRF_MSG_SSB_SIRFNAV_START* msg = (tSIRF_MSG_SSB_SIRFNAV_START*) message_structure;
@@ -3382,10 +5471,61 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
          break;
 
          case SIRF_MSG_SSB_EE_GPS_TIME_INFO: /* 0x0138 */
+         {
+            tSIRF_MSG_SSB_EE_GPS_TIME_INFO *msg = (tSIRF_MSG_SSB_EE_GPS_TIME_INFO *) message_structure;
+
+            if ( payload_length < ( 1 * sizeof(tSIRF_UINT8) +
+                                    1 * sizeof(tSIRF_UINT16) +
+                                    2 * sizeof(tSIRF_UINT32) +
+                                    header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               msg->time_valid_flag        = SIRFBINARY_IMPORT_UINT8(  ptr );
+               msg->gps_week               = SIRFBINARY_IMPORT_UINT16( ptr );
+               msg->gps_tow                = SIRFBINARY_IMPORT_UINT32( ptr );
+               msg->ephemeris_request_mask = SIRFBINARY_IMPORT_UINT32( ptr );
+            }
+         }
+         break;
+
          case SIRF_MSG_SSB_EE_INTEGRITY:     /* 0x0238 */
          case SIRF_MSG_SSB_EE_STATE:         /* 0x0338 */
          case SIRF_MSG_SSB_EE_CLK_BIAS_ADJ:  /* 0x0438 */
+         break;
+
          case SIRF_MSG_SSB_EE_ACK:           /* 0xFF38 */
+         {
+            tSIRF_MSG_SSB_EE_ACK *msg = (tSIRF_MSG_SSB_EE_ACK*) message_structure;
+
+            if ( payload_length < (2 * sizeof(tSIRF_UINT8) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               msg->acq_id     = SIRFBINARY_IMPORT_UINT8( ptr );
+               msg->acq_sub_id = SIRFBINARY_IMPORT_UINT8( ptr );
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_GPIO_READ: /* 0xC041 (65,192) */
+         {
+            tSIRF_MSG_SSB_GPIO_READ *msg = (tSIRF_MSG_SSB_GPIO_READ*)message_structure;
+
+            if ( payload_length < ( 1 * sizeof(tSIRF_UINT16) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length        = sizeof(*msg);
+               msg->gpio_state        = SIRFBINARY_IMPORT_UINT16( ptr );
+            }
+         }
          break;
 
          case SIRF_MSG_SSB_DOP_VALUES: /* 0x42 */
@@ -3483,15 +5623,18 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
          case SIRF_MSG_SSB_POLL_SW_VERSION: /* 0x84 */
          {
             tSIRF_MSG_SSB_POLL_SW_VERSION * msg = (tSIRF_MSG_SSB_POLL_SW_VERSION*) message_structure;
-
-            if ( payload_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
+            memset(msg,0,sizeof(*msg));
+            if ( payload_length <  header_len )
             {
                tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
             }
             else
             {
                *message_length = sizeof(*msg);
-               msg->reserved = SIRFBINARY_IMPORT_UINT8(ptr);
+               if(payload_length >= (1 * sizeof(tSIRF_UINT8) + header_len))
+               {
+                  msg->reserved = SIRFBINARY_IMPORT_UINT8(ptr);
+               }
             }
          }
          break;
@@ -3530,7 +5673,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
                msg->enable_3d         = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->enable_con_alt    = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->degraded_mode     = SIRFBINARY_IMPORT_UINT8 (ptr);
-               msg->pad               = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->pos_mode_enable   = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->dr_enable         = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->alt_input         = SIRFBINARY_IMPORT_SINT16(ptr);
                msg->alt_mode          = SIRFBINARY_IMPORT_UINT8 (ptr);
@@ -3542,6 +5685,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             }
          }
          break;
+
          case SIRF_MSG_SSB_SET_DOP_MODE: /* 0x89 */
          {
             tSIRF_MSG_SSB_SET_DOP_MODE* msg = (tSIRF_MSG_SSB_SET_DOP_MODE*) message_structure;
@@ -3666,6 +5810,19 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
                *message_length = sizeof(*msg);
                msg->svid     = SIRFBINARY_IMPORT_UINT8(ptr);
                msg->reserved = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         }
+         break;
+         case SIRF_MSG_SSB_FLASH_UPDATE: /* 0x94 */
+         {
+            if ( payload_length < header_len )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+                /* There is no payload in this message */
+                *message_length = 0;
             }
          }
          break;
@@ -3834,6 +5991,58 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
          }
          break;
 
+         case SIRF_MSG_SSB_DEMO_START_NAV_ENGINE: /* 0x08A1 */
+         {
+            tSIRF_UINT8 temp[MAX_PORT_NUM_STRING_LENGTH];
+            tSIRF_UINT32 i;
+
+            tSIRF_MSG_SSB_DEMO_START_NAV_ENGINE *msg = (tSIRF_MSG_SSB_DEMO_START_NAV_ENGINE*) message_structure;
+
+            /* Add correct size */
+            if ( payload_length < ((unsigned) SIRF_CONFIG_SIZE + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->config.start_mode                  = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->config.uart_max_preamble           = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->config.uart_idle_byte_wakeup_delay = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->config.ref_clk_offset              = SIRFBINARY_IMPORT_SINT32(ptr);
+               msg->config.uart_hw_fc                  = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->config.lna_type                    = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->config.debug_settings              = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->config.ref_clk_warmup_delay        = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->config.ref_clk_frequency           = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->config.ref_clk_uncertainty         = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->config.uart_baud_rate              = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->config.code_load_baud_rate         = msg->config.uart_baud_rate;
+               msg->config.io_pin_configuration_mode   = SIRFBINARY_IMPORT_UINT8(ptr);
+               for (i=0; i<SIRFNAV_UI_CTRL_NUM_GPIO_PINS_CONFIG; i++)
+               {
+                  msg->config.io_pin_configuration[i]  = SIRFBINARY_IMPORT_UINT16(ptr);
+               }
+               msg->config.i2c_host_address            = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->config.i2c_tracker_address         = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->config.i2c_mode                    = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->config.i2c_rate                    = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->config.spi_rate                    = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->config.on_off_control              = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->config.flash_mode                  = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->config.storage_mode                = SIRFBINARY_IMPORT_UINT8(ptr);
+               for (i=0; i<MAX_PORT_NUM_STRING_LENGTH; i++)
+               {
+                  temp[i]                              = SIRFBINARY_IMPORT_UINT8(ptr);
+               }
+               memcpy(msg->config.tracker_port, &temp, sizeof(msg->config.tracker_port));
+               msg->config.tracker_port_select         = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->config.weak_signal_enabled         = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->config.backup_LDO_mode_enabled     = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         }
+         break;
+
          case SIRF_MSG_SSB_SET_MSG_RATE: /* 0xA6 */
          {
             tSIRF_MSG_SSB_SET_MSG_RATE * msg = (tSIRF_MSG_SSB_SET_MSG_RATE*) message_structure;
@@ -3881,18 +6090,18 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
          {
             tSIRF_MSG_SSB_SET_SBAS_PRN * msg = (tSIRF_MSG_SSB_SET_SBAS_PRN*) message_structure;
 
-            if ( payload_length < ( 1 * sizeof(tSIRF_UINT8) +
-                                    2 * sizeof(tSIRF_UINT32) +
-                                    header_len) )
+            if ( payload_length < ( 5 * sizeof(tSIRF_UINT8) + header_len) )
             {
                tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
             }
             else
             {
                *message_length = sizeof(*msg);
-               msg->prn         = SIRFBINARY_IMPORT_UINT8 (ptr);
-               msg->reserved[0] = SIRFBINARY_IMPORT_UINT32(ptr);
-               msg->reserved[1] = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->prnOrRegion = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->mode        = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->flagBits    = SIRFBINARY_IMPORT_SINT8 (ptr);
+               msg->region      = SIRFBINARY_IMPORT_SINT8 (ptr);
+               msg->regionPRN   = SIRFBINARY_IMPORT_SINT8 (ptr);
             }
          }
          break;
@@ -3956,7 +6165,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
          {
             tSIRF_MSG_SSB_DR_SET_NAV_MODE * msg = (tSIRF_MSG_SSB_DR_SET_NAV_MODE*) message_structure;
 
-            if ( payload_length < (2 * sizeof(tSIRF_UINT8) + header_len) )
+            if ( payload_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
             {
                tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
             }
@@ -3964,7 +6173,6 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             {
                *message_length = sizeof(*msg);
                msg->mode        = SIRFBINARY_IMPORT_UINT8 (ptr);
-               msg->reserved   = SIRFBINARY_IMPORT_UINT8( ptr );
             }
          }
          break;
@@ -4034,10 +6242,16 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
          {
             tSIRF_MSG_SSB_DR_CAR_BUS_DATA *msg = (tSIRF_MSG_SSB_DR_CAR_BUS_DATA*) message_structure;
 
-            *message_length = sizeof(*msg);
-            msg->sensor_data_type  = SIRFBINARY_IMPORT_UINT8 (ptr);
-            msg->num_of_data_sets  = SIRFBINARY_IMPORT_UINT8 (ptr);
-            msg->reverse_bitmap    = SIRFBINARY_IMPORT_UINT16(ptr);
+         *message_length = sizeof(*msg);
+         if (payload_length < 2 * sizeof(tSIRF_UINT8) + sizeof(tSIRF_UINT16))
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            break;
+         }
+
+         msg->sensor_data_type  = SIRFBINARY_IMPORT_UINT8 (ptr);
+         msg->num_of_data_sets  = SIRFBINARY_IMPORT_UINT8 (ptr);
+         msg->reverse_bitmap    = SIRFBINARY_IMPORT_UINT16(ptr);
 
             if ( payload_length < ( (2 + 2 * msg->num_of_data_sets) * sizeof(tSIRF_UINT8) +
                                     (1 + 5 * msg->num_of_data_sets) * sizeof(tSIRF_UINT16) +
@@ -4045,6 +6259,10 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
                                     header_len) )
             {
                tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else if (msg->num_of_data_sets > MAX_DR_CAR_BUS_DATA_SETS)
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
             }
             else
             {
@@ -4093,6 +6311,43 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             }
          }
          break;
+
+      case SIRF_MSG_SSB_DR_SENSOR_DATA: /* 0x19 0xAC */
+      {
+         tSIRF_MSG_SSB_DR_SENSOR_DATA *msg = (tSIRF_MSG_SSB_DR_SENSOR_DATA*) message_structure;
+
+         *message_length = sizeof(*msg);
+         msg->sensor_data_type  = SIRFBINARY_IMPORT_UINT8 (ptr);
+         msg->num_of_data_sets  = SIRFBINARY_IMPORT_UINT8 (ptr);
+         msg->reserved          = SIRFBINARY_IMPORT_UINT16(ptr);
+
+         if ( payload_length < ( 2 * sizeof(tSIRF_UINT8) +
+                                 (1 + (1+SIRF_MSG_SSB_DR_SENSOR_DATA_SET_MAX) * msg->num_of_data_sets) * sizeof(tSIRF_UINT16) +
+                                 msg->num_of_data_sets * sizeof(tSIRF_UINT32) +
+                                 header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else if (msg->num_of_data_sets > SIRF_MSG_SSB_DR_SENSOR_DATA_MAX)
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+         }
+         else
+         {
+            for( i = 0; i <(msg->num_of_data_sets); i++ )
+            {
+               msg->data_set[i].valid_data_indication   = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->data_set[i].data_set_time_tag       = SIRFBINARY_IMPORT_UINT32(ptr);
+
+               for ( j=0; j<SIRF_MSG_SSB_DR_SENSOR_DATA_SET_MAX; j++ )
+               {
+                  msg->data_set[i].data[j]              = SIRFBINARY_IMPORT_SINT16(ptr);
+               }
+            }
+         }
+      }
+      break;
+
          case SIRF_MSG_SSB_MMF_DATA: /* 0x50 0xAC */
          {
             tSIRF_MSG_SSB_MMF_DATA *msg = (tSIRF_MSG_SSB_MMF_DATA*) message_structure;
@@ -4140,9 +6395,205 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
          }
          break;
 
-         case SIRF_MSG_SSB_TRK_HW_CONFIG:   /* 0xCE */
+      case SIRF_MSG_SSB_GPIO_WRITE: /* 0xB2 0x30 (178,48) */
+      {
+         tSIRF_MSG_SSB_GPIO_WRITE *msg = (tSIRF_MSG_SSB_GPIO_WRITE*)message_structure;
+
+         if ( payload_length < (2 * sizeof(tSIRF_UINT16) + header_len) )
          {
-            tSIRF_MSG_SSB_TRK_HW_CONFIG *msg = (tSIRF_MSG_SSB_TRK_HW_CONFIG*) message_structure;
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            *message_length    = sizeof(*msg);
+            msg->gpio_to_write = SIRFBINARY_IMPORT_UINT16(ptr);
+            msg->gpio_state    = SIRFBINARY_IMPORT_UINT16(ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_GPIO_MODE_SET: /* 0xB2 0x31 (178,49) */
+      {
+         tSIRF_MSG_SSB_GPIO_MODE_SET *msg = (tSIRF_MSG_SSB_GPIO_MODE_SET*)message_structure;
+
+         if ( payload_length < (3 * sizeof(tSIRF_UINT16) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            *message_length  = sizeof(*msg);
+            msg->gpio_to_set = SIRFBINARY_IMPORT_UINT16(ptr);
+            msg->gpio_mode   = SIRFBINARY_IMPORT_UINT16(ptr);
+            msg->gpio_state  = SIRFBINARY_IMPORT_UINT16(ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_TRK_HW_CONFIG:   /* 0xCE */
+      {
+         tSIRF_MSG_SSB_TRK_HW_CONFIG *msg = (tSIRF_MSG_SSB_TRK_HW_CONFIG*) message_structure;
+
+         if ( payload_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            *message_length        = sizeof(*msg);
+            msg->ExtLNAEnable      = SIRFBINARY_IMPORT_UINT8(ptr);  /* External LNA Enable 0=Ignore, 1=Internal, 2=External */
+            /* Advancing the data pointer to make the size reconcile correctly, since this data won't be */
+            /* utilized. DO NOT allow SSB to set the Reserved fields, since this is responsibility of    */
+            /* the Host. Customers are NOT allowed to modify these Reserved fields.                      */
+            ptr++;
+            msg->Reserved = 0;
+            for (i = 0; i < SIRF_MSG_SSB_TRK_HW_CONFIG_RF_OVRD_MSG_LENGTH; i++)
+            {
+               ptr++;
+               msg->Reserved1[i] = 0;
+            }
+         }
+      }
+      break;
+
+         case SIRF_MSG_SSB_TRKR_CUSTOMIO: /* 0x01 0xB2 */
+         {
+            tSIRF_UINT8 readType  = *(payload + 2);
+            tSIRF_UINT8 readVer   = *(payload + 3);
+            switch(readType)
+            {
+               case CUSTOMIO_SEL1:
+               {
+                  switch(readVer)
+                  {
+                     case 0:
+                     {
+                        tSIRF_MSG_SSB_TRKR_CUSTOMIO_SEL1* msg = (tSIRF_MSG_SSB_TRKR_CUSTOMIO_SEL1*) message_structure;
+                        if ( payload_length < (SIRF_MSG_SSB_TRKR_CUSTOMIO_SEL1 + (tSIRF_UINT32)header_len) )
+                        {
+                           tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+                        }
+                        else
+                        {
+                           *message_length   = sizeof(*msg);
+                           msg->m_type         = SIRFBINARY_IMPORT_UINT8(ptr);
+                           msg->m_ver          = SIRFBINARY_IMPORT_UINT8(ptr);
+                           msg->m_pin_config   = SIRFBINARY_IMPORT_UINT8(ptr);
+                        }
+                     }
+                     break;
+
+                     default:
+                        break;
+                  }
+               }
+               break;
+
+               default:
+                  break;
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_TRKR_CONFIG: /* 0x02 0xB2 */
+         {
+            tSIRF_INT32 i;
+            tSIRF_MSG_SSB_TRKR_CONFIG* msg = (tSIRF_MSG_SSB_TRKR_CONFIG*) message_structure;
+
+            if ( payload_length < (SIRF_MSG_SSB_TRKR_CONFIG_LENGTH + (tSIRF_UINT32)header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length        = sizeof(*msg);
+               msg->ref_clk_frequency           = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->ref_clk_warmup_delay        = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->ref_clk_uncertainty         = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->ref_clk_offset              = SIRFBINARY_IMPORT_SINT32(ptr);
+               msg->ext_lna_enable              = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->io_pin_config_enable        = SIRFBINARY_IMPORT_UINT8(ptr);
+               for(i=0; i<SIRFNAV_UI_CTRL_NUM_GPIO_PINS_CONFIG; i++)
+               {
+                  msg->io_pin_config[i]         = SIRFBINARY_IMPORT_UINT16(ptr);
+               }
+               msg->uart_max_preamble           = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->uart_idle_byte_wakeup_delay = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->uart_baud_rate              = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->uart_hw_fc                  = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->i2c_master_addr             = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->i2c_slave_addr              = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->i2c_rate                    = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->i2c_mode                    = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->i2c_max_msg_length          = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->pwr_ctrl_on_off             = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->backup_LDO_mode_enabled     = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_TRKR_PEEKPOKE_CMD: /* 0x03 0xB2 */
+         {
+            tSIRF_MSG_SSB_TRKR_PEEKPOKE_CMD *msg = (tSIRF_MSG_SSB_TRKR_PEEKPOKE_CMD*) message_structure;
+
+            *message_length         = sizeof(*msg);
+            msg->type               = SIRFBINARY_IMPORT_UINT8(ptr);
+            msg->access             = SIRFBINARY_IMPORT_UINT8(ptr);
+            msg->address            = SIRFBINARY_IMPORT_UINT32(ptr);
+
+            if (msg->type == 0 || msg->type == 1)     /* 4-byte peek/poke cmd */
+            {
+               /* Simpler version of mei_reverseBytes() */
+               for ( k = 3; k >= 0; k-- )
+               {
+                  msg->data[k]         = SIRFBINARY_IMPORT_UINT8(ptr);
+               }
+            }
+            else if (msg->type == 2)                  /* n-byte peek cmd */
+            {
+               msg->numbytes           = SIRFBINARY_IMPORT_UINT16(ptr);
+            }
+            else if (msg->type == 3)                  /* n-byte poke cmd */
+            {
+               msg->numbytes           = SIRFBINARY_IMPORT_UINT16(ptr);
+               if(msg->numbytes > MAX_DATA_SIZE)
+               {
+                  tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+               }
+               else
+               {
+                  for ( k = 0; k < msg->numbytes; k++ )
+                  {
+                     msg->data[k]         = SIRFBINARY_IMPORT_UINT8(ptr);
+                  }
+               }
+            }
+            else
+               return (SIRF_CODEC_ERROR_INVALID_PARAMETER);
+
+         }
+         break;
+
+#ifdef PVT_BUILD
+         case SIRF_MSG_SSB_TRKR_CONFIG_POLL: /* 0x09, 0xB2 */
+         {
+            /* Message has no data */
+            memset( message_structure, 0, sizeof(tSIRF_MSG_SSB_TRKR_CONFIG_POLL) );
+            *message_length = sizeof (tSIRF_MSG_SSB_TRKR_CONFIG_POLL);
+         }
+         break;
+
+         case SIRF_MSG_SSB_CCK_POLL: /* 0x0B, 0xB2 */
+         {
+            /* Message has no data */
+            memset( message_structure, 0, sizeof(tSIRF_MSG_SSB_CCK_POLL) );
+            *message_length = sizeof (tSIRF_MSG_SSB_CCK_POLL);
+         }
+         break;
+
+         case SIRF_MSG_SSB_PATCH_STORAGE_CONTROL: /* 0x14 0xB2 */
+         {
+            tSIRF_MSG_SSB_PATCH_STORAGE_CONTROL *msg = (tSIRF_MSG_SSB_PATCH_STORAGE_CONTROL*) message_structure;
 
             if ( payload_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
             {
@@ -4150,21 +6601,61 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             }
             else
             {
-               *message_length        = sizeof(*msg);
-               msg->ExtLNAEnable      = SIRFBINARY_IMPORT_UINT8(ptr);  /* External LNA Enable 0=Ignore, 1=Internal, 2=External */
-               /* Advancing the data pointer to make the size reconcile correctly, since this data won't be */
-               /* utilized. DO NOT allow SSB to set the Reserved fields, since this is responsibility of    */
-               /* the Host. Customers are NOT allowed to modify these Reserved fields.                      */
-               ptr++;
-               msg->Reserved = 0;
-               for (i = 0; i < SIRF_MSG_SSB_TRK_HW_CONFIG_RF_OVRD_MSG_LENGTH; i++)
+               *message_length = sizeof(*msg);
+               msg->patch_storage_ctrl = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         } /* end of case SIRF_MSG_SSB_PATCH_STORAGE_CONTROL */
+         break;
+
+         case SIRF_MSG_SSB_SWTB_PMLOAD_IN:     /* 0x22 0xB2 */
+         {
+            tSIRF_MSG_SSB_SWTB_PMLOAD_IN *msg = (tSIRF_MSG_SSB_SWTB_PMLOAD_IN *)message_structure;
+
+            if  ((payload_length < (1 * sizeof(tSIRF_UINT16) + header_len)) ||
+                 (payload_length > (MAX_SWTB_PMLOAD_PDATA_SIZE + 4)))
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = payload_length;
+               msg->seqno = SIRFBINARY_IMPORT_UINT16(ptr);
+               for (i = 0; i < (payload_length - 4); i++)
                {
-                    ptr++;
-                    msg->Reserved1[i] = 0;
+                  msg->PatchData[i] = SIRFBINARY_IMPORT_UINT8(ptr);
                }
             }
          }
          break;
+
+         case SIRF_MSG_SSB_SWTB_PMEXIT_IN:     /* 0x26 0xB2 */
+         {
+             *message_length = 0;
+         }
+         break;
+
+         case SIRF_MSG_SSB_SWTB_PMSTART_IN:     /* 0x28 0xB2 */
+         {
+             *message_length = 0;
+         }
+         break;
+
+         case SIRF_MSG_SSB_ENB_ALM2FLASH: /* 0x40 0xB2 */
+         {
+            tSIRF_MSG_SSB_ENB_ALM2FLASH *msg = (tSIRF_MSG_SSB_ENB_ALM2FLASH*) message_structure;
+
+            if ( payload_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->enb_alm2flash = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         } /* end of case SIRF_MSG_SSB_ENB_ALM2FLASH */
+         break;
+#endif /* PVT_BUILD */
 
          case SIRF_MSG_SSB_SW_COMMANDED_OFF: /* 0x10, 0xCD */
          {
@@ -4173,7 +6664,6 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             *message_length = sizeof (tSIRF_MSG_SSB_SW_COMMANDED_OFF);
          }
          break;
-
          case SIRF_MSG_SSB_TRK_HW_TEST_CONFIG: /* 0xCF */
          {
             tSIRF_MSG_SSB_TRK_HW_TEST_CONFIG *msg = (tSIRF_MSG_SSB_TRK_HW_TEST_CONFIG*) message_structure;
@@ -4190,11 +6680,234 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             }
          }
          break;
+         case SIRF_MSG_SSB_SET_IF_TESTPOINT: /* 0xD2 */
+         {
+            tSIRF_MSG_SSB_SET_IF_TESTPOINT *msg = (tSIRF_MSG_SSB_SET_IF_TESTPOINT*) message_structure;
+
+            if ( payload_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length         = sizeof(*msg);
+               msg->test_point_control = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_PWR_MODE_FPM_REQ:             /* 0x00 0xDA */
+         {
+            memset( message_structure, 0, sizeof(tSIRF_MSG_SSB_PWR_MODE_FPM_REQ) );
+            *message_length = sizeof (tSIRF_MSG_SSB_PWR_MODE_FPM_REQ);
+         }
+         break;
+
+         /* SIRF_MSG_SSB_PWR_MODE_APM_REQ 0x01 0xDA is decoded under 
+         SIRF_CODEC_SSB_AGPS_Decode() */
+
+         case SIRF_MSG_SSB_PWR_MODE_MP_REQ:              /* 0x02 0xDA */
+         {
+            tSIRF_MSG_SSB_PWR_MODE_MPM_REQ * msg = (tSIRF_MSG_SSB_PWR_MODE_MPM_REQ *) message_structure;
+            memset( message_structure, 0, sizeof(tSIRF_MSG_SSB_PWR_MODE_MPM_REQ) );
+            *message_length = sizeof (tSIRF_MSG_SSB_PWR_MODE_MPM_REQ);
+
+            if (payload_length < (1 * sizeof(tSIRF_UINT32) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               msg->microPowerRequestTimeOut = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->microPowerRequestControl = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->reserved = SIRFBINARY_IMPORT_UINT16(ptr);
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_PWR_MODE_TP_REQ:     /*  0x03 0xDA */
+         {
+            tSIRF_MSG_SSB_PWR_MODE_TP_REQ * msg = (tSIRF_MSG_SSB_PWR_MODE_TP_REQ *) message_structure;
+
+            if ( payload_length < (sizeof(tSIRF_UINT16) + 
+               3 * sizeof(tSIRF_UINT32) + 
+               header_len ) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length    = sizeof(*msg);
+               msg->dutyCycle     = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->on_time       = SIRFBINARY_IMPORT_UINT32(ptr);  
+               msg->MaxOffTime    = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->MaxSearchTime = SIRFBINARY_IMPORT_UINT32(ptr);
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_PWR_MODE_PTF_REQ:  /*  0xDA, 0x4 */
+         {
+            tSIRF_MSG_SSB_PWR_MODE_PTF_REQ * msg = (tSIRF_MSG_SSB_PWR_MODE_PTF_REQ *) message_structure;
+
+            if ( payload_length < (3 * sizeof(tSIRF_UINT32) + header_len ) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length    = sizeof(*msg);
+               msg->ptf_period    = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->MaxSearchTime = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->MaxOffTime    = SIRFBINARY_IMPORT_UINT32(ptr);
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_CW_CONFIG: /* 0x01 0xDC */
+         {
+            tSIRF_MSG_SSB_CW_CONFIG *msg = message_structure;
+            if (payload_length < (tSIRF_UINT32)SIRF_MSG_SSB_CW_CONFIG_LEN + header_len)
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->subId = SIRF_GET_SUB_ID(*message_id);
+               msg->confMode = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_XO_OUTPUT_CONTROL_IN: /* 0x00, 0xDD */
+         {
+            tSIRF_MSG_SSB_XO_OUTPUT_CONTROL_IN * msg = (tSIRF_MSG_SSB_XO_OUTPUT_CONTROL_IN *) message_structure;
+
+            if ( payload_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_OUTPUT_CONTROL_IN_LEN + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->oneTimeList        = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->contList           = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->outputRequest      = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->spare              = SIRFBINARY_IMPORT_UINT16(ptr);
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_XO_DEFAULTS_IN: /* 0x01, 0xDD */
+         {
+            tSIRF_MSG_SSB_XO_DEFAULTS_IN * msg = (tSIRF_MSG_SSB_XO_DEFAULTS_IN *) message_structure;
+
+            if ( payload_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_DEFAULTS_IN_LEN + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->source             = SIRFBINARY_IMPORT_UINT8 (ptr);    /** Bit Mask with the source of entries */
+               msg->agingRateUnc       = SIRFBINARY_IMPORT_UINT8 (ptr);    /** aging rate uncertainty */
+               msg->initialOffsetUnc   = SIRFBINARY_IMPORT_UINT8 (ptr);    /** initial offset uncertainty */
+               msg->spare1             = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->clockDrift         = SIRFBINARY_IMPORT_UINT32(ptr);    /** clock drift */
+               msg->tempUnc            = SIRFBINARY_IMPORT_UINT16(ptr);    /** temperature uncertainty */
+               msg->mfgWeek            = SIRFBINARY_IMPORT_UINT16(ptr);    /** manufacturing wn for aging */
+               msg->spare2             = SIRFBINARY_IMPORT_UINT32(ptr);
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_TCXO_TABLE_IN: /* 0x02, 0xDD */
+         {
+            tSIRF_MSG_SSB_TCXO_TABLE_IN * msg = (tSIRF_MSG_SSB_TCXO_TABLE_IN *) message_structure;
+
+            if ( payload_length < (tSIRF_UINT32)(SIRF_MSG_SSB_TCXO_TABLE_IN_LEN + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->spare1             = SIRFBINARY_IMPORT_UINT32(ptr);    /** not used */
+               msg->offset             = SIRFBINARY_IMPORT_UINT16(ptr);    /** frequency offset bias from CD default LSB 1, ppb */
+               msg->globalMin          = SIRFBINARY_IMPORT_UINT16(ptr);    /** minimum xo error observed LSB 1, ppb */
+               msg->globalMax          = SIRFBINARY_IMPORT_UINT16(ptr);    /** maximum xo error observed LSB 1, ppb */
+               msg->firstWeek          = SIRFBINARY_IMPORT_UINT16(ptr);    /** full gps week of first table update. LSB 1 */
+               msg->lastWeek           = SIRFBINARY_IMPORT_UINT16(ptr);    /** full gps week of last table update LSB 1 */
+               msg->lsb                = SIRFBINARY_IMPORT_UINT16(ptr);    /** array LSB of Min[] and Max[] LSB 1, ppb */
+               msg->agingBin           = SIRFBINARY_IMPORT_UINT8 (ptr);    /** Bin of last aging update. */
+               msg->agingUpcount       = SIRFBINARY_IMPORT_UINT8 (ptr);    /** Aging detection accumulator LSB 1 */
+               msg->binCnt             = SIRFBINARY_IMPORT_UINT8 (ptr);    /** count of min bins filled */
+               msg->spare2             = SIRFBINARY_IMPORT_UINT8 (ptr);    /** not used */
+
+               for (i=0; i<SSB_XOT_TABLE_SIZE; i++)
+               {
+                  msg->min[i]          = SIRFBINARY_IMPORT_UINT8 (ptr);    /** Min XO error at each temperature LSB xoTable.lsb */
+               }
+
+               for (i=0; i<SSB_XOT_TABLE_SIZE; i++)
+               {
+                  msg->max[i]          = SIRFBINARY_IMPORT_UINT8 (ptr);    /** Max XO error at each temperature LSB xoTable.lsb */
+               }
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_XO_TEST_CONTROL_IN: /* 0x03, 0xDD */
+         {
+            tSIRF_MSG_SSB_XO_TEST_CONTROL_IN * msg = (tSIRF_MSG_SSB_XO_TEST_CONTROL_IN *) message_structure;
+
+            if ( payload_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_TEST_CONTROL_IN_LEN + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length   = sizeof(*msg);
+               msg->mode         = SIRFBINARY_IMPORT_UINT8 (ptr);    /** Test Mode Control */
+               msg->spare1       = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->spare2       = SIRFBINARY_IMPORT_UINT16 (ptr);
+            }
+         }
+         break;
+
+#ifdef XO_ENABLED
+         case SIRF_MSG_SSB_XO_POLY_IN:   /* 0x10, 0xDD */
+         {
+            tSIRF_MSG_SSB_XO_POLY_IN *msg = (tSIRF_MSG_SSB_XO_POLY_IN *) message_structure;
+
+            if ( payload_length < (tSIRF_UINT32)(SIRF_MSG_SSB_XO_POLY_IN_LEN + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->C[0]               = SIRFBINARY_IMPORT_UINT32(ptr);    /** polynomial co-efficients */
+               msg->C[1]               = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->C[2]               = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->C[3]               = SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->tempUnc            = SIRFBINARY_IMPORT_UINT16(ptr);    /** temperature uncertainty */
+               msg->polySource         = SIRFBINARY_IMPORT_UINT8 (ptr);    /** Unused. Source of the initial Polynomial values */
+               msg->spare1             = SIRFBINARY_IMPORT_UINT8 (ptr);
+               msg->spare2             = SIRFBINARY_IMPORT_UINT32(ptr);
+            }
+         }
+         break;
+#endif /* XO_ENABLED */
 
          case SIRF_MSG_SSB_EE_SEA_PROVIDE_EPH:  /* 0x01 0xE8 */
          {
             tSIRF_MSG_SSB_EE_SEA_PROVIDE_EPH *msg = (tSIRF_MSG_SSB_EE_SEA_PROVIDE_EPH*) message_structure;
 
+             /* payload length is compared with the size of the structure, which is determined by
+              *  adding all the fields*sizeof(field) of the structure,
+              *  alrenatively it could be compared with sizeof(structure) */
             if ( payload_length < ( (8 + 7 * SV_PER_PACKET) * sizeof(tSIRF_UINT8) +
                                     (1 + 11 * SV_PER_PACKET) * sizeof(tSIRF_UINT16) +
                                     (8 * SV_PER_PACKET) * sizeof(tSIRF_UINT32) +
@@ -4206,6 +6919,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             {
                *message_length = sizeof(*msg);
                msg->week = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->svid_mask = SIRFBINARY_IMPORT_UINT32(ptr);
                for( i = 0; i < SV_PER_PACKET; i++)
                {
                   msg->extended_ephemeris[i].PRN = SIRFBINARY_IMPORT_UINT8(ptr);
@@ -4265,12 +6979,10 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
          }
          break;
 
-         /* added for GSW_CLM */
          case SIRF_MSG_SSB_EE_QUERY_AGE:     /* 0x11 0xE8 */
          {
          }
          break;
-         /* end of GSW_CLM */
 
          case SIRF_MSG_SSB_EE_DEBUG:
          {
@@ -4287,6 +6999,338 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             }
          }
          break;
+#ifdef EMB_SIF
+         case SIRF_MSG_SSB_SIF_START_DLD:
+         {
+            if ( payload_length < header_len )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(tSIRF_MSG_SSB_SIF_START_DLD);
+            }
+         }
+         break;
+         case SIRF_MSG_SSB_SIF_GET_NVM_HEADER:
+         {
+            if ( payload_length < header_len )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(tSIRF_MSG_SSB_SIF_GET_NVM_HEADER);
+            }
+         }
+         break;
+         case SIRF_MSG_SSB_SIF_UPDATE_NVM_HEADER:
+         {
+            tSIRF_MSG_SSB_SIF_UPDATE_NVM_HEADER *msg = (tSIRF_MSG_SSB_SIF_UPDATE_NVM_HEADER*) message_structure;
+            if ( payload_length < (1 * sizeof(tSIRF_UINT32) + 2 * sizeof(tSIRF_UINT16) + header_len ))
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               msg->seqNum    = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->size      = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->offset    = SIRFBINARY_IMPORT_UINT32(ptr);
+               if( payload_length < (1 * sizeof(tSIRF_UINT32) + (2 * sizeof(tSIRF_UINT16) +
+                                    msg->size * sizeof(tSIRF_UINT8)+ header_len )))
+               {
+                   tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+               }
+               else
+               {
+                  if (msg->size > SSB_SGEE_MAX_PKT_LEN)
+                  {
+                     tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+                  }
+                  else
+                  {
+                     for(i=0;i<msg->size;i++)
+                     {
+                        msg->pktData[i] = SIRFBINARY_IMPORT_UINT8(ptr);
+                     }
+                     *message_length = sizeof(*msg);
+                  }
+               }
+            }
+         }
+         break;
+         case SIRF_MSG_SSB_SIF_EE_FILE_SIZE:
+         {
+            tSIRF_MSG_SSB_SIF_EE_FILE_SIZE *msg = (tSIRF_MSG_SSB_SIF_EE_FILE_SIZE*) message_structure;
+
+            if ( payload_length < (1 * sizeof(tSIRF_UINT32) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->file_size   = SIRFBINARY_IMPORT_UINT32(ptr);
+            }
+         }
+         break;
+         case SIRF_MSG_SSB_SIF_PKT_DATA:
+         {
+            tSIRF_MSG_SSB_SIF_PKT_DATA *msg = (tSIRF_MSG_SSB_SIF_PKT_DATA*) message_structure;
+
+            if ( payload_length < (2 * sizeof(tSIRF_UINT16) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               msg->pktSeqNo   = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->pktLength   = SIRFBINARY_IMPORT_UINT16(ptr);
+               if ( payload_length < (msg->pktLength * sizeof(tSIRF_UINT8) +
+                               2 * sizeof(tSIRF_UINT16) +
+                               header_len) )
+               {
+                  tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+               }
+               else if (msg->pktLength > SSB_SGEE_MAX_PKT_LEN)
+               {
+                  tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+               }
+               else
+               {
+                  *message_length = sizeof(*msg);
+                  for(i=0;i<msg->pktLength;i++)
+                  {
+                     msg->pktData[i] = SIRFBINARY_IMPORT_UINT8(ptr);
+                  }
+               }
+            }
+         }
+         break;
+         case SIRF_MSG_SSB_SIF_GET_EE_AGE:
+         {
+            tSIRF_MSG_SSB_SIF_GET_EE_AGE *msg = (tSIRF_MSG_SSB_SIF_GET_EE_AGE*) message_structure;
+
+            if ( payload_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               msg->numSAT   = SIRFBINARY_IMPORT_UINT8(ptr);
+               if ( payload_length < ((3* sizeof(tSIRF_UINT8) + 6* sizeof(tSIRF_UINT16))* msg->numSAT  +
+                                      1 * sizeof(tSIRF_UINT8) +
+                                      header_len) )
+               {
+                  tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+               }
+               else if (msg->numSAT > SIRF_MAX_SVID_CNT)
+               {
+                  tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+               }
+               else
+               {
+                  *message_length = sizeof(*msg);
+                  for(i=0;i<msg->numSAT;i++)
+                  {
+                     msg->eeAgeStruct[i].prnNum = SIRFBINARY_IMPORT_UINT8(ptr);
+                     msg->eeAgeStruct[i].ephPosFlag = SIRFBINARY_IMPORT_UINT8(ptr);
+                     msg->eeAgeStruct[i].eePosAge = SIRFBINARY_IMPORT_UINT16(ptr);
+                     msg->eeAgeStruct[i].cgeePosGPSWeek = SIRFBINARY_IMPORT_UINT16(ptr);
+                     msg->eeAgeStruct[i].cgeePosTOE = SIRFBINARY_IMPORT_UINT16(ptr);
+                     msg->eeAgeStruct[i].ephClkFlag = SIRFBINARY_IMPORT_UINT8(ptr);
+                     msg->eeAgeStruct[i].eeClkAge = SIRFBINARY_IMPORT_UINT16(ptr);
+                     msg->eeAgeStruct[i].cgeeClkGPSWeek = SIRFBINARY_IMPORT_UINT16(ptr);
+                     msg->eeAgeStruct[i].cgeeClkTOE = SIRFBINARY_IMPORT_UINT16(ptr);
+                  }
+               }
+            }
+         }
+         break;
+         case SIRF_MSG_SSB_SIF_GET_SGEE_AGE:
+         {
+            tSIRF_MSG_SSB_SIF_GET_SGEE_AGE *msg = (tSIRF_MSG_SSB_SIF_GET_SGEE_AGE*) message_structure;
+
+            if ( payload_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->satId   = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         }
+         break;
+         case SIRF_MSG_SSB_HOST_RCV_PKT_DATA:
+         {
+            tSIRF_MSG_SSB_HOST_RCV_PKT_DATA *msg = (tSIRF_MSG_SSB_HOST_RCV_PKT_DATA*) message_structure;
+            tSIRF_UINT16 testSize = 0;
+
+            /* Find out received data length first to identify packet size*/
+
+            if ( payload_length < ( 2 * sizeof(tSIRF_UINT8) + sizeof(tSIRF_UINT16) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               msg->seqNum     = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->NVMID      = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->numBlocks  = SIRFBINARY_IMPORT_UINT8(ptr);
+
+               if ( payload_length < (msg->numBlocks * sizeof(tSIRF_UINT16)+ 2 * sizeof(tSIRF_UINT8) + sizeof(tSIRF_UINT16) + header_len) )
+               {
+                  tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+               }
+               else if (msg->numBlocks > MAX_RCV_BLOCKS)
+               {
+                  tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+               }
+               else
+               {
+                  for(i=0; i<msg->numBlocks; i++)
+                  {
+                     msg->size[i]    = SIRFBINARY_IMPORT_UINT16(ptr);
+                     msg->offset[i]  = SIRFBINARY_IMPORT_UINT32(ptr);
+                     testSize       += msg->size[i];
+                  }
+
+                  if ( payload_length < (testSize * sizeof(tSIRF_UINT8) + msg->numBlocks * sizeof(tSIRF_UINT16)+ msg->numBlocks * sizeof(tSIRF_UINT32)
+                                          + 2 * sizeof(tSIRF_UINT8) + sizeof(tSIRF_UINT16) + header_len) )
+                  {
+                     tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+                  }
+                  else
+                  {
+                     *message_length = sizeof(*msg);
+                     for(i=0;i<testSize;i++)
+                     {
+                        msg->pktData[i]     = SIRFBINARY_IMPORT_UINT8(ptr);
+                     }
+                  }
+               }
+            }
+         }
+         break;
+         case SIRF_MSG_SSB_HOST_ACK_NACK:
+         {
+            tSIRF_MSG_SSB_HOST_ACK_NACK *msg = (tSIRF_MSG_SSB_HOST_ACK_NACK*) message_structure;
+
+            if ( payload_length < (4 * sizeof(tSIRF_UINT8) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               msg->ackMsgId =  SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->ackSid   =  SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->ackNack   =  SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->reason   =  SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         }
+         break;
+#ifdef EE_I2C_FILE_TEST
+         case SIRF_MSG_SSB_READ_I2CDATA:
+         {
+            tSIRF_MSG_SSB_READ_I2CData *msg = (tSIRF_MSG_SSB_READ_I2CData*) message_structure;
+
+            if ( payload_length < (sizeof(tSIRF_UINT32) + sizeof(tSIRF_UINT16) + sizeof(tSIRF_UINT8) + header_len))
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               msg->offset   =  SIRFBINARY_IMPORT_UINT32(ptr);
+               msg->length   =  SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->eeType   =  SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         }
+         break;
+#endif
+#endif /*EMB_SIF*/
+
+#ifdef PVT_BUILD
+         case SIRF_MSG_SSB_EE_STORAGE_CONTROL: /* 0xFD 0xE8 */
+         {
+            tSIRF_MSG_SSB_EE_STORAGE_CONTROL *msg = (tSIRF_MSG_SSB_EE_STORAGE_CONTROL*) message_structure;
+
+            if ( payload_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->ee_storage_ctrl = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         } /* end of case SIRF_MSG_SSB_EE_STORAGE_CONTROL */
+         break;
+#endif /* #ifdef PVT_BUILD */
+
+         case SIRF_MSG_SSB_EE_FILE_DOWNLOAD:
+         {
+            tSIRF_MSG_SSB_EE_FILE_DOWNLOAD *msg = (tSIRF_MSG_SSB_EE_FILE_DOWNLOAD*) message_structure;
+
+            if ( payload_length < (1 * sizeof(tSIRF_UINT32) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->reserved   = SIRFBINARY_IMPORT_UINT32(ptr);
+            }
+         }
+         break;
+
+         case SIRF_MSG_SSB_SIF_SET_CONFIG:     /* 0xE8 0xFC */
+         {
+            tSIRF_MSG_SSB_SIF_SET_CONFIG *msg = (tSIRF_MSG_SSB_SIF_SET_CONFIG*) message_structure;
+
+            if ( payload_length < ( 5 * sizeof(tSIRF_UINT8) +
+                                    header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->operation_mode        = SIRFBINARY_IMPORT_UINT8(  ptr );
+               msg->file_format           = SIRFBINARY_IMPORT_UINT8(  ptr );
+               msg->ext_gps_time_src      = SIRFBINARY_IMPORT_UINT8(  ptr );
+               msg->cgee_input_method     = SIRFBINARY_IMPORT_UINT8(  ptr );
+               msg->sgee_input_method     = SIRFBINARY_IMPORT_UINT8(  ptr );
+            }
+         }
+         break;
+
+      case SIRF_MSG_SSB_EE_FILE_PART:     /* 0x12 0xE8*/
+      {
+         tSIRF_MSG_SSB_EE_FILE_PART *msg = (tSIRF_MSG_SSB_EE_FILE_PART*) message_structure;
+
+         if ( payload_length < ( 4 * sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            msg->buffSize = SIRFBINARY_IMPORT_UINT32 (ptr);
+            if (( payload_length < ( (4 + msg->buffSize) * sizeof(tSIRF_UINT8) +header_len) )
+                    || (msg->buffSize > SSB_DLD_MAX_PKT_LEN))
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               for(i = 0; i < msg->buffSize; i++)
+               {
+                   msg->buff[i] = SIRFBINARY_IMPORT_UINT8 (ptr);
+               }
+            }
+         }
+      }
+      break;
 
          case SIRF_MSG_SSB_EE_DISABLE_EE_SECS: /* 0xFE 0xE8 */
          {
@@ -4304,6 +7348,301 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
          }
          break;
 
+#ifdef EMB_SIF
+      case SIRF_MSG_SSB_SIF_DISABLE_AIDING: /* 0x20 0xE8 */
+      {
+         tSIRF_MSG_SSB_SIF_DISABLE_AIDING *msg = (tSIRF_MSG_SSB_SIF_DISABLE_AIDING*) message_structure;
+
+         if ( payload_length < (2 * sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            msg->sgeeDisable = SIRFBINARY_IMPORT_UINT8(ptr);
+            msg->cgeeDisable = SIRFBINARY_IMPORT_UINT8(ptr);
+         }
+      }
+      break;
+
+      case SIRF_MSG_SSB_SIF_GET_AIDING_STATUS: /* 0x21 0xE8 */
+      {
+         tSIRF_MSG_SSB_SIF_GET_AIDING_STATUS *msg = (tSIRF_MSG_SSB_SIF_GET_AIDING_STATUS*)message_structure;
+
+         if ( payload_length < (1 * sizeof(tSIRF_UINT8) + header_len) )
+         {
+            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+         }
+         else
+         {
+            msg->reserved = SIRFBINARY_IMPORT_UINT8(ptr);
+         }
+      }
+      break;
+
+#endif /*EMB_SIF*/
+
+         case SIRF_MSG_SSB_SENSOR_CONFIG:    /* 0xEA 0x1 */
+         {
+            tSIRF_MSG_SSB_SENSOR_CONFIG *msg = (tSIRF_MSG_SSB_SENSOR_CONFIG*) message_structure;
+            tSIRF_UINT32 length_requirement = (3 * sizeof(tSIRF_UINT8) + header_len);
+
+            if ( payload_length < length_requirement )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->numSensors = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->i2cSpeed   = SIRFBINARY_IMPORT_UINT8(ptr);
+               length_requirement += (( (14* sizeof(tSIRF_UINT8)) + (3* sizeof(tSIRF_UINT16)) ) * msg->numSensors);
+               if ( payload_length < length_requirement )
+               {
+                   tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+               }
+               else
+               {
+                  for(i = 0; (i < msg->numSensors) && (i < SIRF_MSG_SSB_MAX_NUM_SENSORS); i++)
+                  {
+                      msg->Sensors[i].i2cAddress = SIRFBINARY_IMPORT_UINT16(ptr);
+                      msg->Sensors[i].sensorType = SIRFBINARY_IMPORT_UINT8(ptr);
+                      msg->Sensors[i].initTime = SIRFBINARY_IMPORT_UINT8(ptr);
+                      msg->Sensors[i].nBytesResol = SIRFBINARY_IMPORT_UINT8(ptr);
+                      msg->Sensors[i].sampRate = SIRFBINARY_IMPORT_UINT8(ptr);
+                      msg->Sensors[i].sendRate = SIRFBINARY_IMPORT_UINT8(ptr);
+                      msg->Sensors[i].decmMethod = SIRFBINARY_IMPORT_UINT8(ptr);
+                      msg->Sensors[i].acqTime = SIRFBINARY_IMPORT_UINT8(ptr);
+                      msg->Sensors[i].numReadReg = SIRFBINARY_IMPORT_UINT8(ptr);
+                      msg->Sensors[i].measState = SIRFBINARY_IMPORT_UINT8(ptr);
+                      if((msg->Sensors[i].numReadReg > SIRF_MSG_SSB_MAX_SENSOR_READ_REGS) ||
+                         (0 == msg->Sensors[i].numReadReg)                                 )
+                      {
+                         tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+                         break;
+                      }
+                      else
+                      {
+                         length_requirement += (2 * msg->Sensors[i].numReadReg) * sizeof(tSIRF_UINT8);
+                         if ( payload_length < length_requirement )
+                         {
+                            tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+                            break;
+                         }
+                         else
+                         {
+                            for(j=0;j<msg->Sensors[i].numReadReg;j++)
+                            {
+                                msg->Sensors[i].sensorReadReg[j].readOprMethod = SIRFBINARY_IMPORT_UINT8(ptr);
+                                msg->Sensors[i].sensorReadReg[j].dataReadReg = SIRFBINARY_IMPORT_UINT8(ptr);
+                            }
+                            msg->Sensors[i].pwrCtrlReg = SIRFBINARY_IMPORT_UINT8(ptr);
+                            msg->Sensors[i].pwrOffSetting = SIRFBINARY_IMPORT_UINT8(ptr);
+                            msg->Sensors[i].pwrOnSetting = SIRFBINARY_IMPORT_UINT8(ptr);
+                            msg->Sensors[i].numInitReadReg = SIRFBINARY_IMPORT_UINT8(ptr);
+                            if(msg->Sensors[i].numInitReadReg > SIRF_MSG_SSB_MAX_SENSOR_INIT_REGS)
+                            {
+                               tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+                               break;
+                            }
+                            else
+                            {
+                               length_requirement += (2* msg->Sensors[i].numInitReadReg) * sizeof(tSIRF_UINT8);
+                               if ( payload_length < length_requirement )
+                               {
+                                  tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+                                  break;
+                               }
+                               else
+                               {
+                                  for(j=0;j<msg->Sensors[i].numInitReadReg;j++)
+                                  {
+                                     msg->Sensors[i].sensorInitReg[j].address = SIRFBINARY_IMPORT_UINT8(ptr);
+                                     msg->Sensors[i].sensorInitReg[j].nBytes = SIRFBINARY_IMPORT_UINT8(ptr);
+                                  }
+                                  msg->Sensors[i].numCtrlReg = SIRFBINARY_IMPORT_UINT8(ptr);
+                                  if(msg->Sensors[i].numCtrlReg > SIRF_MSG_SSB_MAX_SENSOR_CTRL_REGS)
+                                  {
+                                     tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+                                     break;
+                                  }
+                                  else
+                                  {
+                                     msg->Sensors[i].ctrlRegWriteDelay = SIRFBINARY_IMPORT_UINT8(ptr);
+                                     length_requirement += ((2* msg->Sensors[i].numCtrlReg) *sizeof(tSIRF_UINT8));
+                                     if ( payload_length < length_requirement )
+                                     {
+                                        tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+                                        break;
+                                     }
+                                     else
+                                     {
+                                        for(j=0;j<msg->Sensors[i].numCtrlReg;j++)
+                                        {
+                                           msg->Sensors[i].sensorCtrlReg[j].address = SIRFBINARY_IMPORT_UINT8(ptr);
+                                           msg->Sensors[i].sensorCtrlReg[j].value = SIRFBINARY_IMPORT_UINT8(ptr);
+                                        }
+                                     } /* else */
+                                  } /* else */
+                               }/* else */
+                            }/* else */
+                         }/* else */
+                      }/* else */
+                  }/* for loop = numSensors */
+                  if(SIRF_CODEC_ERROR_INVALID_MSG_LENGTH != tRet)
+                  {
+                     msg->processingRate = SIRFBINARY_IMPORT_UINT8(ptr);
+                     for(i=0;i<msg->numSensors;i++)
+                     {
+                         msg->sensorScaleZeroPointVal[i].zeroPointVal = SIRFBINARY_IMPORT_UINT16(ptr);
+                         msg->sensorScaleZeroPointVal[i].scaleFactor = SIRFBINARY_IMPORT_UINT16(ptr);
+                     }
+                  }
+               } /* else */
+            } /* else */
+         } /* case */
+         break;
+
+         case SIRF_MSG_SSB_SENSOR_SWITCH:    /* 0xEA 0x2 */
+          {
+            tSIRF_MSG_SSB_SENSOR_SWITCH *msg = (tSIRF_MSG_SSB_SENSOR_SWITCH*) message_structure;
+
+            if ( payload_length < (sizeof(tSIRF_UINT8) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               tSIRF_UINT8 validMask = SENS_STATE_ENABLE | SENS_STATE_NOTIFY;
+
+               *message_length = sizeof(*msg);
+                msg->sensorSetState   = SIRFBINARY_IMPORT_UINT8(ptr);
+                if((~validMask) & msg->sensorSetState)
+                {
+                   tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+                }
+            }
+         }
+         break;
+
+#ifdef SENS_SSB_DATA_INPUT_MODE
+        case  SIRF_MSG_SSB_SENSOR_READINGS:             /*0x48, 0x1*/
+        {
+             tSIRF_MSG_SSB_SENSOR_READINGS *msg = (tSIRF_MSG_SSB_SENSOR_READINGS*) message_structure;
+
+             tSIRF_UINT32 length_requirement = (3 * sizeof(tSIRF_UINT8)) + sizeof(tSIRF_UINT16) + header_len;
+
+             if ( payload_length < length_requirement )
+             {
+                tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+             }
+             else
+             {
+               *message_length = sizeof(*msg);
+               msg->sensorID = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->dataLength   = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->numDataSet   = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->dataMode     = SIRFBINARY_IMPORT_UINT8(ptr);
+               length_requirement += msg->numDataSet * ( sizeof(tSIRF_UINT32) + (msg->dataLength * sizeof(tSIRF_UINT8)) );
+
+               if ( payload_length < length_requirement )
+               {
+                 tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+               }
+               else
+               {
+                 for(i=0;i<msg->numDataSet;i++)
+                 {
+                   msg->dataSet[i].timeTag = SIRFBINARY_IMPORT_UINT32(ptr);
+                   memcpy(msg->dataSet[i].data, ptr,msg->dataLength);
+                   ptr += msg->dataLength;
+                 }
+               }
+             }
+         }
+         break;
+        case SIRF_MSG_SSB_RCVR_STATE:             /*0x48, 0x3*/
+        {
+            tSIRF_MSG_SBB_RCVR_STATE *msg = (tSIRF_MSG_SBB_RCVR_STATE*) message_structure;
+
+            if ( payload_length < (sizeof(tSIRF_UINT32) + sizeof(tSIRF_UINT8) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+                msg->timeStamp   = SIRFBINARY_IMPORT_UINT32(ptr);
+                msg->rcvrPhysicalState   = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+        }
+        break;
+
+        case SIRF_MSG_SSB_POINT_N_TELL_OUTPUT:             /*0x48, 0x4*/
+        {
+            tSIRF_MSG_SSB_POINT_N_TELL_OUTPUT *msg = (tSIRF_MSG_SSB_POINT_N_TELL_OUTPUT*) message_structure;
+
+            if ( payload_length < ( 3 * sizeof(tSIRF_UINT32) + 6 * sizeof(tSIRF_UINT16) + sizeof(tSIRF_UINT8) + header_len) )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+                msg->timeStamp = SIRFBINARY_IMPORT_UINT32(ptr);
+                msg->latitude = SIRFBINARY_IMPORT_SINT32(ptr);
+                msg->longitude = SIRFBINARY_IMPORT_SINT32(ptr);
+                msg->heading = SIRFBINARY_IMPORT_UINT16(ptr);
+                msg->pitch = SIRFBINARY_IMPORT_SINT16(ptr);
+                msg->roll = SIRFBINARY_IMPORT_SINT16(ptr);
+                msg->headingUnc = SIRFBINARY_IMPORT_UINT16(ptr);
+                msg->pitchUnc = SIRFBINARY_IMPORT_UINT16(ptr);
+                msg->rollUnc = SIRFBINARY_IMPORT_UINT16(ptr);
+                msg->status = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+        }
+        break;
+
+#endif /*SENS_SSB_DATA_INPUT_MODE*/
+
+      case SIRF_MSG_SSB_SIRF_STATS:    /* 0xE1 0x06 */
+         {
+            tSIRF_MSG_SSB_SIRF_STATS *msg = (tSIRF_MSG_SSB_SIRF_STATS *) message_structure;
+            tSIRF_UINT32 length_requirement = ( 4 * sizeof(tSIRF_UINT32) +
+                                                6 * sizeof(tSIRF_UINT16) +
+                                                9 * sizeof(tSIRF_UINT8) +
+                                                header_len );
+
+            if ( payload_length < length_requirement )
+            {
+               tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+            }
+            else
+            {
+               *message_length = sizeof(*msg);
+               msg->ttff_since_reset       = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->ttff_since_aiding      = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->ttff_first_nav         = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->pos_aiding_error_north = SIRFBINARY_IMPORT_SINT32(ptr);
+               msg->pos_aiding_error_east  = SIRFBINARY_IMPORT_SINT32(ptr);
+               msg->pos_aiding_error_down  = SIRFBINARY_IMPORT_SINT32(ptr);
+               msg->time_aiding_error      = SIRFBINARY_IMPORT_SINT32(ptr);
+               msg->freq_aiding_error      = SIRFBINARY_IMPORT_SINT16(ptr);
+               msg->hor_pos_uncertainty    = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->ver_pos_uncertainty    = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->time_uncertainty       = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->freq_uncertainty       = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->num_aided_ephemeris    = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->num_aided_acq_assist   = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->nav_mode               = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->pos_mode               = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->nav_status             = SIRFBINARY_IMPORT_UINT16(ptr);
+               msg->start_mode             = SIRFBINARY_IMPORT_UINT8(ptr);
+               msg->aiding_status          = SIRFBINARY_IMPORT_UINT8(ptr);
+            }
+         }
+         break;
+
          case SIRF_MSG_SSB_TRKR_DBG:   /* 0x44 */
          case SIRF_MSG_SSB_TEXT:       /* 0xFF */
          {
@@ -4316,10 +7655,20 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
 
          default:
          {
+#ifdef SIRF_AGPS
+             tRet = SIRF_CODEC_SSB_AGPS_Decode(payload,payload_length,message_id,
+                                                 message_structure,message_length );
+             if ( SIRF_SUCCESS == tRet)
+                {
+                   ptr = payload + payload_length;
+                }
+#else
             if (( *message_id >= SIRF_MSG_SSB_PASSTHRU_INPUT_BEGIN   /* 0xB4 */
                  && *message_id <= SIRF_MSG_SSB_PASSTHRU_INPUT_END   /* 0xC7 */
                  && payload_length - 1 <= SIRF_MSG_SSB_MAX_MESSAGE_LEN
-                 && payload_length > 0) || (SIRF_MSG_SSB_SIRF_INTERNAL == *message_id)) /* 0xE4 */
+               && payload_length > 0)
+             || (SIRF_MSG_SSB_SIRF_INTERNAL     == *message_id)  /* 0xE4 */
+             || (SIRF_MSG_SSB_SIRF_INTERNAL_OUT == *message_id)) /* 0xE1 */
             { /* pass-thru */
                *message_length = payload_length - 1;
                memcpy(message_structure, ptr, payload_length - 1);
@@ -4329,6 +7678,7 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
             { /* this message id is not imported */
                tRet = SIRF_CODEC_SSB_INVALID_MSG_ID;
             }
+#endif /* SIRF_AGPS */
          }
          break;
       }
@@ -4344,6 +7694,8 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode_Ex( tSIRF_UINT8 *payload,
    {
       tRet = SIRF_CODEC_SSB_NULL_POINTER;
    }
+
+   *options = SIRF_CODEC_OPTIONS_MAKE_MSG_NUMBER(1,1); /* Message 1 of 1 */
 
    return tRet;
 

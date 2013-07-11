@@ -7,7 +7,8 @@
  *                                                                         *
  *                   SiRF Technology, Inc. GPS Software                    *
  *                                                                         *
- *  Copyright (c) 2005-2008 by SiRF Technology, Inc.  All rights reserved. *
+ *    Copyright (c) 2005 - 2010 by SiRF Technology, a CSR plc Company      *
+ *    All rights reserved.                                                 *
  *                                                                         *
  *    This Software is protected by United States copyright laws and       *
  *    international treaties.  You may not reverse engineer, decompile     *
@@ -413,7 +414,7 @@ tSIRF_VOID SIRF_PROTO_Parse( tSIRF_UINT8 *Buf, tSIRF_UINT32 BytesRead )
             break;
 
          case n_stLF:   /* got the full signature, parse the message */
-            if (LF == Byte)
+            if ((LF == Byte) && (PktIndex >= 0))
             {
                PktBuf[PktIndex] = Byte;
                /* Call the callback if it is available */

@@ -1,9 +1,9 @@
 CC?=gcc
 CFLAGS?= -Os -s -pipe
-CFLAGS+= -DNDEBUG
-#CFLAGS=-W  -Wall -g -O0 -DVERBOSITY=LOG_RAW
+#CFLAGS+= -DNDEBUG
+CFLAGS=-W  -Wall -g -O0 -DVERBOSITY=LOG_RAW
 
-CFLAGS+= -I./include -I./util/codec -I./util/proto -I./pal
+CFLAGS+= -I./include -I./util/codec -I./util/proto -I./pal -I./stringlib
 
 LDFLAGS+= -lm
 
@@ -27,6 +27,7 @@ endif
 OBJS=	sirf_codec_ssb.o \
 	sirf_codec_ascii.o \
 	sirf_codec_nmea.o \
+	sirf_proto_nmea.o \
 	output_dump.o \
 	output_nmea.o \
 	output_rinex.o \
@@ -58,7 +59,10 @@ sirf_codec_ascii.o: util/codec/sirf_codec_ascii.c
 	$(CC) $(CFLAGS) -c util/codec/sirf_codec_ascii.c
 
 sirf_codec_nmea.o: util/codec/sirf_codec_nmea.c
-	$(CC) $(CFLAGS) -DSIRF_CODEC_NMEA -c util/codec/sirf_codec_nmea.c
+	$(CC) $(CFLAGS)  -c util/codec/sirf_codec_nmea.c
+
+sirf_proto_nmea.o: util/proto/sirf_proto_nmea.c
+	$(CC) $(CFLAGS) -c util/proto/sirf_proto_nmea.c
 
 nav.o:  nav.c nav.h
 	$(CC) $(CFLAGS) -c nav.c
@@ -66,7 +70,7 @@ nav.o:  nav.c nav.h
 output_dump.o: output_dump.c sirfdump.h
 	$(CC) $(CFLAGS) -c output_dump.c
 
-output_nmea.o: output_dump.c sirfdump.h
+output_nmea.o: output_nmea.c sirfdump.h
 	$(CC) $(CFLAGS) -c output_nmea.c
 
 output_rinex.o: output_rinex.c sirfdump.h

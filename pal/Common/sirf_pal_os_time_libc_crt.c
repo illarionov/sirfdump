@@ -6,7 +6,7 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2008 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2008-2009 by SiRF Technology, Inc.  All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -60,7 +60,7 @@ tSIRF_DATE_TIME* SIRF_PAL_OS_TIME_gmtime(const tSIRF_TIME_T *timer)
    struct tm       *libc_struct;
    time_t          libc_time_t;
 
-   libc_time_t = *timer;
+   libc_time_t = (time_t)*timer;
 
    libc_struct = gmtime(&libc_time_t);
 
@@ -96,6 +96,7 @@ tSIRF_TIME_T SIRF_PAL_OS_TIME_mktime(tSIRF_DATE_TIME *timeptr)
    libc_struct.tm_min   = timeptr->minute;
    libc_struct.tm_sec   = timeptr->second;
    libc_struct.tm_isdst = 0;
+   libc_struct.tm_yday  = 0;
 
    return (tSIRF_TIME_T) mktime(&libc_struct);
 }

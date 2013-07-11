@@ -37,13 +37,47 @@
 #ifndef __SIRF_CODEC_H__
 #define __SIRF_CODEC_H__
 
+#include "sirf_errors.h"
 #include "sirf_types.h"
 
-#define SIRF_CODEC_ERROR_INVALID_MSG_ID      0x6101
-#define SIRF_CODEC_ERROR_INVALID_MSG_LENGTH  0x6102
-#define SIRF_CODEC_ERROR_INVALID_PARAMETER   0x6103
 
-#define SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER   0x01
+/* The codec options:
+ * On input the lower 8 bits is used to determine which message to encode or
+ * decode from the input on a one to many codec.  The upper bits are reserved
+ * for additional options.  Each codec will define the message ID values if
+ * they deviate from the default of a 1 to 1 encode and decode defined here
+ */
+#define SIRF_CODEC_OPTIONS_GET_FIRST_MSG (0x00000001)
+#define SIRF_CODEC_OPTIONS_ENCODE_ASCII  (0x80000000)
+#define SIRF_CODEC_OPTIONS_NO_WRAPPER    (0x40000000)
+
+#define SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER   (0xa0000000)
+
+/* On output the Options value holds the total number of messages that can
+ * be produced from the input message and which message number this is */
+#define SIRF_CODEC_OPTIONS_GET_MSG_NUMBER( n )       (((n)>>8) & 0x000000FF)
+#define SIRF_CODEC_OPTIONS_GET_MAX_MSG_NUMBER( n )   ( (n)     & 0x000000FF)
+
+#define SIRF_CODEC_OPTIONS_MAKE_MSG_NUMBER( num, max ) \
+       ((num << 8) | max)
+
+
+typedef tSIRF_RESULT (*tSIRF_CODEC_Encode)( tSIRF_UINT32  message_id, 
+                                            tSIRF_VOID   *message_structure, 
+                                            tSIRF_UINT32  message_length,
+                                            tSIRF_UINT8  *packet, 
+                                            tSIRF_UINT32 *packet_length,
+                                            tSIRF_UINT32 *options );
+
+typedef tSIRF_RESULT (*tSIRF_CODEC_Decode)( tSIRF_UINT8  *payload, 
+                                            tSIRF_UINT32  payload_length,
+                                            tSIRF_UINT32 *message_id, 
+                                            tSIRF_VOID   *message_structure, 
+                                            tSIRF_UINT32 *message_length,
+                                            tSIRF_UINT32 *options );
+
+
+
 
 /* Stream converters ------------------------------------------------------- */
 

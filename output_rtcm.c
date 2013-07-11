@@ -92,6 +92,7 @@ int output_rtcm(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
    int err;
    struct rtcm_ctx_t *ctx;
    tSIRF_UINT32 msg_id, msg_length;
+   tSIRF_UINT32 options;
    union {
       tSIRF_MSG_SSB_50BPS_DATA data_50bps;
       tSIRF_MSG_SSB_MEASURED_NAVIGATION  meas_nav;
@@ -108,12 +109,13 @@ int output_rtcm(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 
    ctx = (struct rtcm_ctx_t *)user_ctx;
 
-   err = SIRF_CODEC_SSB_Decode_Ex(msg->payload,
+   options = ctx->sirf_flags;
+   err = SIRF_CODEC_SSB_Decode(msg->payload,
 	 msg->payload_length,
-	 (tSIRF_UINT32)ctx->sirf_flags,
 	 &msg_id,
 	 m.u8,
-	 &msg_length);
+	 &msg_length,
+         &options);
 
    if (err)
       return err;

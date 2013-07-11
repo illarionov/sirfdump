@@ -7,7 +7,7 @@
  *                                                                         *
  *                   SiRF Technology, Inc. GPS Software                    *
  *                                                                         *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc. All rights reserved.*
+ *    Copyright (c) 2005-2009 by SiRF Technology, Inc. All rights reserved.*
  *                                                                         *
  *    This Software is protected by United States copyright laws and       *
  *    international treaties.  You may not reverse engineer, decompile     *
@@ -37,20 +37,17 @@
  * SiRF Input and Output Logical Channel Definitions
  *---------------------------------------------------------------------------*/
 
-/*#ifdef SIRF_LOC*/
-   #define SIRF_LC_UNKNOWN  (0x00)
-   #define SIRF_LC_AI3      (0x01)
-   #define SIRF_LC_F        (0x02)
-   #define SIRF_LC_TRACKER  (0x44)
-   #define SIRF_LC_LPLC     (0xB1)
-   #define SIRF_LC_STATS    (0xBB)
-   #define SIRF_LC_NMEA     (0xDD)
-   #define SIRF_LC_SSB      (0xEE)
-   #define SIRF_LC_DEBUG    (0xFF)
-/*#else
-   #define SIRF_LC_SSB      ( 0x00 )
-#endif*/
-
+#define SIRF_LC_UNKNOWN           (0x00)
+#define SIRF_LC_AI3               (0x01)
+#define SIRF_LC_F                 (0x02)
+#define SIRF_LC_TRACKER           (0x44)
+#define SIRF_LC_LPLC              (0xB1)
+#define SIRF_LC_GPRS_AT_COMMAND   (0xB2)
+#define SIRF_LC_MAS               (0xB3)
+#define SIRF_LC_STATS             (0xBB)
+#define SIRF_LC_NMEA              (0xDD)
+#define SIRF_LC_SSB               (0xEE)
+#define SIRF_LC_DEBUG             (0xFF)
 
 /* Macros ------------------------------------------------------------------- */
 

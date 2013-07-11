@@ -7,7 +7,7 @@
  *                                                                         *
  *                   SiRF Technology, Inc. GPS Software                    *
  *                                                                         *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc.  All rights reserved.    *
+ *    Copyright (c) 2005-2009 by SiRF Technology, Inc.  All rights reserved.    *
  *                                                                         *
  *    This Software is protected by United States copyright laws and       *
  *    international treaties.  You may not reverse engineer, decompile     *
@@ -37,6 +37,7 @@
 #define __SIRF_PROTO_COMMON_H__
 
 #include "sirf_types.h"
+#include "sirf_errors.h"
 
 /***************************************************************************
    Macro Definitions
