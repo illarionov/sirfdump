@@ -77,7 +77,7 @@ static tSIRF_RESULT SIRF_PROTO_NMEA_AddCheckSum( tSIRF_UINT8 *pBuf,
    result = snprintf( (char*)pBuf, 
                       bufsize - msgsize, 
                       "*%02lX\x0D\x0A", 
-                      (tSIRF_UINT32)ckSum );  
+                      (unsigned long)ckSum );  
    if (result < 0)
    {
       return SIRF_PROTO_FRAME_CHECKSUM_ERROR;
@@ -165,7 +165,8 @@ tSIRF_RESULT SIRF_PROTO_NMEA_Decode(
    tSIRF_RESULT  result;
    tSIRF_UINT32  payload_length = 0;
    tSIRF_UINT8  const *ptr  = packet;
-   tSIRF_UINT32  read_checksum, calculated_checksum = 0;
+   tSIRF_UINT32  calculated_checksum = 0;
+   unsigned long read_checksum;
    tSIRF_CHAR    checksum_buffer[SIRF_PROTO_NMEA_LENGTH_FOOTER];
    tSIRF_UINT32  i;
    int           ret_val;

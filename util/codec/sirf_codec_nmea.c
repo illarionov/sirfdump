@@ -255,12 +255,12 @@ tSIRF_RESULT SIRF_CODEC_NMEA_Encode(
          snprintf( (tSIRF_CHAR *)payload, sizeof(payload), "PSRF107,%d,%d,%d,%lu,%lu,%d,%d,%d,%d,%d,%lu,"
                   "%d,%lu,%lu,%d,%d,%d,%d,%d,%d,%d,%d,%lu,%d,%lu,%d,%d,"
                   "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
-                  (int)msg->week,(int)msg->extended_ephemeris[0].PRN,(int)msg->extended_ephemeris[0].ephemerisValidityFlag,(tSIRF_UINT32)msg->extended_ephemeris[0].URA,
-                  (tSIRF_UINT32)msg->extended_ephemeris[0].URA,(int)msg->extended_ephemeris[0].age,(int)msg->extended_ephemeris[0].Crs, (int)msg->extended_ephemeris[0].deltaN,
+                  (int)msg->week,(int)msg->extended_ephemeris[0].PRN,(int)msg->extended_ephemeris[0].ephemerisValidityFlag,(unsigned long)msg->extended_ephemeris[0].URA,
+                  (unsigned long)msg->extended_ephemeris[0].URA,(int)msg->extended_ephemeris[0].age,(int)msg->extended_ephemeris[0].Crs, (int)msg->extended_ephemeris[0].deltaN,
                   (int)msg->extended_ephemeris[0].M0,  (int)msg->extended_ephemeris[0].Cuc, (unsigned long)msg->extended_ephemeris[0].eccen, (int)msg->extended_ephemeris[0].Cus,(unsigned long)msg->extended_ephemeris[0].sqrtA,
-                  (tSIRF_UINT32)msg->extended_ephemeris[0].toe, (int)msg->extended_ephemeris[0].Cic, (int)msg->extended_ephemeris[0].omega0, (int)msg->extended_ephemeris[0].Cis,(int)msg->extended_ephemeris[0].i0,
-                  (int)msg->extended_ephemeris[0].Crc, (int)msg->extended_ephemeris[0].w, (int)msg->extended_ephemeris[0].omegaDot,(int)msg->extended_ephemeris[0].iDot, (tSIRF_UINT32)msg->extended_ephemeris[0].toc,(int)msg->extended_ephemeris[0].Tgd,
-                  (tSIRF_UINT32)msg->extended_ephemeris[0].af2, (int)msg->extended_ephemeris[0].af1, (int)msg->extended_ephemeris[0].af0 );
+                  (unsigned long)msg->extended_ephemeris[0].toe, (int)msg->extended_ephemeris[0].Cic, (int)msg->extended_ephemeris[0].omega0, (int)msg->extended_ephemeris[0].Cis,(int)msg->extended_ephemeris[0].i0,
+                  (int)msg->extended_ephemeris[0].Crc, (int)msg->extended_ephemeris[0].w, (int)msg->extended_ephemeris[0].omegaDot,(int)msg->extended_ephemeris[0].iDot, (unsigned long)msg->extended_ephemeris[0].toc,(int)msg->extended_ephemeris[0].Tgd,
+                  (unsigned long)msg->extended_ephemeris[0].af2, (int)msg->extended_ephemeris[0].af1, (int)msg->extended_ephemeris[0].af0 );
 
          *options = SIRF_CODEC_OPTIONS_MAKE_MSG_NUMBER(
             SIRF_CODEC_NMEA_PSRF107_ONE_SAT,
@@ -273,18 +273,18 @@ tSIRF_RESULT SIRF_CODEC_NMEA_Encode(
                   "%d,%lu,%lu,%d,%d,%d,%d,%d,%d,%d,%d,%lu,%d,%lu,%d,%d,"
                   "%d,%d,%lu,%lu,%d,%d,%d,%d,%d,%lu,"
                   "%d,%lu,%lu,%d,%d,%d,%d,%d,%d,%d,%d,%lu,%d,%lu,%d,%d",
-                  (int)msg->week,(int)msg->extended_ephemeris[0].PRN,(int)msg->extended_ephemeris[0].ephemerisValidityFlag,(tSIRF_UINT32)msg->extended_ephemeris[0].URA,
-                  (tSIRF_UINT32)msg->extended_ephemeris[0].IODE,(int)msg->extended_ephemeris[0].age,(int)msg->extended_ephemeris[0].Crs, (int)msg->extended_ephemeris[0].deltaN,
+                  (int)msg->week,(int)msg->extended_ephemeris[0].PRN,(int)msg->extended_ephemeris[0].ephemerisValidityFlag,(unsigned long)msg->extended_ephemeris[0].URA,
+                  (unsigned long)msg->extended_ephemeris[0].IODE,(int)msg->extended_ephemeris[0].age,(int)msg->extended_ephemeris[0].Crs, (int)msg->extended_ephemeris[0].deltaN,
                   (int)msg->extended_ephemeris[0].M0,  (int)msg->extended_ephemeris[0].Cuc, (unsigned long)msg->extended_ephemeris[0].eccen, (int)msg->extended_ephemeris[0].Cus,(unsigned long)msg->extended_ephemeris[0].sqrtA,
-                  (tSIRF_UINT32)msg->extended_ephemeris[0].toe, (int)msg->extended_ephemeris[0].Cic, (int)msg->extended_ephemeris[0].omega0, (int)msg->extended_ephemeris[0].Cis,(int)msg->extended_ephemeris[0].i0,
-                  (int)msg->extended_ephemeris[0].Crc, (int)msg->extended_ephemeris[0].w, (int)msg->extended_ephemeris[0].omegaDot,(int)msg->extended_ephemeris[0].iDot, (tSIRF_UINT32)msg->extended_ephemeris[0].toc,(int)msg->extended_ephemeris[0].Tgd,
-                  (tSIRF_UINT32)msg->extended_ephemeris[0].af2, (int)msg->extended_ephemeris[0].af1, (int)msg->extended_ephemeris[0].af0,
-                  (int)msg->extended_ephemeris[1].PRN,(int)msg->extended_ephemeris[1].ephemerisValidityFlag,(tSIRF_UINT32)msg->extended_ephemeris[1].URA,
-                  (tSIRF_UINT32)msg->extended_ephemeris[1].URA,(int)msg->extended_ephemeris[1].age,(int)msg->extended_ephemeris[1].Crs, (int)msg->extended_ephemeris[1].deltaN,
+                  (unsigned long)msg->extended_ephemeris[0].toe, (int)msg->extended_ephemeris[0].Cic, (int)msg->extended_ephemeris[0].omega0, (int)msg->extended_ephemeris[0].Cis,(int)msg->extended_ephemeris[0].i0,
+                  (int)msg->extended_ephemeris[0].Crc, (int)msg->extended_ephemeris[0].w, (int)msg->extended_ephemeris[0].omegaDot,(int)msg->extended_ephemeris[0].iDot, (unsigned long)msg->extended_ephemeris[0].toc,(int)msg->extended_ephemeris[0].Tgd,
+                  (unsigned long)msg->extended_ephemeris[0].af2, (int)msg->extended_ephemeris[0].af1, (int)msg->extended_ephemeris[0].af0,
+                  (int)msg->extended_ephemeris[1].PRN,(int)msg->extended_ephemeris[1].ephemerisValidityFlag,(unsigned long)msg->extended_ephemeris[1].URA,
+                  (unsigned long)msg->extended_ephemeris[1].URA,(int)msg->extended_ephemeris[1].age,(int)msg->extended_ephemeris[1].Crs, (int)msg->extended_ephemeris[1].deltaN,
                   (int)msg->extended_ephemeris[1].M0,  (int)msg->extended_ephemeris[1].Cuc, (unsigned long)msg->extended_ephemeris[1].eccen, (int)msg->extended_ephemeris[1].Cus,(unsigned long)msg->extended_ephemeris[1].sqrtA,
-                  (tSIRF_UINT32)msg->extended_ephemeris[1].toe, (int)msg->extended_ephemeris[1].Cic, (int)msg->extended_ephemeris[1].omega0, (int)msg->extended_ephemeris[1].Cis,(int)msg->extended_ephemeris[1].i0,
-                  (int)msg->extended_ephemeris[1].Crc, (int)msg->extended_ephemeris[1].w, (int)msg->extended_ephemeris[1].omegaDot,(int)msg->extended_ephemeris[1].iDot, (tSIRF_UINT32)msg->extended_ephemeris[1].toc,(int)msg->extended_ephemeris[1].Tgd,
-                  (tSIRF_UINT32)msg->extended_ephemeris[1].af2, (int)msg->extended_ephemeris[1].af1, (int)msg->extended_ephemeris[1].af0 );
+                  (unsigned long)msg->extended_ephemeris[1].toe, (int)msg->extended_ephemeris[1].Cic, (int)msg->extended_ephemeris[1].omega0, (int)msg->extended_ephemeris[1].Cis,(int)msg->extended_ephemeris[1].i0,
+                  (int)msg->extended_ephemeris[1].Crc, (int)msg->extended_ephemeris[1].w, (int)msg->extended_ephemeris[1].omegaDot,(int)msg->extended_ephemeris[1].iDot, (unsigned long)msg->extended_ephemeris[1].toc,(int)msg->extended_ephemeris[1].Tgd,
+                  (unsigned long)msg->extended_ephemeris[1].af2, (int)msg->extended_ephemeris[1].af1, (int)msg->extended_ephemeris[1].af0 );
 
          *options = SIRF_CODEC_OPTIONS_MAKE_MSG_NUMBER(
             SIRF_CODEC_NMEA_PSRF107_TWO_SAT,
@@ -465,6 +465,8 @@ tSIRF_RESULT SIRF_CODEC_NMEA_Decode(   tSIRF_UINT8  const * const payload,
       tSIRF_MSG_SSB_EE_GPS_TIME_INFO *msg = (tSIRF_MSG_SSB_EE_GPS_TIME_INFO*)message_structure;
       long                            time_valid_flag = 0;
       long                            gps_week       = 0;
+      unsigned long                   gps_tow = 0;
+      unsigned long                   ephemeris_request_mask;
 
       *message_id = SIRF_MSG_SSB_EE_GPS_TIME_INFO;
       *message_length         = sizeof(*msg);
@@ -472,12 +474,14 @@ tSIRF_RESULT SIRF_CODEC_NMEA_Decode(   tSIRF_UINT8  const * const payload,
       ret_val = sscanf((const tSIRF_CHAR *)payload, "PSRF151,%ld,%ld,%lu,0x%08lX",
                        &time_valid_flag,
                        &gps_week,
-                       &msg->gps_tow,
-                       &msg->ephemeris_request_mask);
+                       &gps_tow,
+                       &ephemeris_request_mask);
       if ( 4 == ret_val )
       {
          msg->time_valid_flag = (tSIRF_UINT8)time_valid_flag;
          msg->gps_week        = (tSIRF_UINT16)gps_week;
+         msg->gps_tow         = (tSIRF_UINT32)gps_tow;
+         msg->ephemeris_request_mask = (tSIRF_UINT32)ephemeris_request_mask;
       }
       else
       {
@@ -488,15 +492,22 @@ tSIRF_RESULT SIRF_CODEC_NMEA_Decode(   tSIRF_UINT8  const * const payload,
 
    case NMEA_EE_INTEGRITY_WARNING:
    {
+      unsigned long sat_pos_validity_mask, sat_clk_validity_mask, sat_health_mask;
       tSIRF_MSG_SSB_EE_INTEGRITY *msg = (tSIRF_MSG_SSB_EE_INTEGRITY*)message_structure;
       *message_length             = sizeof(*msg);
       *message_id = SIRF_MSG_SSB_EE_INTEGRITY;
 
       ret_val = sscanf((const tSIRF_CHAR *)payload, "PSRF152,0x%08lX,0x%08lX,0x%08lX",
-                       &msg->sat_pos_validity_mask,
-                       &msg->sat_clk_validity_mask,
-                       &msg->sat_health_mask);
-      if (3 != ret_val)
+                       &sat_pos_validity_mask,
+                       &sat_clk_validity_mask,
+                       &sat_health_mask);
+      if (3 == ret_val)
+      {
+          msg->sat_pos_validity_mask = (tSIRF_UINT32)sat_pos_validity_mask;
+          msg->sat_clk_validity_mask = (tSIRF_UINT32)sat_clk_validity_mask;
+          msg->sat_health_mask = (tSIRF_UINT32)sat_health_mask;
+      }
+      else
       {
          return SIRF_FAILURE;
       }
@@ -506,11 +517,11 @@ tSIRF_RESULT SIRF_CODEC_NMEA_Decode(   tSIRF_UINT8  const * const payload,
    case NMEA_EE_CLK_BIAS_ADJUSTMENT:
    {
       unsigned int svid[3];
-      tSIRF_UINT16 toe[3];
-      tSIRF_INT32 clk_bias_adj[3];
-      tSIRF_UINT16 sequence_number  = 0;
-      tSIRF_UINT16 index            = 0;
-      tSIRF_UINT16 i                = 0;
+      unsigned short toe[3];
+      long int clk_bias_adj[3];
+      unsigned short sequence_number  = 0;
+      unsigned index            = 0;
+      unsigned i                = 0;
 
       tSIRF_MSG_SSB_EE_CLK_BIAS_ADJ *msg = (tSIRF_MSG_SSB_EE_CLK_BIAS_ADJ*)message_structure;
       *message_length               = 3 * sizeof(*msg);
@@ -528,7 +539,7 @@ tSIRF_RESULT SIRF_CODEC_NMEA_Decode(   tSIRF_UINT8  const * const payload,
          {
             msg[i].svid         = (tSIRF_UINT8)svid[i - index];
             msg[i].toe          = (tSIRF_UINT16)toe[i-index];/* *(2e-4); */
-            msg[i].clk_bias_adjust = clk_bias_adj[i-index];/**(2e+31);*/
+            msg[i].clk_bias_adjust = (tSIRF_UINT32)clk_bias_adj[i-index];/**(2e+31);*/
          }
       }
       else
@@ -693,7 +704,7 @@ static tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GGA(
       tSIRF_DOUBLE lonInDegree = 0;
       tSIRF_INT16 lonDDD = 0;
       tSIRF_DOUBLE lonMMmm = 0;
-      tSIRF_INT32 NavMode = 0;
+      unsigned NavMode = 0;
       tSIRF_CHAR latMMmmbuf[20] = "";
       tSIRF_CHAR lonMMmmbuf[20] = "";
 
@@ -740,16 +751,16 @@ static tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GGA(
          *buffer_size = snprintf(
             buffer,
             *buffer_size,
-            "GPGGA,%02d%02d%06.3f,%02d%s,%c,%03d%s,%c,%ld,%02ld,%.1f,%.1f,M,%.1f,M,,",
-            data->utc_hour, data->utc_min, data->utc_sec*1e-3,
-            ABS( latDD ),                    /* tSIRF_INT32 deg   */
+            "GPGGA,%02d%02d%06.3f,%02d%s,%c,%03d%s,%c,%u,%02ld,%.1f,%.1f,M,%.1f,M,,",
+            (int)data->utc_hour, (int)data->utc_min, data->utc_sec*1e-3,
+            (int)ABS( latDD ),               /* tSIRF_INT32 deg   */
             latMMmmbuf,                      /* tSIRF_INT32 min   */
             latInDegree >= 0.0 ? 'N' : 'S',  /* direction */
-            ABS( lonDDD ),                   /* tSIRF_INT32 deg   */
+            (int)ABS( lonDDD ),              /* tSIRF_INT32 deg   */
             lonMMmmbuf,                      /* tSIRF_INT32 min   */
             lonInDegree < 0.0 ? 'W' : 'E',   /* direction */
             NavMode,
-            (tSIRF_INT32)data->sv_used_cnt,
+            (unsigned long)data->sv_used_cnt,
             (double)data->hdop * SIRF_MSG_SSB_DOP_LSB,
             data->alt_msl*1e-2,
             (data->alt_ellips - data->alt_msl)*1e-2 );
@@ -759,8 +770,8 @@ static tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GGA(
          *buffer_size = snprintf(
             buffer,
             *buffer_size,
-            "GPGGA,%02d%02d%06.3f,,,,,,,%ld,,,,,,,,",
-            data->utc_hour, data->utc_min, data->utc_sec*1e-3,
+            "GPGGA,%02d%02d%06.3f,,,,,,,%u,,,,,,,,",
+            (int)data->utc_hour, (int)data->utc_min, data->utc_sec*1e-3,
             NavMode );
       }
 
@@ -981,8 +992,8 @@ static tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GSA(
    tSIRF_CHAR *buffer,
    tSIRF_UINT32 *buffer_size )
 {
-   tSIRF_INT32 i;
-   tSIRF_INT32 NavMode;
+   int i;
+   unsigned NavMode;
    MI_DOPS dops;
    tSIRF_CHAR   str[128]="";
 
@@ -1006,7 +1017,7 @@ static tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GSA(
       if (data->sv_used & (1<<i))
       {
          tSIRF_CHAR str1[128];
-         snprintf(str1, sizeof(str1), "%02ld,", i+1);
+         snprintf(str1, sizeof(str1), "%02d,", i+1);
          strlcat(str, str1, sizeof(str));
       }
    } /* for */
@@ -1025,14 +1036,14 @@ static tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GSA(
    if((data->nav_mode & SIRF_MSG_SSB_MODE_MASK) == 0)
    {
       /* format is ,pdop,hdop,vdop,   only have hdop :->  ,hdop,  */
-      *buffer_size = snprintf( buffer, *buffer_size, "GPGSA,A,%1ld,%s,,",
+      *buffer_size = snprintf( buffer, *buffer_size, "GPGSA,A,%1u,%s,,",
                                NavMode,
                                str );
    }
    else
    {
       /* format is ,pdop,hdop,vdop,   only have hdop :->  ,hdop,  */
-      *buffer_size = snprintf( buffer, *buffer_size, "GPGSA,A,%1ld,%s%.1f,%.1f,%.1f",
+      *buffer_size = snprintf( buffer, *buffer_size, "GPGSA,A,%1u,%s%.1f,%.1f,%.1f",
                                NavMode,
                                str,
                                (double)dops.PDOP,
@@ -1112,7 +1123,7 @@ static tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GSV(
    tSIRF_UINT32 *buffer_size,
    tSIRF_UINT32 *options )
 {
-   tSIRF_UINT32 nMsgCnt, svidcnt, msgno, chnlno, smplno, avgcnocnt;
+   unsigned nMsgCnt, svidcnt, msgno, chnlno, smplno, avgcnocnt;
    tSIRF_FLOAT  avgcno;
    tSIRF_CHAR   str[64];
 
@@ -1138,7 +1149,7 @@ static tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GSV(
    {
          nMsgCnt = 1;
          *options = (SIRF_CODEC_NMEA_GSV << 16) | (msgno << 8) | nMsgCnt;
-         *buffer_size = snprintf( buffer, *buffer_size, "GPGSV,%lu,%lu,,,,,,,,,,,,,",
+         *buffer_size = snprintf( buffer, *buffer_size, "GPGSV,%u,%u,,,,,,,,,,,,,",
                                   nMsgCnt,    /* total # of msgs */
                                   nMsgCnt     /* Msg #           */
                                   );
@@ -1151,7 +1162,7 @@ static tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GSV(
 
    *options = (SIRF_CODEC_NMEA_GSV << 16) | (msgno << 8) | nMsgCnt;
 
-   snprintf( buffer, *buffer_size, "GPGSV,%lu,%lu,%02lu",
+   snprintf( buffer, *buffer_size, "GPGSV,%u,%u,%02u",
              nMsgCnt,    /* total # of msgs */
              msgno,      /* Msg #           */
              svidcnt );
@@ -1184,7 +1195,7 @@ static tSIRF_RESULT SIRF_CODEC_NMEA_Encode_GSV(
             snprintf(
                str,
                sizeof(str),
-               ",%02d,%02d,%03d,%02d",
+               ",%02d,%02hd,%03hd,%02hd",
                (data->chnl[chnlno].svid >= 120 ? data->chnl[chnlno].svid - 87 : data->chnl[chnlno].svid ),
                (short) (data->chnl[chnlno].elevation * 0.5f),
                (short) (data->chnl[chnlno].azimuth * 1.5f),
