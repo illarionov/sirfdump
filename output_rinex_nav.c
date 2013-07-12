@@ -88,7 +88,6 @@ int output_rinex_nav(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
       tSIRF_MSG_SSB_CLOCK_STATUS data_clock;
       uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
    } m;
-   char str[1024];
 
    assert(user_ctx);
 
@@ -107,8 +106,6 @@ int output_rinex_nav(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 
    if (err)
       return err;
-
-   str[0]='\0';
 
    if (msg_id ==  SIRF_MSG_SSB_50BPS_DATA)
       handle_mid8_msg(ctx, &m.data_50bps, out_f);

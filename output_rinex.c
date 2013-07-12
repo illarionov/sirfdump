@@ -160,7 +160,6 @@ int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
       tSIRF_MSG_SSB_NL_MEAS_DATA nld;
       uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
    } m;
-   char str[1024];
 
    assert(user_ctx);
 
@@ -179,8 +178,6 @@ int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 
    if (err)
       return err;
-
-   str[0]='\0';
 
    switch (msg_id) {
       case SIRF_MSG_SSB_NL_MEAS_DATA:
