@@ -4729,10 +4729,10 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8 *payload,
                msg->Chnl                  = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->Timetag               = SIRFBINARY_IMPORT_UINT32(ptr);
                msg->svid                  = SIRFBINARY_IMPORT_UINT8 (ptr);
-               SIRFBINARY_IMPORT_DOUBLE(msg->gps_sw_time,            ptr);
-               SIRFBINARY_IMPORT_DOUBLE(msg->pseudorange,            ptr);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->gps_sw_time,            ptr, *options);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->pseudorange,            ptr, *options);
                SIRFBINARY_IMPORT_FLOAT (msg->carrier_freq,           ptr);
-               SIRFBINARY_IMPORT_DOUBLE(msg->carrier_phase,          ptr);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->carrier_phase,          ptr, *options);
                msg->time_in_track         = SIRFBINARY_IMPORT_UINT16(ptr);
                msg->sync_flags            = SIRFBINARY_IMPORT_UINT8 (ptr);
                for (i = 0; i < SIRF_NUM_POINTS; i++)
@@ -4787,16 +4787,16 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8 *payload,
             {
                *message_length = sizeof(*msg);
                msg->svid       = SIRFBINARY_IMPORT_UINT8(ptr);
-               SIRFBINARY_IMPORT_DOUBLE (msg->time,       ptr);
+               SIRFBINARY_IMPORT_DOUBLE_EX (msg->time,       ptr, *options);
                for (i = 0; i < 3; i++)
                {
-                  SIRFBINARY_IMPORT_DOUBLE(msg->pos[i],  ptr);
+                  SIRFBINARY_IMPORT_DOUBLE_EX(msg->pos[i],  ptr, *options);
                }
                for (i = 0; i < 3; i++)
                {
-                  SIRFBINARY_IMPORT_DOUBLE(msg->vel[i],  ptr);
+                  SIRFBINARY_IMPORT_DOUBLE_EX(msg->vel[i],  ptr, *options);
                }
-               SIRFBINARY_IMPORT_DOUBLE(msg->clk,        ptr);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->clk,        ptr, *options);
                SIRFBINARY_IMPORT_FLOAT (msg->clf,        ptr);
                msg->eph        = SIRFBINARY_IMPORT_UINT8(ptr);
                SIRFBINARY_IMPORT_FLOAT (msg->posvar,     ptr);
@@ -4843,14 +4843,14 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8 *payload,
                msg->ssd_threshold              = SIRFBINARY_IMPORT_SINT16(ptr);
                msg->static_nav_mode            = SIRFBINARY_IMPORT_UINT8 (ptr);
                msg->static_nav_threshold       = SIRFBINARY_IMPORT_SINT16(ptr);
-               SIRFBINARY_IMPORT_DOUBLE(msg->ecef_x,                      ptr);
-               SIRFBINARY_IMPORT_DOUBLE(msg->ecef_y,                      ptr);
-               SIRFBINARY_IMPORT_DOUBLE(msg->ecef_z,                      ptr);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->ecef_x,                      ptr, *options);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->ecef_y,                      ptr, *options);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->ecef_z,                      ptr, *options);
                msg->position_init_source       = SIRFBINARY_IMPORT_UINT8 (ptr);
-               SIRFBINARY_IMPORT_DOUBLE(msg->gps_time,                    ptr);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->gps_time,                    ptr, *options);
                msg->gps_week                   = SIRFBINARY_IMPORT_SINT16(ptr);
                msg->time_init_source           = SIRFBINARY_IMPORT_UINT8 (ptr);
-               SIRFBINARY_IMPORT_DOUBLE(msg->clk_offset,                  ptr);
+               SIRFBINARY_IMPORT_DOUBLE_EX(msg->clk_offset,                  ptr, *options);
                msg->clk_offset_init_source     = SIRFBINARY_IMPORT_UINT8 (ptr);
             }
          }
