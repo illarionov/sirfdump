@@ -66,24 +66,24 @@ static tSIRF_VOID PErrorFormat(tSIRF_CHAR *pBuf, tSIRF_UINT32 size, tSIRF_MSG_SS
    switch( pError->err_id )
    {
       case SIRF_MSG_SSB_ERRID_MI_BUFFERALLOCFAILURE:
-         snprintf( pBuf, size, "UART buffer allocation error: %lu", pError->param[0] );
+         snprintf( pBuf, size, "UART buffer allocation error: %lu", (unsigned long)pError->param[0] );
          break;
       case SIRF_MSG_SSB_ERRID_MI_UPDATETIMEFAILURE:
          /* "One second task not complete on entry #%ld (%ld tracker ms errors)";*/
-         snprintf( pBuf, size, "OSOR #%ld (%ld ms)", pError->param[0], pError->param[1] );
+         snprintf( pBuf, size, "OSOR #%ld (%ld ms)", (long)pError->param[0], (long)pError->param[1] );
          break;
       case SIRF_MSG_SSB_ERRID_MI_VCOCLOCKLOST:
-         snprintf( pBuf, size, "VCO lock lost in %lu msec", pError->param[0] );
+         snprintf( pBuf, size, "VCO lock lost in %lu msec",(unsigned long) pError->param[0] );
          break;
       case SIRF_MSG_SSB_ERRID_MI_MEMORYTESTFAILED:
-         snprintf( pBuf, size, "Memory test failed at 0x%lx", pError->param[0] );
+         snprintf( pBuf, size, "Memory test failed at 0x%lx", (unsigned long)pError->param[0] );
          break;
       case SIRF_MSG_SSB_ERRID_MI_FALSEACQRECEIVERRESET:
-         snprintf( pBuf, size, "Assuming false acquisition and reseting receiver at %ld", pError->param[0] );
+         snprintf( pBuf, size, "Assuming false acquisition and reseting receiver at %ld", (long)pError->param[0] );
          break;
       case SIRF_MSG_SSB_ERRID_KFC_KILLCHANNEL:
          snprintf( pBuf, size, "Kalman Filter @%ld: Kill chan %02ld, range res=%ld",
-                   pError->param[0], pError->param[1], pError->param[2] );
+                   (long)pError->param[0], (long)pError->param[1], (long)pError->param[2] );
          break;
       case SIRF_MSG_SSB_ERRID_KFC_BACKUPFAILED_VELOCITY:
          snprintf( pBuf, size, "SRAM backup not done: Velocity sum exceeds maximum." );
@@ -92,42 +92,42 @@ static tSIRF_VOID PErrorFormat(tSIRF_CHAR *pBuf, tSIRF_UINT32 size, tSIRF_MSG_SS
          snprintf( pBuf, size, "SRAM backup not done: Too few SVs used in a solution." );
          break;
       case SIRF_MSG_SSB_ERRID_KFS_BADALTITUDE:
-         snprintf( pBuf, size, "KFDBG @%ld: Bad altitude = %ld", pError->param[0], pError->param[1] );
+         snprintf( pBuf, size, "KFDBG @%ld: Bad altitude = %ld", (long)pError->param[0], (long)pError->param[1] );
          break;
       case SIRF_MSG_SSB_ERRID_KRS_BADSOLUTION:
          snprintf( pBuf, size, "Krause solution poor:\n POS = %ld %ld %ld\n PR = %ld %ld",
-                   pError->param[0], pError->param[1], pError->param[2], pError->param[3], pError->param[4] );
+                   (long)pError->param[0], (long)pError->param[1], (long)pError->param[2], (long)pError->param[3], (long)pError->param[4] );
          break;
       case SIRF_MSG_SSB_ERRID_RMC_GETTINGPOSITION:
-         snprintf( pBuf, size, "RxM error in getting SV %02ld's position", pError->param[0] );
+         snprintf( pBuf, size, "RxM error in getting SV %02ld's position", (long)pError->param[0] );
          break;
       case SIRF_MSG_SSB_ERRID_RXM_TIMEEXCEEDED:
-         snprintf( pBuf, size, "RxM: Pseudo range in seconds exceeds limit: %ld", pError->param[0] );
+         snprintf( pBuf, size, "RxM: Pseudo range in seconds exceeds limit: %ld", (long)pError->param[0] );
          break;
       case SIRF_MSG_SSB_ERRID_RXM_TDOPOVERFLOW:
-         snprintf( pBuf, size, "RxM error: tdop=%ld overflow", pError->param[0] );
+         snprintf( pBuf, size, "RxM error: tdop=%ld overflow", (long)pError->param[0] );
          break;
       case SIRF_MSG_SSB_ERRID_RXM_VALIDDURATIONEXCEEDED:
          snprintf( pBuf, size, "RxM: Ephemeris for SV %02ld exceeds valid time duration by %ld sec",
-                   pError->param[0], pError->param[1] );
+                   (long)pError->param[0], (long)pError->param[1] );
          break;
       case SIRF_MSG_SSB_ERRID_STRTP_SRAMCKSUM:
          snprintf( pBuf, size, "SRAM control flags contain bad checksum" );
          break;
       case SIRF_MSG_SSB_ERRID_STRTP_RTCTIMEINVALID:
          snprintf( pBuf, size, "RTC time or SRAM backup invalid, TOW:%ld, WNUM:%ld",
-                   pError->param[0], pError->param[1] );
+                   (long)pError->param[0], (long)pError->param[1] );
          break;
       case SIRF_MSG_SSB_ERRID_STRTP_BADPOSTION:
          snprintf( pBuf, size, "SRAM: Bad position during startup, x:%ld y:%ld z:%ld",
-                   pError->param[0], pError->param[1], pError->param[2] );
+                   (long)pError->param[0], (long)pError->param[1], (long)pError->param[2] );
          break;
       case SIRF_MSG_SSB_ERRID_CS_SVPARITY:
-         snprintf( pBuf, size, "Bad parity from SV %02ld, subframe %ld", pError->param[0], pError->param[1] );
+         snprintf( pBuf, size, "Bad parity from SV %02ld, subframe %ld", (long)pError->param[0], (long)pError->param[1] );
          break;
       default:
          snprintf( pBuf, size, "Error in unknown format: err_id=%lx params: %lx %lx %lx %lx",
-                   pError->param[0], pError->param[1], pError->param[2], pError->param[3], pError->param[4] );
+                   (unsigned long)pError->param[0], (unsigned long)pError->param[1], (unsigned long)pError->param[2], (unsigned long)pError->param[3], (unsigned long)pError->param[4] );
          break;
    }
 }
@@ -168,21 +168,21 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_MEASURED_NAVIGATION *NavData = (tSIRF_MSG_SSB_MEASURED_NAVIGATION*)message_structure;
             snprintf((char*)szBuf, sizeof(szBuf), "2,%ld,%ld,%ld,%.3f,%.3f,%.3f,%u,%.1f,%u,%u,%lu,%u",
-                     NavData->ecef_x,
-                     NavData->ecef_y,
-                     NavData->ecef_z,
+                     (long)NavData->ecef_x,
+                     (long)NavData->ecef_y,
+                     (long)NavData->ecef_z,
                      NavData->ecef_vel_x * SIRF_MSG_SSB_VELOCITY_LSB,
                      NavData->ecef_vel_y * SIRF_MSG_SSB_VELOCITY_LSB,
                      NavData->ecef_vel_z * SIRF_MSG_SSB_VELOCITY_LSB,
-                     NavData->nav_mode,
+                     (unsigned)NavData->nav_mode,
                      NavData->hdop * SIRF_MSG_SSB_DOP_LSB,
-                     NavData->nav_mode2,
-                     NavData->gps_week,
-                     NavData->gps_tow,
-                     NavData->sv_used_cnt );
+                     (unsigned)NavData->nav_mode2,
+                     (unsigned)NavData->gps_week,
+                     (unsigned long)NavData->gps_tow,
+                     (unsigned)NavData->sv_used_cnt );
             for( i = 0; i < SIRF_NUM_CHANNELS; i++ )
             {
-               snprintf( szFoo, sizeof(szFoo), ",%u", (int)NavData->sv_used[i] );
+               snprintf( szFoo, sizeof(szFoo), ",%u", (unsigned)NavData->sv_used[i] );
                strlcat( szBuf, szFoo, sizeof(szBuf) );
             }
             break;
@@ -192,20 +192,20 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_MEASURED_TRACKER *TrkData = (tSIRF_MSG_SSB_MEASURED_TRACKER*)message_structure;
             snprintf( (char*)szBuf, sizeof(szBuf), "4,%d,%lu,%u",
-                     TrkData->gps_week,
-                     TrkData->gps_tow,
-                     TrkData->chnl_cnt );
+                     (int)TrkData->gps_week,
+                     (unsigned long)TrkData->gps_tow,
+                     (unsigned)TrkData->chnl_cnt );
             for( i = 0; i < SIRF_NUM_CHANNELS; i++ )
             {
                snprintf( (char*)szFoo,  sizeof(szFoo),",%u,%u,%u,%u",
-                        TrkData->chnl[i].svid,
-                        (int) (TrkData->chnl[i].azimuth * SIRF_MSG_SSB_AZIMUTH_LSB),
-                        (int) (TrkData->chnl[i].elevation * SIRF_MSG_SSB_ELEVATION_LSB),
-                        TrkData->chnl[i].state );
+                        (unsigned)TrkData->chnl[i].svid,
+                        (unsigned) (TrkData->chnl[i].azimuth * SIRF_MSG_SSB_AZIMUTH_LSB),
+                        (unsigned) (TrkData->chnl[i].elevation * SIRF_MSG_SSB_ELEVATION_LSB),
+                        (unsigned)TrkData->chnl[i].state );
                strlcat( szBuf, szFoo, sizeof(szBuf) );
                for( j = 0; j < SIRF_NUM_POINTS; j++ )
                {
-                  snprintf( szFoo,  sizeof(szFoo), ",%u", TrkData->chnl[i].cno[j] );
+                  snprintf( szFoo,  sizeof(szFoo), ",%u", (unsigned)TrkData->chnl[i].cno[j] );
                   strlcat( szBuf, szFoo, sizeof(szBuf) );
                }
             }
@@ -216,27 +216,27 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_RAW_TRACKER *RawTrk = (tSIRF_MSG_SSB_RAW_TRACKER*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "5,%ld,%d,%02x,%ld,%d,%d,%ld,%ld,%ld,%ld,%d",
-                     RawTrk->channel,
-                     RawTrk->svid,
-                     RawTrk->state,
-                     RawTrk->bit_number,
-                     RawTrk->msec_number,
-                     RawTrk->chip_number,
-                     RawTrk->code_phase,
-                     RawTrk->carrier_doppler,
-                     RawTrk->measure_timetag,
-                     RawTrk->delta_carrier_phase,
-                     RawTrk->search_cnt );
+                     (long)RawTrk->channel,
+                     (int)RawTrk->svid,
+                     (unsigned)RawTrk->state,
+                     (unsigned long)RawTrk->bit_number,
+                     (int)RawTrk->msec_number,
+                     (int)RawTrk->chip_number,
+                     (long)RawTrk->code_phase,
+                     (long)RawTrk->carrier_doppler,
+                     (long)RawTrk->measure_timetag,
+                     (long)RawTrk->delta_carrier_phase,
+                     (int)RawTrk->search_cnt );
             for( i = 0; i < SIRF_NUM_POINTS; i++ )
             {
-               snprintf( szFoo, sizeof(szFoo), ",%u", RawTrk->cno[i] );
+               snprintf( szFoo, sizeof(szFoo), ",%u", (unsigned)RawTrk->cno[i] );
                strlcat( szBuf, szFoo, sizeof(szBuf) );
             }
             snprintf( szFoo, sizeof(szFoo), ",%u,%u,%d,%d",
-                     RawTrk->power_bad_count,
-                     RawTrk->phase_bad_count,
-                     RawTrk->delta_car_interval,
-                     RawTrk->correl_interval );
+                     (unsigned)RawTrk->power_bad_count,
+                     (unsigned)RawTrk->phase_bad_count,
+                     (int)RawTrk->delta_car_interval,
+                     (int)RawTrk->correl_interval );
             strlcat( szBuf, szFoo, sizeof(szBuf) );
             break;
          }
@@ -253,12 +253,12 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_CLOCK_STATUS *ClkStatus = (tSIRF_MSG_SSB_CLOCK_STATUS*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "Week:%u  TOW:%lu  EstGPSTime:%lu ms  SVCnt:%u  "
                                "Clock Drift:%lu Hz  Clock Bias:%lu ns",
-                     ClkStatus->gps_week,
-                     ClkStatus->gps_tow,
-                     ClkStatus->est_gps_time,
-                     ClkStatus->sv_used_cnt,
-                     ClkStatus->clk_offset,
-                     ClkStatus->clk_bias );
+                     (unsigned)ClkStatus->gps_week,
+                     (unsigned long)ClkStatus->gps_tow,
+                     (unsigned long)ClkStatus->est_gps_time,
+                     (unsigned)ClkStatus->sv_used_cnt,
+                     (unsigned long)ClkStatus->clk_offset,
+                     (unsigned long)ClkStatus->clk_bias );
             break;
          }
 
@@ -270,17 +270,17 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             if( SIRF_MSG_SSB_EE_50BPS_DATA_VERIFIED == message_id )
             {
                snprintf( szBuf, sizeof(szBuf), "56,5,%02u %02u ",
-                               data50bps->chnl, data50bps->svid );
+                               (unsigned)data50bps->chnl, (unsigned)data50bps->svid );
             }
             else
             {
                snprintf( szBuf, sizeof(szBuf), ": %02u %02u ",
-                               data50bps->chnl, data50bps->svid );
+                               (unsigned)data50bps->chnl, (unsigned)data50bps->svid );
             }
 
             for( i = 0; i < 10; i++ )
             {
-               snprintf( szFoo, sizeof(szFoo), "%08lx ", data50bps->word[i] );
+               snprintf( szFoo, sizeof(szFoo), "%08lx ", (unsigned long)data50bps->word[i] );
                strlcat( szBuf, szFoo, sizeof(szBuf) );
             }
             break;
@@ -291,10 +291,10 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_THROUGHPUT *Throughput = (tSIRF_MSG_SSB_THROUGHPUT*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "ThrPut(186=1ms): Latency:%03u SegStatMax:%03u "
                                "AveTrkTime:%03u Nav Complete:%04u ms",
-                     Throughput->seg_stat_lat,
-                     Throughput->seg_stat_max,
-                     Throughput->avg_trk_time,
-                     Throughput->last_ms );
+                     (unsigned)Throughput->seg_stat_lat,
+                     (unsigned)Throughput->seg_stat_max,
+                     (unsigned)Throughput->avg_trk_time,
+                     (unsigned)Throughput->last_ms );
             break;
          }
 
@@ -307,15 +307,15 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
 
          case SIRF_MSG_SSB_ACK: /* 0x0B (11) */
          {
-            snprintf( szBuf, sizeof(szBuf), "Ack: 0x%02X 0x%02X", ((tSIRF_MSG_SSB_ACK*)message_structure)->msg_id,
-                     ((tSIRF_MSG_SSB_ACK*)message_structure)->sub_id );
+            snprintf( szBuf, sizeof(szBuf), "Ack: 0x%02X 0x%02X", (unsigned)(((tSIRF_MSG_SSB_ACK*)message_structure)->msg_id),
+                     (unsigned)(((tSIRF_MSG_SSB_ACK*)message_structure)->sub_id ));
             break;
          }
 
          case SIRF_MSG_SSB_NAK: /* 0x0C (12) */
          {
-            snprintf( szBuf, sizeof(szBuf), "Nak: 0x%02X 0x%02X", ((tSIRF_MSG_SSB_NAK*)message_structure)->msg_id,
-                     ((tSIRF_MSG_SSB_NAK*)message_structure)->sub_id );
+            snprintf( szBuf, sizeof(szBuf), "Nak: 0x%02X 0x%02X", (unsigned)(((tSIRF_MSG_SSB_NAK*)message_structure)->msg_id),
+                     (unsigned)(((tSIRF_MSG_SSB_NAK*)message_structure)->sub_id ));
             break;
          }
 
@@ -333,9 +333,9 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
                for( i = 0; i < VisList->svid_cnt; i++ )
                {
                   snprintf( szFoo, sizeof(szFoo), "SVID:%02u  Az:%03d  El:%03d\n",
-                                  VisList->visible[i].svid,
-                                  VisList->visible[i].azimuth,
-                                  VisList->visible[i].elevation );
+                                  (unsigned)VisList->visible[i].svid,
+                                  (int)VisList->visible[i].azimuth,
+                                  (int)VisList->visible[i].elevation );
                   strlcat( szBuf, szFoo, sizeof(szBuf) );
                }
             }
@@ -346,10 +346,10 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_ALMANAC * Alm = (tSIRF_MSG_SSB_ALMANAC*)message_structure;
 
-            snprintf( szBuf, sizeof(szBuf), "ALMANAC SVID:%02u  ", Alm->svid );
+            snprintf( szBuf, sizeof(szBuf), "ALMANAC SVID:%02u  ", (unsigned)Alm->svid );
             for( i = 0; i < SIRF_MSG_SSB_ALMANAC_ENTRIES; i++ )
             {
-               snprintf( szFoo, sizeof(szFoo), "%d, ", Alm->data[i] );
+               snprintf( szFoo, sizeof(szFoo), "%d, ", (int)Alm->data[i] );
                strlcat( szBuf, szFoo, sizeof(szBuf) );
             }
             break;
@@ -359,12 +359,12 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_EPHEMERIS * Eph = (tSIRF_MSG_SSB_EPHEMERIS*)message_structure;
 
-            snprintf( szBuf, sizeof(szBuf), "EPHEMERIS SVID:%02u  ", Eph->svid );
+            snprintf( szBuf, sizeof(szBuf), "EPHEMERIS SVID:%02u  ", (unsigned)Eph->svid );
             for( i = 0; i < 3; i++ )
             {
                for ( j = 0; j < 15; j++ )
                {
-                  snprintf( szFoo, sizeof(szFoo), "%u, ", Eph->subframe[i][j] );
+                  snprintf( szFoo, sizeof(szFoo), "%u, ", (unsigned)Eph->subframe[i][j] );
                   strlcat( szBuf, szFoo, sizeof(szBuf) );
                }
             }
@@ -412,13 +412,13 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             else
             {
                snprintf( tmpStr, sizeof(tmpStr), "TricklePower enabled with %ld ms on, %f%% duty cycle\n",
-                        RcvrParam->lp_on_time, lp_duty_cycle );
+                        (long)RcvrParam->lp_on_time, lp_duty_cycle );
                strlcat( lp_str, tmpStr, sizeof(lp_str) );
             }
             if( RcvrParam->lp_user_tasks_enabled )
             {
                snprintf( tmpStr, sizeof(tmpStr), "User tasks enabled, period = %ld\n",
-                        RcvrParam->lp_user_task_interval );
+                        (long)RcvrParam->lp_user_task_interval );
                strlcat( lp_str, tmpStr, sizeof(lp_str) );
             }
             else
@@ -426,7 +426,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
                strlcat( lp_str, "User tasks disabled\n", sizeof(lp_str) );
             }
             snprintf( tmpStr, sizeof(tmpStr), "MaxAcqTime = %lu ms; MaxOffTime = %lu ms\n",
-                     RcvrParam->lp_max_acq_time, RcvrParam->lp_max_off_time );
+                     (unsigned long)RcvrParam->lp_max_acq_time, (unsigned long)RcvrParam->lp_max_off_time );
             strlcat( lp_str, tmpStr, sizeof(lp_str) );
             snprintf( szBuf, sizeof(szBuf), "Polling Navigation Parameters\n"
                      "AltMode: %s\nAltSource: %s\nAltitude: %d\n"
@@ -437,19 +437,19 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
                      "%s",
                      strAltMode[RcvrParam->alt_mode],
                      strAltSrc[RcvrParam->alt_src],
-                     RcvrParam->alt_input,
+                     (int)RcvrParam->alt_input,
                      strDegMode[RcvrParam->degraded_mode],
-                     RcvrParam->degraded_timeout,
-                     RcvrParam->dr_timeout,
-                     RcvrParam->trk_smooth,
+                     (unsigned)RcvrParam->degraded_timeout,
+                     (unsigned)RcvrParam->dr_timeout,
+                     (unsigned)RcvrParam->trk_smooth,
                      strEnabled[RcvrParam->static_nav_mode],
                      strEnabled[RcvrParam->enable_3sv_lsq],
                      strDOPMode[RcvrParam->dop_mask_mode],
                      RcvrParam->nav_elev_mask / 10.0F,
-                     RcvrParam->nav_pwr_mask,
+                     (unsigned)RcvrParam->nav_pwr_mask,
                      strDGPSSrc[RcvrParam->dgps_src],
                      strDGPSMode[RcvrParam->dgps_mode],
-                     RcvrParam->dgps_timeout,
+                     (unsigned)RcvrParam->dgps_timeout,
                      lp_str );
             break;
          }
@@ -464,25 +464,25 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             }
 
             snprintf( szBuf, sizeof(szBuf), "20,%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%d,%d,%ld,%d,%ld,%ld,%ld,%ld,%ld",
-                                 msg->svid,
-                                 msg->period,
-                                 msg->bit_synch_time,
-                                 msg->bit_count,
-                                 msg->poor_status_count,
-                                 msg->good_status_count,
-                                 msg->parity_error_count,
-                                 msg->lost_vco_count,
-                                 msg->frame_synch_time,
-                                 msg->cno_mean,
-                                 msg->cno_sigma,
-                                 msg->clock_drift,
-                                 msg->clock_offset_mean,
-                                 msg->bad_1khz_bit_count,
-                                 msg->abs_i20ms,
-                                 msg->abs_q1ms,
-                                 msg->reserved[0],
-                                 msg->reserved[1],
-                                 msg->reserved[2] );
+                                 (unsigned)msg->svid,
+                                 (unsigned)msg->period,
+                                 (unsigned)msg->bit_synch_time,
+                                 (unsigned)msg->bit_count,
+                                 (unsigned)msg->poor_status_count,
+                                 (unsigned)msg->good_status_count,
+                                 (unsigned)msg->parity_error_count,
+                                 (unsigned)msg->lost_vco_count,
+                                 (unsigned)msg->frame_synch_time,
+                                 (int)msg->cno_mean,
+                                 (int)msg->cno_sigma,
+                                 (int)msg->clock_drift,
+                                 (long)msg->clock_offset_mean,
+                                 (int)msg->bad_1khz_bit_count,
+                                 (long)msg->abs_i20ms,
+                                 (long)msg->abs_q1ms,
+                                 (long)msg->reserved[0],
+                                 (long)msg->reserved[1],
+                                 (long)msg->reserved[2] );
          }
          break;
 
@@ -490,20 +490,20 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_DGPS_STATUS *msg = (tSIRF_MSG_SSB_DGPS_STATUS*)message_structure;
 
-            snprintf( szBuf, sizeof(szBuf), "27,%u", msg->src );
+            snprintf( szBuf, sizeof(szBuf), "27,%u", (unsigned)msg->src );
 
             for( i = 0; i < SIRF_NUM_CHANNELS; i++ )
             {
-               snprintf( szFoo, sizeof(szFoo), ",%u", msg->cor_age[i] );
+               snprintf( szFoo, sizeof(szFoo), ",%u", (unsigned)msg->cor_age[i] );
                strlcat( szBuf, szFoo, sizeof(szBuf) );
             }
 
-            snprintf( szFoo, sizeof(szFoo), ",%u,%u", msg->reserved[0], msg->reserved[1] );
+            snprintf( szFoo, sizeof(szFoo), ",%u,%u", (unsigned)msg->reserved[0], (unsigned)msg->reserved[1] );
             strlcat( szBuf, szFoo, sizeof(szBuf) );
 
             for( i = 0; i < SIRF_NUM_CHANNELS; i++ )
             {
-               snprintf( szFoo, sizeof(szFoo), ",%u,%d", msg->corrections[i].prn, msg->corrections[i].cor );
+               snprintf( szFoo, sizeof(szFoo), ",%u,%d", (unsigned)msg->corrections[i].prn, (unsigned)msg->corrections[i].cor );
                strlcat( szBuf, szFoo, sizeof(szBuf) );
             }
 
@@ -514,26 +514,26 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_NL_MEAS_DATA *NlMeas = (tSIRF_MSG_SSB_NL_MEAS_DATA*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "28,%u,%lu,%u,%.10e,%.10e,%.10e,%.10e,%u,%u",
-                     NlMeas->Chnl,
-                     NlMeas->Timetag,
-                     NlMeas->svid,
+                     (unsigned)NlMeas->Chnl,
+                     (unsigned long)NlMeas->Timetag,
+                     (unsigned)NlMeas->svid,
                      NlMeas->gps_sw_time,
                      NlMeas->pseudorange,
                      NlMeas->carrier_freq,
                      NlMeas->carrier_phase,
-                     NlMeas->time_in_track,
-                     NlMeas->sync_flags);
+                     (unsigned)NlMeas->time_in_track,
+                     (unsigned)NlMeas->sync_flags);
             for( i = 0; i < SIRF_NUM_POINTS; i++ )
             {
-               snprintf( szFoo, sizeof(szFoo), ",%u", NlMeas->cton[i] );
+               snprintf( szFoo, sizeof(szFoo), ",%u", (unsigned)NlMeas->cton[i] );
                strlcat( szBuf, szFoo, sizeof(szBuf) );
             }
             snprintf( szFoo, sizeof(szFoo), ",%u,%u,%d,%u,%u",
-                     NlMeas->delta_range_interval,
-                     NlMeas->mean_delta_range_time,
-                     NlMeas->extrapolation_time,
-                     NlMeas->phase_error_count,
-                     NlMeas->low_power_count );
+                     (unsigned)NlMeas->delta_range_interval,
+                     (unsigned)NlMeas->mean_delta_range_time,
+                     (int)NlMeas->extrapolation_time,
+                     (unsigned)NlMeas->phase_error_count,
+                     (unsigned)NlMeas->low_power_count );
             strlcat( szBuf, szFoo, sizeof(szBuf) );
             break;
          }
@@ -542,9 +542,9 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_NL_DGPS_DATA *NlDgps = (tSIRF_MSG_SSB_NL_DGPS_DATA*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "29,%d,%d,%u,%.10e,%.10e,%.10e,%.10e,%.10e",
-                     NlDgps->svid,
-                     NlDgps->iod,
-                     NlDgps->source,
+                     (int)NlDgps->svid,
+                     (int)NlDgps->iod,
+                     (unsigned)NlDgps->source,
                      NlDgps->pr_correction,
                      NlDgps->prr_correction,
                      NlDgps->correction_age,
@@ -557,7 +557,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_NL_SV_STATE_DATA *NlSvState = (tSIRF_MSG_SSB_NL_SV_STATE_DATA*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "30,%u,%.11e",
-                     NlSvState->svid,
+                     (unsigned)NlSvState->svid,
                      NlSvState->time );
             for( i = 0; i < 3; i++ )
             {
@@ -587,28 +587,28 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             /* From NL_ControlBlock */
             snprintf( szBuf, sizeof(szBuf), "31,%u,%u,%u,%.10e,%u,%d,%d,%d,%u,%u,%d,%d,%d,%u,%d,%d"
                                  ",%d,%u,%d,%u,%d,%u,%d",
-                     NlInit->enable_con_alt_mode, NlInit->alt_mode, NlInit->alt_source,
-                     NlInit->altitude, NlInit->degraded_mode, NlInit->degraded_timeout,
-                     NlInit->dr_timeout, NlInit->coast_timeout, NlInit->tracksmooth_mode,
-                     NlInit->dop_selection, NlInit->hdop_thresh, NlInit->gdop_thresh,
-                     NlInit->pdop_thresh, NlInit->dgps_selection, NlInit->dgps_timeout,
-                     NlInit->elev_nav_mask, NlInit->pow_nav_mask, NlInit->editing_residual_mode,
-                     NlInit->editing_residual_threshold, NlInit->ssd_mode, NlInit->ssd_threshold,
-                     NlInit->static_nav_mode, NlInit->static_nav_threshold );
+                     (unsigned)NlInit->enable_con_alt_mode, (unsigned)NlInit->alt_mode, (unsigned)NlInit->alt_source,
+                     NlInit->altitude, (unsigned)NlInit->degraded_mode, (int)NlInit->degraded_timeout,
+                     (int)NlInit->dr_timeout, (int)NlInit->coast_timeout, (unsigned)NlInit->tracksmooth_mode,
+                     (unsigned)NlInit->dop_selection, (int)NlInit->hdop_thresh, (int)NlInit->gdop_thresh,
+                     (int)NlInit->pdop_thresh, (unsigned)NlInit->dgps_selection, (int)NlInit->dgps_timeout,
+                     (int)NlInit->elev_nav_mask, (int)NlInit->pow_nav_mask, (unsigned)NlInit->editing_residual_mode,
+                     (int)NlInit->editing_residual_threshold, (unsigned)NlInit->ssd_mode, (int)NlInit->ssd_threshold,
+                     (unsigned)NlInit->static_nav_mode, (int)NlInit->static_nav_threshold );
 
             /* From NL_PositionInitStruct */
             snprintf( szFoo, sizeof(szFoo), ",%.10e,%.10e,%.10e,%u",
-                     NlInit->ecef_x, NlInit->ecef_y, NlInit->ecef_z, NlInit->position_init_source );
+                     NlInit->ecef_x, NlInit->ecef_y, NlInit->ecef_z, (unsigned)NlInit->position_init_source );
             strlcat( szBuf, szFoo, sizeof(szBuf) );
 
             /* From NL_TimeInitStruct */
             snprintf( szFoo, sizeof(szFoo), ",%.10e,%d,%u",
-                     NlInit->gps_time, NlInit->gps_week, NlInit->time_init_source );
+                     NlInit->gps_time, (int)NlInit->gps_week, (unsigned)NlInit->time_init_source );
             strlcat( szBuf, szFoo, sizeof(szBuf) );
 
             /* from NL_ClockDriftInitStruct */
             snprintf( szFoo, sizeof(szFoo), ",%.10e,%u",
-                     NlInit->clk_offset, NlInit->clk_offset_init_source );
+                     NlInit->clk_offset, (unsigned)NlInit->clk_offset_init_source );
             strlcat( szBuf, szFoo, sizeof(szBuf) );
             break;
          }
@@ -617,10 +617,10 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_NL_AUX_INIT_DATA * NlAuxInit = (tSIRF_MSG_SSB_NL_AUX_INIT_DATA*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "64,1,%lu,%u,%lu,%u,%u,%u,%u,%u,%lu,%lu,%lu,%lu",
-                      NlAuxInit->time_init_unc,NlAuxInit->saved_pos_week,NlAuxInit->saved_pos_tow,
-                      NlAuxInit->saved_pos_ehe,NlAuxInit->saved_pos_eve,NlAuxInit->sw_version,NlAuxInit->icd_version,
-                      NlAuxInit->chip_version,NlAuxInit->acq_clk_speed,NlAuxInit->default_clock_offset,
-                      NlAuxInit->tracker_status,NlAuxInit->reserved);
+                      (unsigned long)NlAuxInit->time_init_unc,(unsigned)NlAuxInit->saved_pos_week,(unsigned long)NlAuxInit->saved_pos_tow,
+                      (unsigned)NlAuxInit->saved_pos_ehe,(unsigned)NlAuxInit->saved_pos_eve,(unsigned)NlAuxInit->sw_version,(unsigned)NlAuxInit->icd_version,
+                      (unsigned)NlAuxInit->chip_version,(unsigned long)NlAuxInit->acq_clk_speed,(unsigned long)NlAuxInit->default_clock_offset,
+                      (unsigned long)NlAuxInit->tracker_status,(unsigned long)NlAuxInit->reserved);
             break;
          }
 
@@ -629,13 +629,13 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_NL_AUX_MEAS_DATA * NlAuxMeas = (tSIRF_MSG_SSB_NL_AUX_MEAS_DATA*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "64,2,%u,%u,%u,%u,%lu,%lu,%ld,%ld,%d,%d,%ld,%ld,%ld,%ld,"
                             "%d,%d,%d,%d,%u,%u,%ld,%d,%d,%u,%lu",
-                      NlAuxMeas->sv_prn, NlAuxMeas->status, NlAuxMeas->extended_status,NlAuxMeas->bit_sync_qual,
-                      NlAuxMeas->time_tag,NlAuxMeas->code_phase,NlAuxMeas->carrier_phase,NlAuxMeas->carrier_freq,
-                      NlAuxMeas->carrier_accel,NlAuxMeas->ms_num,NlAuxMeas->bit_num,NlAuxMeas->code_correction,
-                      NlAuxMeas->smooth_code,NlAuxMeas->code_offset,NlAuxMeas->pseudorange_noise,NlAuxMeas->delta_range_qual,
-                      NlAuxMeas->phase_lock_qual,NlAuxMeas->ms_uncertainty,NlAuxMeas->sum_abs_I,NlAuxMeas->sum_abs_Q,
-                      NlAuxMeas->sv_bit_num,NlAuxMeas->mp_los_det_value,NlAuxMeas->mp_only_det_value,
-                      NlAuxMeas->recovery_status,NlAuxMeas->sw_time_uncertainty);
+                      (unsigned)NlAuxMeas->sv_prn, (unsigned)NlAuxMeas->status, (unsigned)NlAuxMeas->extended_status,(unsigned)NlAuxMeas->bit_sync_qual,
+                      (unsigned long)NlAuxMeas->time_tag,(unsigned long)NlAuxMeas->code_phase,(long)NlAuxMeas->carrier_phase,(long)NlAuxMeas->carrier_freq,
+                      (int)NlAuxMeas->carrier_accel,(int)NlAuxMeas->ms_num,(long)NlAuxMeas->bit_num,(long)NlAuxMeas->code_correction,
+                      (long)NlAuxMeas->smooth_code,(long)NlAuxMeas->code_offset,(int)NlAuxMeas->pseudorange_noise,(int)NlAuxMeas->delta_range_qual,
+                      (int)NlAuxMeas->phase_lock_qual,(int)NlAuxMeas->ms_uncertainty,(unsigned)NlAuxMeas->sum_abs_I,(unsigned)NlAuxMeas->sum_abs_Q,
+                      (long)NlAuxMeas->sv_bit_num,(int)NlAuxMeas->mp_los_det_value,(int)NlAuxMeas->mp_only_det_value,
+                      (unsigned)NlAuxMeas->recovery_status,(unsigned long)NlAuxMeas->sw_time_uncertainty);
             break;
          }
 
@@ -643,8 +643,8 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_NL_AUX_AID_DATA * NlAuxAid = (tSIRF_MSG_SSB_NL_AUX_AID_DATA*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "64,3,%ld,%ld,%ld,%lu,%u,%lu",
-                            NlAuxAid->ecef_x,NlAuxAid->ecef_y,NlAuxAid->ecef_z,NlAuxAid->horiz_pos_unc,
-                            NlAuxAid->alt_unc,NlAuxAid->sw_tow);
+                            (long)NlAuxAid->ecef_x,(long)NlAuxAid->ecef_y,(long)NlAuxAid->ecef_z,(unsigned long)NlAuxAid->horiz_pos_unc,
+                            (unsigned)NlAuxAid->alt_unc,(unsigned long)NlAuxAid->sw_tow);
             break;
          }
 
@@ -653,19 +653,19 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_GEODETIC_NAVIGATION *GeodNavState = (tSIRF_MSG_SSB_GEODETIC_NAVIGATION*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "41,%u,%u,%u,%lu,%u,%u,%u,%u,%u,%u,%lu,%ld,%ld,%ld,%ld,%u,%u,%u,"
                                "%d,%d,%d,%lu,%lu,%lu,%u,%ld,%lu,%ld,%lu,%lu,%u,%u,%u,%u,%u",
-                     GeodNavState->nav_valid, GeodNavState->nav_mode,
-                     GeodNavState->gps_week, GeodNavState->gps_tow, GeodNavState->utc_year,
-                     GeodNavState->utc_month, GeodNavState->utc_day, GeodNavState->utc_hour,
-                     GeodNavState->utc_min, GeodNavState->utc_sec, GeodNavState->sv_used,
-                     GeodNavState->lat, GeodNavState->lon, GeodNavState->alt_ellips,
-                     GeodNavState->alt_msl, GeodNavState->datum, GeodNavState->sog,
-                     GeodNavState->hdg, GeodNavState->mag_var, GeodNavState->climb_rate,
-                     GeodNavState->heading_rate, GeodNavState->ehpe, GeodNavState->evpe,
-                     GeodNavState->ete, GeodNavState->ehve, GeodNavState->clk_bias,
-                     GeodNavState->clk_bias_error, GeodNavState->clk_offset,
-                     GeodNavState->clk_offset_error, GeodNavState->distance_travelled,
-                     GeodNavState->distance_travelled_error, GeodNavState->heading_error, GeodNavState->sv_used_cnt,
-                     GeodNavState->hdop, GeodNavState->additional_mode_info );
+                     (unsigned)GeodNavState->nav_valid, (unsigned)GeodNavState->nav_mode,
+                     (unsigned)GeodNavState->gps_week, (unsigned long)GeodNavState->gps_tow, (unsigned)GeodNavState->utc_year,
+                     (unsigned)GeodNavState->utc_month, (unsigned)GeodNavState->utc_day, (unsigned)GeodNavState->utc_hour,
+                     (unsigned)GeodNavState->utc_min, (unsigned)GeodNavState->utc_sec, (unsigned long)GeodNavState->sv_used,
+                     (long)GeodNavState->lat, (long)GeodNavState->lon, (long)GeodNavState->alt_ellips,
+                     (long)GeodNavState->alt_msl, (unsigned)GeodNavState->datum, (unsigned)GeodNavState->sog,
+                     (unsigned)GeodNavState->hdg, (int)GeodNavState->mag_var, (int)GeodNavState->climb_rate,
+                     (int)GeodNavState->heading_rate, (unsigned long)GeodNavState->ehpe, (unsigned long)GeodNavState->evpe,
+                     (unsigned long)GeodNavState->ete, (unsigned)GeodNavState->ehve, (unsigned long)GeodNavState->clk_bias,
+                     (unsigned long)GeodNavState->clk_bias_error, (long)GeodNavState->clk_offset,
+                     (unsigned long)GeodNavState->clk_offset_error, (unsigned long)GeodNavState->distance_travelled,
+                     (unsigned)GeodNavState->distance_travelled_error, (unsigned)GeodNavState->heading_error, (unsigned)GeodNavState->sv_used_cnt,
+                     (unsigned)GeodNavState->hdop, (unsigned)GeodNavState->additional_mode_info );
             break;
          }
 
@@ -675,11 +675,11 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             {
                tSIRF_MSG_SSB_ADC_ODOMETER_DATA *ADCData10Hz = (tSIRF_MSG_SSB_ADC_ODOMETER_DATA*)message_structure;
                snprintf( szBuf, sizeof(szBuf), "45,%lu,%d,%d,%u,%u",
-                  ADCData10Hz->current_time,
-                  ADCData10Hz->adc2_avg,
-                  ADCData10Hz->adc3_avg,
-                  ADCData10Hz->odo_count,
-                  ADCData10Hz->gpio_stat);
+                  (unsigned long)ADCData10Hz->current_time,
+                  (int)ADCData10Hz->adc2_avg,
+                  (int)ADCData10Hz->adc3_avg,
+                  (unsigned)ADCData10Hz->odo_count,
+                  (unsigned)ADCData10Hz->gpio_stat);
             }
             else if ( sizeof(tSIRF_MSG_SSB_ADC_ODOMETER_DATA_1HZ) == message_length )
             {
@@ -688,11 +688,11 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
                for ( i=0; i<10; i++ )
                {
                   snprintf(szFoo, sizeof(szFoo), ",%lu,%d,%d,%u,%u",
-                     ADCData1Hz->dataset[i].current_time,
-                     ADCData1Hz->dataset[i].adc2_avg,
-                     ADCData1Hz->dataset[i].adc3_avg,
-                     ADCData1Hz->dataset[i].odo_count,
-                     ADCData1Hz->dataset[i].gpio_stat);
+                     (unsigned long)ADCData1Hz->dataset[i].current_time,
+                     (int)ADCData1Hz->dataset[i].adc2_avg,
+                     (int)ADCData1Hz->dataset[i].adc3_avg,
+                     (unsigned)ADCData1Hz->dataset[i].odo_count,
+                     (unsigned)ADCData1Hz->dataset[i].gpio_stat);
                   strlcat( szBuf, szFoo, sizeof(szBuf) );
                }
             }
@@ -709,28 +709,28 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             }
 
             snprintf( szBuf, sizeof(szBuf), "46,%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%d,%d,%ld,%d,%ld,%ld,%ld,%u,%u,%u,%u,%u",
-                                 msg->svid,
-                                 msg->period,
-                                 msg->bit_synch_time,
-                                 msg->bit_count,
-                                 msg->poor_status_count,
-                                 msg->good_status_count,
-                                 msg->parity_error_count,
-                                 msg->lost_vco_count,
-                                 msg->frame_synch_time,
-                                 msg->cno_mean,
-                                 msg->cno_sigma,
-                                 msg->clock_drift,
-                                 msg->clock_offset,
-                                 msg->bad_1khz_bit_count,
-                                 msg->abs_i20ms,
-                                 msg->abs_q20ms,
-                                 msg->phase_lock,
-                                 msg->rtc_frequency,
-                                 msg->e_to_acq_ratio,
-                                 msg->t_sync_agc_gain,
-                                 msg->tm_5_ready,
-                                 msg->ClkDriftUnc );
+                                 (unsigned)msg->svid,
+                                 (unsigned)msg->period,
+                                 (unsigned)msg->bit_synch_time,
+                                 (unsigned)msg->bit_count,
+                                 (unsigned)msg->poor_status_count,
+                                 (unsigned)msg->good_status_count,
+                                 (unsigned)msg->parity_error_count,
+                                 (unsigned)msg->lost_vco_count,
+                                 (unsigned)msg->frame_synch_time,
+                                 (int)msg->cno_mean,
+                                 (int)msg->cno_sigma,
+                                 (int)msg->clock_drift,
+                                 (long)msg->clock_offset,
+                                 (int)msg->bad_1khz_bit_count,
+                                 (long)msg->abs_i20ms,
+                                 (long)msg->abs_q20ms,
+                                 (long)msg->phase_lock,
+                                 (unsigned)msg->rtc_frequency,
+                                 (unsigned)msg->e_to_acq_ratio,
+                                 (unsigned)msg->t_sync_agc_gain,
+                                 (unsigned)msg->tm_5_ready,
+                                 (unsigned)msg->ClkDriftUnc );
          }
          break;
 
@@ -739,22 +739,22 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_DR_NAV_STATUS * msg = (tSIRF_MSG_SSB_DR_NAV_STATUS*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "48,1,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
 
-                     msg->nav,
-                     msg->data,
-                     msg->cal_gb_cal,
-                     msg->gsf_cal_ssf_cal,
-                     msg->nav_across_reset_pos,
-                     msg->hd,
-                     msg->gyr_sub_op_spd_sub_op,
-                     msg->nav_st_int_ran_z_gb_cal_upd,
-                     msg->gbsf_cal_upd_spd_cal_upd_upd_nav_st,
-                     msg->gps_upd_pos,
-                     msg->gps_upd_hd,
-                     msg->gps_pos_gps_vel,
-                     msg->dws_hd_rt_s_f_cal_valid,
-                     msg->dws_hd_rt_s_f_cal_upd,
-                     msg->dws_spd_s_f_cal_valid,
-                     msg->dws_spd_s_f_cal_upd );
+                     (unsigned)msg->nav,
+                     (unsigned)msg->data,
+                     (unsigned)msg->cal_gb_cal,
+                     (unsigned)msg->gsf_cal_ssf_cal,
+                     (unsigned)msg->nav_across_reset_pos,
+                     (unsigned)msg->hd,
+                     (unsigned)msg->gyr_sub_op_spd_sub_op,
+                     (unsigned)msg->nav_st_int_ran_z_gb_cal_upd,
+                     (unsigned)msg->gbsf_cal_upd_spd_cal_upd_upd_nav_st,
+                     (unsigned)msg->gps_upd_pos,
+                     (unsigned)msg->gps_upd_hd,
+                     (unsigned)msg->gps_pos_gps_vel,
+                     (unsigned)msg->dws_hd_rt_s_f_cal_valid,
+                     (unsigned)msg->dws_hd_rt_s_f_cal_upd,
+                     (unsigned)msg->dws_spd_s_f_cal_valid,
+                     (unsigned)msg->dws_spd_s_f_cal_upd );
             break;
          }
 
@@ -762,43 +762,43 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_DR_NAV_STATE * msg = (tSIRF_MSG_SSB_DR_NAV_STATE*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "48,2,%u,%u,%d,%u,%d,%u,%d,%u,%d,%u,%lu,%u,%u,%u,%u, %u,%u,%d,%u,%d,%u,%d,%u,%d,%u,%d,%u,%d,%u,%u,%d,%u,%d,%u,%u,%d,%u",
-                     msg->spd,
-                     msg->spd_e,
-                     msg->ssf,
-                     msg->ssf_e,
-                     msg->hd_rte,
-                     msg->hd_rte_e,
-                     msg->gb,
-                     msg->gbE,
-                     msg->gsf,
-                     msg->gsf_e,
-                     msg->tpe,
-                     msg->the,
-                     msg->nav_ctrl,
-                     msg->reverse,
-                     msg->hd,
-                     msg->sensor_pkg,
-                     msg->odo_spd,
-                     msg->odo_spd_s_f,
-                     msg->odo_spd_s_f_err,
-                     msg->lf_wheel_spd_sf,
-                     msg->lf_wheel_spd_sf_err,
-                     msg->rf_wheel_spd_sf,
-                     msg->rf_wheel_spd_sf_err,
-                     msg->lr_wheel_spd_sf,
-                     msg->lr_wheel_spd_sf_err,
-                     msg->rr_wheel_spd_sf,
-                     msg->rr_wheel_spd_sf_err,
-                     msg->rear_axle_spd_delta,
-                     msg->rear_axle_avg_spd,
-                     msg->rear_axle_spd_err,
-                     msg->rear_axle_hd_rt,
-                     msg->rear_axle_hd_rt_err,
-                     msg->front_axle_spd_delta,
-                     msg->front_axle_avg_spd,
-                     msg->front_axle_spd_err,
-                     msg->front_axle_hd_rt,
-                     msg->front_axle_hd_rt_err);
+                     (unsigned)msg->spd,
+                     (unsigned)msg->spd_e,
+                     (int)msg->ssf,
+                     (unsigned)msg->ssf_e,
+                     (int)msg->hd_rte,
+                     (unsigned)msg->hd_rte_e,
+                     (int)msg->gb,
+                     (unsigned)msg->gbE,
+                     (int)msg->gsf,
+                     (unsigned)msg->gsf_e,
+                     (unsigned long)msg->tpe,
+                     (unsigned)msg->the,
+                     (unsigned)msg->nav_ctrl,
+                     (unsigned)msg->reverse,
+                     (unsigned)msg->hd,
+                     (unsigned)msg->sensor_pkg,
+                     (unsigned)msg->odo_spd,
+                     (int)msg->odo_spd_s_f,
+                     (unsigned)msg->odo_spd_s_f_err,
+                     (int)msg->lf_wheel_spd_sf,
+                     (unsigned)msg->lf_wheel_spd_sf_err,
+                     (int)msg->rf_wheel_spd_sf,
+                     (unsigned)msg->rf_wheel_spd_sf_err,
+                     (int)msg->lr_wheel_spd_sf,
+                     (unsigned)msg->lr_wheel_spd_sf_err,
+                     (int)msg->rr_wheel_spd_sf,
+                     (unsigned)msg->rr_wheel_spd_sf_err,
+                     (int)msg->rear_axle_spd_delta,
+                     (unsigned)msg->rear_axle_avg_spd,
+                     (unsigned)msg->rear_axle_spd_err,
+                     (int)msg->rear_axle_hd_rt,
+                     (unsigned)msg->rear_axle_hd_rt_err,
+                     (int)msg->front_axle_spd_delta,
+                     (unsigned)msg->front_axle_avg_spd,
+                     (unsigned)msg->front_axle_spd_err,
+                     (int)msg->front_axle_hd_rt,
+                     (unsigned)msg->front_axle_hd_rt_err);
             break;
          }
 
@@ -806,22 +806,22 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_DR_NAV_SUBSYS * msg = (tSIRF_MSG_SSB_DR_NAV_SUBSYS*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "48,3,%d,%u,%u,%u,%u,%u,%lu,%d,%u,%u,%u,%u,%u,%lu,%u,%u",
-                     msg->gps_hd_rte,
-                     msg->gps_hd_rte_e,
-                     msg->gps_hd,
-                     msg->gps_hd_e,
-                     msg->gps_spd,
-                     msg->gps_spd_e,
-                     msg->gps_pos_e,
-                     msg->dr_hd_rte,
-                     msg->dr_hd_rte_e,
-                     msg->dr_hd,
-                     msg->dr_hd_e,
-                     msg->dr_spd,
-                     msg->dr_spd_e,
-                     msg->dr_pos_e,
-                     msg->reserved[0],
-                     msg->reserved[1]);
+                     (int)msg->gps_hd_rte,
+                     (unsigned)msg->gps_hd_rte_e,
+                     (unsigned)msg->gps_hd,
+                     (unsigned)msg->gps_hd_e,
+                     (unsigned)msg->gps_spd,
+                     (unsigned)msg->gps_spd_e,
+                     (unsigned long)msg->gps_pos_e,
+                     (int)msg->dr_hd_rte,
+                     (unsigned)msg->dr_hd_rte_e,
+                     (unsigned)msg->dr_hd,
+                     (unsigned)msg->dr_hd_e,
+                     (unsigned)msg->dr_spd,
+                     (unsigned)msg->dr_spd_e,
+                     (unsigned long)msg->dr_pos_e,
+                     (unsigned)msg->reserved[0],
+                     (unsigned)msg->reserved[1]);
             break;
          }
 
@@ -829,9 +829,9 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_DR_SENS_PARAM *msg = (tSIRF_MSG_SSB_DR_SENS_PARAM*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "48,7,%u,%u,%u,",
-                     msg->base_ssf,
-                     msg->base_gb,
-                     msg->base_gsf );
+                     (unsigned)msg->base_ssf,
+                     (unsigned)msg->base_gb,
+                     (unsigned)msg->base_gsf );
             break;
          }
 
@@ -841,17 +841,17 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             snprintf( szBuf, sizeof(szBuf), "48,8,%u,%u,%u,"
                                "%lu,%u,%d,%lu,%u,%d,%lu,%u,%d,%lu,%u,%d,%lu,%u,%d,"
                                "%lu,%u,%d,%lu,%u,%d,%lu,%u,%d,%lu,%u,%d,%lu,%u,%d",
-              msg->meas_type,  msg->valid_cnt,  msg->bkup_flgs,
-              msg->blk[0].tag, msg->blk[0].spd, msg->blk[0].hd_rte,
-              msg->blk[1].tag, msg->blk[1].spd, msg->blk[1].hd_rte,
-              msg->blk[2].tag, msg->blk[2].spd, msg->blk[2].hd_rte,
-              msg->blk[3].tag, msg->blk[3].spd, msg->blk[3].hd_rte,
-              msg->blk[4].tag, msg->blk[4].spd, msg->blk[4].hd_rte,
-              msg->blk[5].tag, msg->blk[5].spd, msg->blk[5].hd_rte,
-              msg->blk[6].tag, msg->blk[6].spd, msg->blk[6].hd_rte,
-              msg->blk[7].tag, msg->blk[7].spd, msg->blk[7].hd_rte,
-              msg->blk[8].tag, msg->blk[8].spd, msg->blk[8].hd_rte,
-              msg->blk[9].tag, msg->blk[9].spd, msg->blk[9].hd_rte );
+              (unsigned)msg->meas_type,  (unsigned)msg->valid_cnt,  (unsigned)msg->bkup_flgs,
+              (unsigned long)msg->blk[0].tag, (unsigned)msg->blk[0].spd, (int)msg->blk[0].hd_rte,
+              (unsigned long)msg->blk[1].tag, (unsigned)msg->blk[1].spd, (int)msg->blk[1].hd_rte,
+              (unsigned long)msg->blk[2].tag, (unsigned)msg->blk[2].spd, (int)msg->blk[2].hd_rte,
+              (unsigned long)msg->blk[3].tag, (unsigned)msg->blk[3].spd, (int)msg->blk[3].hd_rte,
+              (unsigned long)msg->blk[4].tag, (unsigned)msg->blk[4].spd, (int)msg->blk[4].hd_rte,
+              (unsigned long)msg->blk[5].tag, (unsigned)msg->blk[5].spd, (int)msg->blk[5].hd_rte,
+              (unsigned long)msg->blk[6].tag, (unsigned)msg->blk[6].spd, (int)msg->blk[6].hd_rte,
+              (unsigned long)msg->blk[7].tag, (unsigned)msg->blk[7].spd, (int)msg->blk[7].hd_rte,
+              (unsigned long)msg->blk[8].tag, (unsigned)msg->blk[8].spd, (int)msg->blk[8].hd_rte,
+              (unsigned long)msg->blk[9].tag, (unsigned)msg->blk[9].spd, (int)msg->blk[9].hd_rte );
             break;
          }
 
@@ -860,17 +860,17 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_MMF_STATUS *msg = (tSIRF_MSG_SSB_MMF_STATUS*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "48,80,%lu,%u,%ld,%ld,%ld,%lu,%u,%ld,%ld,%ld,%lu",
-                  msg->status,
-                  msg->sys_hdg,
-                  msg->sys_lat,
-                  msg->sys_lon,
-                  msg->sys_alt,
-                  msg->sys_tow,
-                  msg->mmf_hdg,
-                  msg->mmf_lat,
-                  msg->mmf_lon,
-                  msg->mmf_alt,
-                  msg->mmf_tow );
+                  (unsigned long)msg->status,
+                  (unsigned)msg->sys_hdg,
+                  (long)msg->sys_lat,
+                  (long)msg->sys_lon,
+                  (long)msg->sys_alt,
+                  (unsigned long)msg->sys_tow,
+                  (unsigned)msg->mmf_hdg,
+                  (long)msg->mmf_lat,
+                  (long)msg->mmf_lon,
+                  (long)msg->mmf_alt,
+                  (unsigned long)msg->mmf_tow );
             break;
          }
 
@@ -879,10 +879,10 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_SBAS_PARAM *msg = (tSIRF_MSG_SSB_SBAS_PARAM*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "50,%u,%u,%u,%u",
-                  msg->prn,
-                  msg->mode,
-                  msg->timeout,
-                  msg->flg_bits );
+                  (unsigned)msg->prn,
+                  (unsigned)msg->mode,
+                  (unsigned)msg->timeout,
+                  (unsigned)msg->flg_bits );
             break;
          }
 
@@ -891,7 +891,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_SIRFNAV_COMPLETE *msg = (tSIRF_MSG_SSB_SIRFNAV_COMPLETE*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "51,1,%u",
-                  msg->reserved);
+                  (unsigned)msg->reserved);
             break;
          }
 
@@ -900,17 +900,17 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_SIRFNAV_TIME_TAGS *msg = (tSIRF_MSG_SSB_SIRFNAV_TIME_TAGS*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "51,4,%lu,%u,%lu,%u,%u,%u,%u,%u,%u,%u,%lu",
-                  msg->tracker_time_tag,
-                  msg->gps_week,
-                  msg->gps_tow,
-                  msg->tracker_rtc_day,
-                  msg->tracker_rtc_hour,
-                  msg->tracker_rtc_min,
-                  msg->tracker_rtc_sec,
-                  msg->tracker_rtc_clkctr,
-                  msg->tracker_rtc_ok,
-                  msg->tracker_rtc_rollover_complete,
-                  msg->tracker_rtc_rollover_seconds );
+                  (unsigned long)msg->tracker_time_tag,
+                  (unsigned)msg->gps_week,
+                  (unsigned long)msg->gps_tow,
+                  (unsigned)msg->tracker_rtc_day,
+                  (unsigned)msg->tracker_rtc_hour,
+                  (unsigned)msg->tracker_rtc_min,
+                  (unsigned)msg->tracker_rtc_sec,
+                  (unsigned)msg->tracker_rtc_clkctr,
+                  (unsigned)msg->tracker_rtc_ok,
+                  (unsigned)msg->tracker_rtc_rollover_complete,
+                  (unsigned long)msg->tracker_rtc_rollover_seconds );
             break;
          }
 
@@ -918,10 +918,10 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_TRACKER_LOADER_STATE *msg = (tSIRF_MSG_SSB_TRACKER_LOADER_STATE*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "51,6,%lu,%lu,%lu,%lu",
-              msg->loader_state,
-              msg->percentage_loaded,
-              msg->loader_error,
-              msg->time_tag );
+              (unsigned long)msg->loader_state,
+              (unsigned long)msg->percentage_loaded,
+              (unsigned long)msg->loader_error,
+              (unsigned long)msg->time_tag );
             break;
          }
 
@@ -929,10 +929,10 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_SIRFNAV_START *msg = (tSIRF_MSG_SSB_SIRFNAV_START*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "51,7,%lu,%lu,%lu,%lu",
-                  msg->start_mode,
-                  msg->clock_offset,
-                  msg->port_num,
-                  msg->baud_rate );
+                  (unsigned long)msg->start_mode,
+                  (unsigned long)msg->clock_offset,
+                  (unsigned long)msg->port_num,
+                  (unsigned long)msg->baud_rate );
             break;
          }
          case SIRF_MSG_SSB_EE_GPS_TIME_INFO: /* 0x0138 */
@@ -940,10 +940,10 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_EE_GPS_TIME_INFO *msg = (tSIRF_MSG_SSB_EE_GPS_TIME_INFO*) message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "56,1,%u,%u,%lu,%lu",
-                  msg->time_valid_flag,
-                  msg->gps_week,
-                  msg->gps_tow,
-                  msg->ephemeris_request_mask );
+                  (unsigned)msg->time_valid_flag,
+                  (unsigned)msg->gps_week,
+                  (unsigned long)msg->gps_tow,
+                  (unsigned long)msg->ephemeris_request_mask );
          }
          break;
 
@@ -952,8 +952,8 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_EE_ACK *msg = (tSIRF_MSG_SSB_EE_ACK*) message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "56,255,%u,%u",
-                  msg->acq_id,
-                  msg->acq_sub_id );
+                  (unsigned)msg->acq_id,
+                  (unsigned)msg->acq_sub_id );
          }
          break;
 
@@ -962,7 +962,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_SIRFNAV_STOP *msg = (tSIRF_MSG_SSB_SIRFNAV_STOP*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "51,8,%lu",
-                  msg->stop_mode );
+                  (unsigned long)msg->stop_mode );
             break;
          }
 
@@ -973,17 +973,17 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
                                "%lu,%u,%lu,%u,%u,%u,%u,%u,%u,"
                                "%ld,%ld,%ld,%u,"
                                "%lu,%lu,%u,%u,%ld,%lu",
-              msg->mode,  msg->status,  msg->dr_status,
-              msg->gps_off_time, msg->gps_week, msg->gps_tow,   msg->utc_year, msg->utc_month, msg->utc_day,   msg->utc_hour, msg->utc_min, msg->utc_sec,
-              msg->lat, msg->lon, msg->alt_ellips, msg->heading,
-              msg->valid_ephemeris, msg->collected_almanac, msg->collected_almanac_week, msg->factory_almanac_week,   msg->clk_offset, msg->reserved );
+              (unsigned)msg->mode,  (unsigned)msg->status,  (unsigned)msg->dr_status,
+              (unsigned long)msg->gps_off_time, (unsigned)msg->gps_week, (unsigned long)msg->gps_tow,   (unsigned)msg->utc_year, (unsigned)msg->utc_month, (unsigned)msg->utc_day,   (unsigned)msg->utc_hour, (unsigned)msg->utc_min, (unsigned)msg->utc_sec,
+              (long)msg->lat, (long)msg->lon, (long)msg->alt_ellips, (unsigned)msg->heading,
+              (unsigned long)msg->valid_ephemeris, (unsigned long)msg->collected_almanac, (unsigned)msg->collected_almanac_week, (unsigned)msg->factory_almanac_week,   (long)msg->clk_offset, (unsigned long)msg->reserved );
             break;
          }
 
          case SIRF_MSG_SSB_GPIO_READ: /* 0xC041 (65,192) */
          {
             tSIRF_MSG_SSB_GPIO_READ *msg = (tSIRF_MSG_SSB_GPIO_READ*)message_structure;
-            snprintf( szBuf, sizeof(szBuf), "65,192,%u", msg->gpio_state );
+            snprintf( szBuf, sizeof(szBuf), "65,192,%u", (unsigned)msg->gpio_state );
             break;
          }
 
@@ -991,8 +991,8 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_DOP_VALUES *msg = (tSIRF_MSG_SSB_DOP_VALUES*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "66,%lu,%u,%u,%u,%u,%u",
-              msg->gps_tow,
-              msg->gdop, msg->pdop, msg->hdop, msg->vdop, msg->tdop );
+              (unsigned long)msg->gps_tow,
+              (unsigned)msg->gdop, (unsigned)msg->pdop, (unsigned)msg->hdop, (unsigned)msg->vdop, (unsigned)msg->tdop );
             break;
          }
 
@@ -1004,17 +1004,17 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
                (msg[1] == 0)) /* Encrypted tracker output */
             {
                snprintf(szBuf, sizeof(szBuf), "68,%ld,%02X",
-                        (unsigned long)SIRF_GET_MID(SIRF_MSG_SSB_SIRF_INTERNAL_OUT), msg[1]);
+                        (unsigned long)SIRF_GET_MID(SIRF_MSG_SSB_SIRF_INTERNAL_OUT), (unsigned)msg[1]);
                for ( i = 2; i < message_length; i++ )
                {
-                  snprintf( szFoo, sizeof(szFoo), ",%02X", ((tSIRF_UINT8*)message_structure)[i] );
+                  snprintf( szFoo, sizeof(szFoo), ",%02X", (unsigned)(((tSIRF_UINT8*)message_structure)[i]) );
                   strlcat( szBuf, szFoo, sizeof(szBuf) );
                }
             }
             else
             {
                snprintf(szBuf, sizeof(szBuf), "68,%u,%*s",
-                        (tSIRF_UINT8)(*msg), (int)(message_length-1), msg+1 );
+                        (unsigned)((tSIRF_UINT8)(*msg)), (int)(message_length-1), msg+1 );
             }
             break;
          }
@@ -1023,10 +1023,10 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_DEMO_START_GPS_ENGINE *msg = (tSIRF_MSG_SSB_DEMO_START_GPS_ENGINE*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "161,5,%lu,%lu,%lu,%lu",
-                  msg->start_mode,
-                  msg->clock_offset,
-                  msg->port_num,
-                  msg->baud_rate );
+                  (unsigned long)msg->start_mode,
+                  (unsigned long)msg->clock_offset,
+                  (unsigned long)msg->port_num,
+                  (unsigned long)msg->baud_rate );
             break;
          }
 
@@ -1035,7 +1035,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_DEMO_STOP_GPS_ENGINE *msg = (tSIRF_MSG_SSB_DEMO_STOP_GPS_ENGINE*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "161,6,%lu",
-                  msg->stop_mode );
+                  (unsigned long)msg->stop_mode );
             break;
          }
 
@@ -1050,20 +1050,20 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_DR_CAR_BUS_DATA *msg = (tSIRF_MSG_SSB_DR_CAR_BUS_DATA*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "172,9,%u,%u,%u",
-                  msg->sensor_data_type,
-                  msg->num_of_data_sets,
-                  msg->reverse_bitmap );
+                  (unsigned)msg->sensor_data_type,
+                  (unsigned)msg->num_of_data_sets,
+                  (unsigned)msg->reverse_bitmap );
             for ( i = 0; i < 11; i++ )
             {
                   snprintf( szFoo, sizeof(szFoo), ",%u,%lu,%u,%d,%d,%d,%d,%u",
-                     msg->data[i].valid_sensor_indication,
-                     msg->data[i].data_set_time_tag,
-                     msg->data[i].odometer_speed,
-                     msg->data[i].data1,
-                     msg->data[i].data2,
-                     msg->data[i].data3,
-                     msg->data[i].data4,
-                     msg->data[i].reserved );
+                     (unsigned)msg->data[i].valid_sensor_indication,
+                     (unsigned long)msg->data[i].data_set_time_tag,
+                     (unsigned)msg->data[i].odometer_speed,
+                     (int)msg->data[i].data1,
+                     (int)msg->data[i].data2,
+                     (int)msg->data[i].data3,
+                     (int)msg->data[i].data4,
+                     (unsigned)msg->data[i].reserved );
                   strlcat( szBuf, szFoo, sizeof(szBuf) );
             }
             break;
@@ -1073,7 +1073,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_DR_CAR_BUS_ENABLED *msg = (tSIRF_MSG_SSB_DR_CAR_BUS_ENABLED*)message_structure;
             snprintf( szBuf, sizeof(szBuf), "172,10,%lu",
-                     msg->mode );
+                     (unsigned long)msg->mode );
             break;
          }
 
@@ -1082,7 +1082,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_DR_CAR_BUS_DISABLED *msg = (tSIRF_MSG_SSB_DR_CAR_BUS_DISABLED*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "172,11,%lu",
-                     msg->mode );
+                     (unsigned long)msg->mode );
             break;
          }
 
@@ -1097,23 +1097,23 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             else
             {
                snprintf( szBuf, sizeof(szBuf), "172,19,%u,%u,%u",
-                     msg->sensor_data_type,
-                     msg->num_of_data_sets,
-                     msg->reserved );
+                     (unsigned)msg->sensor_data_type,
+                     (unsigned)msg->num_of_data_sets,
+                     (unsigned)msg->reserved );
                for ( i = 0; i < msg->num_of_data_sets; i++ )
                {
                   snprintf( szFoo, sizeof(szFoo), ",%u,%lu,%d,%d,%d,%d,%d,%d,%d,%d,%d",
-                     msg->data_set[i].valid_data_indication,
-                     msg->data_set[i].data_set_time_tag,
-                     msg->data_set[i].data[0],
-                     msg->data_set[i].data[1],
-                     msg->data_set[i].data[2],
-                     msg->data_set[i].data[3],
-                     msg->data_set[i].data[4],
-                     msg->data_set[i].data[5],
-                     msg->data_set[i].data[6],
-                     msg->data_set[i].data[7],
-                     msg->data_set[i].data[8] );
+                     (unsigned)msg->data_set[i].valid_data_indication,
+                     (unsigned long)msg->data_set[i].data_set_time_tag,
+                     (int)msg->data_set[i].data[0],
+                     (int)msg->data_set[i].data[1],
+                     (int)msg->data_set[i].data[2],
+                     (int)msg->data_set[i].data[3],
+                     (int)msg->data_set[i].data[4],
+                     (int)msg->data_set[i].data[5],
+                     (int)msg->data_set[i].data[6],
+                     (int)msg->data_set[i].data[7],
+                     (int)msg->data_set[i].data[8] );
                   strlcat( szBuf, szFoo, sizeof(szBuf) );
                }
             }
@@ -1126,20 +1126,20 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_MMF_DATA *msg = (tSIRF_MSG_SSB_MMF_DATA*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "172,80,%lu,%u,%u",
-                  msg->gps_tow_reference,
-                  msg->num_of_data_sets,
-                  msg->control );
+                  (unsigned long)msg->gps_tow_reference,
+                  (unsigned)msg->num_of_data_sets,
+                  (unsigned)msg->control );
             for ( i = 0; i < 3; i++ )
             {
                   snprintf( szFoo, sizeof(szFoo), ",%ld,%ld,%lu,%ld,%lu,%u,%u,%u",
-                     msg->mmf_data[i].lat,
-                     msg->mmf_data[i].lon,
-                     msg->mmf_data[i].horiz_pos_uncert,
-                     msg->mmf_data[i].alt_ellips,
-                     msg->mmf_data[i].vert_pos_uncert,
-                     msg->mmf_data[i].heading,
-                     msg->mmf_data[i].heading_uncert,
-                     msg->mmf_data[i].reserved );
+                     (long)msg->mmf_data[i].lat,
+                     (long)msg->mmf_data[i].lon,
+                     (unsigned long)msg->mmf_data[i].horiz_pos_uncert,
+                     (long)msg->mmf_data[i].alt_ellips,
+                     (unsigned long)msg->mmf_data[i].vert_pos_uncert,
+                     (unsigned)msg->mmf_data[i].heading,
+                     (unsigned)msg->mmf_data[i].heading_uncert,
+                     (unsigned)msg->mmf_data[i].reserved );
                   strlcat( szBuf, szFoo, sizeof(szBuf) );
             } /* for */
             break;
@@ -1150,21 +1150,21 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_MMF_SET_MODE *msg = (tSIRF_MSG_SSB_MMF_SET_MODE*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "172,81,%lu",
-                     msg->mode );
+                     (unsigned long)msg->mode );
             break;
          }
 
          case SIRF_MSG_SSB_GPIO_WRITE: /* 0xB2 0x30 (178,48) */
          {
             tSIRF_MSG_SSB_GPIO_WRITE *msg = (tSIRF_MSG_SSB_GPIO_WRITE*)message_structure;
-            snprintf(szBuf, sizeof(szBuf), "178,48,%u,%u", msg->gpio_to_write, msg->gpio_state);
+            snprintf(szBuf, sizeof(szBuf), "178,48,%u,%u", (unsigned)msg->gpio_to_write, (unsigned)msg->gpio_state);
             break;
          }
 
          case SIRF_MSG_SSB_GPIO_MODE_SET: /* 0xB2 0x31 (178,49) */
          {
             tSIRF_MSG_SSB_GPIO_MODE_SET *msg = (tSIRF_MSG_SSB_GPIO_MODE_SET*)message_structure;
-            snprintf(szBuf, sizeof(szBuf), "178,49,%u,%u,%u", msg->gpio_to_set, msg->gpio_mode, msg->gpio_state);
+            snprintf(szBuf, sizeof(szBuf), "178,49,%u,%u,%u", (unsigned)msg->gpio_to_set, (unsigned)msg->gpio_mode, (unsigned)msg->gpio_state);
             break;
          }
 
@@ -1173,8 +1173,8 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_TRK_HW_TEST_CONFIG *msg = (tSIRF_MSG_SSB_TRK_HW_TEST_CONFIG*) message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "207,%d,%d",
-                     msg->RFTestPoint,
-                     msg->INTCpuPause );
+                     (int)msg->RFTestPoint,
+                    (int)msg->INTCpuPause );
          }
          break;
 
@@ -1183,7 +1183,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_SET_IF_TESTPOINT *msg = (tSIRF_MSG_SSB_SET_IF_TESTPOINT*) message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "210,%d",
-                     msg->test_point_control );
+                     (int)msg->test_point_control );
          }
          break;
 
@@ -1192,50 +1192,50 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_EE_SEA_PROVIDE_EPH *msg = (tSIRF_MSG_SSB_EE_SEA_PROVIDE_EPH*) message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "232,1,%u,%lu",
-               msg->week,
-               msg->svid_mask );
+               (unsigned)msg->week,
+               (unsigned long)msg->svid_mask );
 
             for( i = 0; i < SV_PER_PACKET; i++)
             {
                snprintf( szFoo, sizeof(szFoo), ",%u,%u,%u,%u,%d,%d,%ld,%d,%lu,%d,%lu,%u,%d,%ld,%d,%ld,%d,%ld,%ld,%d,%u,%d,%d,%d,%ld,%u",
-                  msg->extended_ephemeris[i].PRN,
-                  msg->extended_ephemeris[i].ephemerisValidityFlag,
-                  msg->extended_ephemeris[i].URA,
-                  msg->extended_ephemeris[i].IODE,
-                  msg->extended_ephemeris[i].Crs,
-                  msg->extended_ephemeris[i].deltaN,
-                  msg->extended_ephemeris[i].M0,
-                  msg->extended_ephemeris[i].Cuc,
-                  msg->extended_ephemeris[i].eccen,
-                  msg->extended_ephemeris[i].Cus,
-                  msg->extended_ephemeris[i].sqrtA,
-                  msg->extended_ephemeris[i].toe,
-                  msg->extended_ephemeris[i].Cic,
-                  msg->extended_ephemeris[i].omega0,
-                  msg->extended_ephemeris[i].Cis,
-                  msg->extended_ephemeris[i].i0,
-                  msg->extended_ephemeris[i].Crc,
-                  msg->extended_ephemeris[i].w,
-                  msg->extended_ephemeris[i].omegaDot,
-                  msg->extended_ephemeris[i].iDot,
-                  msg->extended_ephemeris[i].toc,
-                  msg->extended_ephemeris[i].Tgd,
-                  msg->extended_ephemeris[i].af2,
-                  msg->extended_ephemeris[i].af1,
-                  msg->extended_ephemeris[i].af0,
-                  msg->extended_ephemeris[i].age );
+                  (unsigned)msg->extended_ephemeris[i].PRN,
+                  (unsigned)msg->extended_ephemeris[i].ephemerisValidityFlag,
+                  (unsigned)msg->extended_ephemeris[i].URA,
+                  (unsigned)msg->extended_ephemeris[i].IODE,
+                  (int)msg->extended_ephemeris[i].Crs,
+                  (int)msg->extended_ephemeris[i].deltaN,
+                  (long int)msg->extended_ephemeris[i].M0,
+                  (int)msg->extended_ephemeris[i].Cuc,
+                  (unsigned long)msg->extended_ephemeris[i].eccen,
+                  (int)msg->extended_ephemeris[i].Cus,
+                  (unsigned long)msg->extended_ephemeris[i].sqrtA,
+                  (unsigned)msg->extended_ephemeris[i].toe,
+                  (int)msg->extended_ephemeris[i].Cic,
+                  (long int)msg->extended_ephemeris[i].omega0,
+                  (int)msg->extended_ephemeris[i].Cis,
+                  (long int)msg->extended_ephemeris[i].i0,
+                  (int)msg->extended_ephemeris[i].Crc,
+                  (long int)msg->extended_ephemeris[i].w,
+                  (long int)msg->extended_ephemeris[i].omegaDot,
+                  (int)msg->extended_ephemeris[i].iDot,
+                  (unsigned)msg->extended_ephemeris[i].toc,
+                  (int)msg->extended_ephemeris[i].Tgd,
+                  (int)msg->extended_ephemeris[i].af2,
+                  (int)msg->extended_ephemeris[i].af1,
+                  (long int)msg->extended_ephemeris[i].af0,
+                  (unsigned)msg->extended_ephemeris[i].age );
                strlcat( szBuf, szFoo, sizeof(szBuf) );
             } /* for */
 
             snprintf( szFoo, sizeof(szFoo), ",%u,%u,%u,%u,%u,%u,%u,%u",
-               msg->extended_iono.alpha[0],
-               msg->extended_iono.alpha[1],
-               msg->extended_iono.alpha[2],
-               msg->extended_iono.alpha[3],
-               msg->extended_iono.beta[0],
-               msg->extended_iono.beta[1],
-               msg->extended_iono.beta[2],
-               msg->extended_iono.beta[3] );
+               (unsigned)msg->extended_iono.alpha[0],
+               (unsigned)msg->extended_iono.alpha[1],
+               (unsigned)msg->extended_iono.alpha[2],
+               (unsigned)msg->extended_iono.alpha[3],
+               (unsigned)msg->extended_iono.beta[0],
+               (unsigned)msg->extended_iono.beta[1],
+               (unsigned)msg->extended_iono.beta[2],
+               (unsigned)msg->extended_iono.beta[3] );
             strlcat( szBuf, szFoo, sizeof(szBuf) );
          }
          break;
@@ -1245,7 +1245,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_EE_FILE_DOWNLOAD *msg = (tSIRF_MSG_SSB_EE_FILE_DOWNLOAD*) message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "232,16,%lu",
-                  msg->reserved );
+                  (unsigned long)msg->reserved );
             break;
          }
 
@@ -1254,7 +1254,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_SIF_SET_CONFIG *msg = (tSIRF_MSG_SSB_SIF_SET_CONFIG*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "232,252,%u,%u,%u,%u,%u",
-                  msg->operation_mode, msg->file_format, msg->ext_gps_time_src, msg->cgee_input_method, msg->sgee_input_method );
+                  (unsigned)msg->operation_mode, (unsigned)msg->file_format, (unsigned)msg->ext_gps_time_src, (unsigned)msg->cgee_input_method, (unsigned)msg->sgee_input_method );
             break;
          }
 
@@ -1272,7 +1272,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
 
                for(i = 0; i < msg->buffSize; i++)
                {
-                  snprintf(szFoo, sizeof(szFoo), ",%u",msg->buff[i]);
+                  snprintf(szFoo, sizeof(szFoo), ",%u",(unsigned)msg->buff[i]);
                   strlcat(szBuf, szFoo, sizeof(szBuf));
                }
             }
@@ -1284,7 +1284,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_EE_DISABLE_EE_SECS *msg = (tSIRF_MSG_SSB_EE_DISABLE_EE_SECS*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "232,254,%lu",
-                  msg->num_secs );
+                  (unsigned long)msg->num_secs );
             break;
          }
 
@@ -1294,7 +1294,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_SIF_DISABLE_AIDING *msg = (tSIRF_MSG_SSB_SIF_DISABLE_AIDING*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "232,32,%u,%u",
-                  msg->sgeeDisable,msg->cgeeDisable);
+                  (unsigned)msg->sgeeDisable,(unsigned)msg->cgeeDisable);
             break;
          }
 
@@ -1303,7 +1303,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_SIF_GET_AIDING_STATUS *msg = (tSIRF_MSG_SSB_SIF_GET_AIDING_STATUS*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "232,33,%u",
-                  msg->reserved);
+                  (unsigned)msg->reserved);
             break;
          }
 #endif /*EMB_SIF*/
@@ -1313,7 +1313,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_EE_PROPRIETARY_DEBUG *msg = (tSIRF_MSG_SSB_EE_PROPRIETARY_DEBUG*)message_structure;
 
             snprintf( szBuf, sizeof(szBuf), "232,255,%lu",
-                  msg->debug_flags );
+                  (unsigned long)msg->debug_flags );
             break;
          }
 
@@ -1323,20 +1323,20 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             int i;
 
             snprintf(szBuf, sizeof(szBuf), "69,1,%u,%u,%u,%u,%u,%u,%u,%lu,%ld,%ld,%u,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
-               msg->pos_req_id, msg->pos_results_flag, msg->pos_err_status, msg->qos_pass_flag,
-               msg->pos_type, msg->dgps_cor, msg->gps_week, msg->time_of_week,
-               msg->lat, msg->lon, msg->other_sections, msg->hor_err_angle, msg->hor_err_major,
-               msg->hor_err_minor, msg->vert_pos_height, msg->vert_pos_std, msg->velocity_horizontal,
-               msg->velocity_heading, msg->velocity_vertical, msg->velocity_hor_err_ang,
-               msg->velocity_hor_err_maj_std, msg->velocity_hor_err_min_std, msg->velocity_ver_err,
-               msg->clk_cor_time_ref, msg->clk_cor_clk_bias, msg->clk_cor_clk_drift,
-               msg->clk_cor_clk_std_err, msg->clk_cor_utc_off, msg->pos_corr_num_sat);
+               (unsigned)msg->pos_req_id, (unsigned)msg->pos_results_flag, (unsigned)msg->pos_err_status, (unsigned)msg->qos_pass_flag,
+               (unsigned)msg->pos_type, (unsigned)msg->dgps_cor, (unsigned)msg->gps_week, (unsigned long)msg->time_of_week,
+               (long)msg->lat, (long)msg->lon, (unsigned)msg->other_sections, (unsigned)msg->hor_err_angle, (unsigned)msg->hor_err_major,
+               (unsigned)msg->hor_err_minor, (unsigned)msg->vert_pos_height, (unsigned)msg->vert_pos_std, (unsigned)msg->velocity_horizontal,
+               (unsigned)msg->velocity_heading, (int)msg->velocity_vertical, (unsigned)msg->velocity_hor_err_ang,
+               (unsigned)msg->velocity_hor_err_maj_std, (unsigned)msg->velocity_hor_err_min_std, (unsigned)msg->velocity_ver_err,
+               (unsigned)msg->clk_cor_time_ref, (unsigned)msg->clk_cor_clk_bias, (unsigned)msg->clk_cor_clk_drift,
+               (unsigned)msg->clk_cor_clk_std_err, (unsigned)msg->clk_cor_utc_off, (unsigned)msg->pos_corr_num_sat);
             for(i = 0; i < SIRF_MSG_SSB_RSP_NUM_SV_INFO; i++)
             {
                snprintf(szFoo, sizeof(szFoo), ",%u,%u,%u",
-                  msg->pos_corr_sv_info[i].sv_prn,
-                  msg->pos_corr_sv_info[i].c_n0,
-                  msg->pos_corr_sv_info[i].inv_weights);
+                  (unsigned)msg->pos_corr_sv_info[i].sv_prn,
+                  (unsigned)msg->pos_corr_sv_info[i].c_n0,
+                  (unsigned)msg->pos_corr_sv_info[i].inv_weights);
                strlcat(szBuf, szFoo, sizeof(szBuf));
             }
             break;
@@ -1354,19 +1354,19 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             else
             {
                snprintf(szBuf, sizeof(szBuf), "69,2,%u,%u,%u,%u,%lu,%u,%u",
-                  msg->pos_req_id, msg->gps_meas_flag, msg->meas_error_status,
-                  msg->meas_gps_week, msg->meas_gps_seconds,
-                  msg->time_accuracy, msg->num_sv);
+                  (unsigned)msg->pos_req_id, (unsigned)msg->gps_meas_flag, (unsigned)msg->meas_error_status,
+                  (unsigned)msg->meas_gps_week, (unsigned long)msg->meas_gps_seconds,
+                  (unsigned)msg->time_accuracy, (unsigned)msg->num_sv);
                for(i = 0; i < msg->num_sv; i++)
                {
                   snprintf(szFoo, sizeof(szFoo), ",%u,%u,%d,%u,%u,%u,%u",
-                     msg->meas_per_sv_data[i].sv_prn,
-                     msg->meas_per_sv_data[i].c_n0,
-                     msg->meas_per_sv_data[i].sv_doppler,
-                     msg->meas_per_sv_data[i].sv_code_phase_wh,
-                     msg->meas_per_sv_data[i].sv_code_phase_fr,
-                     msg->meas_per_sv_data[i].multipath_indicator,
-                     msg->meas_per_sv_data[i].pseudorange_rms_error);
+                     (unsigned)msg->meas_per_sv_data[i].sv_prn,
+                     (unsigned)msg->meas_per_sv_data[i].c_n0,
+                     (int)msg->meas_per_sv_data[i].sv_doppler,
+                     (unsigned)msg->meas_per_sv_data[i].sv_code_phase_wh,
+                     (unsigned)msg->meas_per_sv_data[i].sv_code_phase_fr,
+                     (unsigned)msg->meas_per_sv_data[i].multipath_indicator,
+                     (unsigned)msg->meas_per_sv_data[i].pseudorange_rms_error);
                   strlcat(szBuf, szFoo, sizeof(szBuf));
                }
             }
@@ -1377,8 +1377,8 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_APRX_MS_POSITION_RSP *msg = (tSIRF_MSG_SSB_APRX_MS_POSITION_RSP *) message_structure;
             snprintf(szBuf, sizeof(szBuf), "215,1,%ld,%ld,%u,%u,%u,%u",
-               msg->lat, msg->lon, msg->alt,
-               msg->est_hor_err, msg->est_ver_err, msg->use_alt_aiding);
+               (long)msg->lat, (long)msg->lon, (unsigned)msg->alt,
+               (unsigned)msg->est_hor_err, (unsigned)msg->est_ver_err, (unsigned)msg->use_alt_aiding);
             break;
          }
 
@@ -1386,9 +1386,9 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_TIME_TRANSFER_RSP *msg = (tSIRF_MSG_SSB_TIME_TRANSFER_RSP *) message_structure;
             snprintf(szBuf, sizeof(szBuf), "215,2,%u,%u,%u,%lu,%ld,%u",
-               msg->tt_type, msg->week_num,
-               msg->time_high, msg->time_low,
-               msg->delta_utc, msg->time_accuracy);
+               (unsigned)msg->tt_type, (unsigned)msg->week_num,
+               (unsigned)msg->time_high, (unsigned long)msg->time_low,
+               (long)msg->delta_utc, (unsigned)msg->time_accuracy);
             break;
          }
 
@@ -1396,8 +1396,8 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_FREQ_TRANSFER_RSP *msg = (tSIRF_MSG_SSB_FREQ_TRANSFER_RSP *) message_structure;
             snprintf(szBuf, sizeof(szBuf), "215,3,%d,%u,%lu,%u,%u,%lu",
-               msg->freq_offset, msg->accuracy, msg->time_tag,
-               msg->clock_ref, msg->nominal_freq_high, msg->nominal_freq_low);
+               (int)msg->freq_offset, (unsigned)msg->accuracy, (unsigned long)msg->time_tag,
+               (unsigned)msg->clock_ref, (unsigned)msg->nominal_freq_high, (unsigned long)msg->nominal_freq_low);
             break;
          }
 
@@ -1405,11 +1405,11 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_SIRF_STATS *msg = (tSIRF_MSG_SSB_SIRF_STATS *) message_structure;
             snprintf(szBuf, sizeof(szBuf), "225,6,%u,%u,%u,%ld,%ld,%ld,%ld,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
-               msg->ttff_since_reset, msg->ttff_since_aiding, msg->ttff_first_nav,
-               msg->pos_aiding_error_north, msg->pos_aiding_error_east, msg->pos_aiding_error_down,
-               msg->time_aiding_error, msg->freq_aiding_error, msg->hor_pos_uncertainty, msg->ver_pos_uncertainty,
-               msg->time_uncertainty, msg->freq_uncertainty, msg->num_aided_ephemeris, msg->num_aided_acq_assist,
-               msg->nav_mode, msg->pos_mode, msg->nav_status, msg->start_mode, msg->aiding_status);
+               (unsigned)msg->ttff_since_reset, (unsigned)msg->ttff_since_aiding, (unsigned)msg->ttff_first_nav,
+               (long)msg->pos_aiding_error_north, (long)msg->pos_aiding_error_east, (long)msg->pos_aiding_error_down,
+               (long)msg->time_aiding_error, (int)msg->freq_aiding_error, (unsigned)msg->hor_pos_uncertainty, (unsigned)msg->ver_pos_uncertainty,
+               (unsigned)msg->time_uncertainty, (unsigned)msg->freq_uncertainty, (unsigned)msg->num_aided_ephemeris, (unsigned)msg->num_aided_acq_assist,
+               (unsigned)msg->nav_mode, (unsigned)msg->pos_mode, (unsigned)msg->nav_status, (unsigned)msg->start_mode, (unsigned)msg->aiding_status);
             break;
          }
 
@@ -1417,15 +1417,15 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
          {
             tSIRF_MSG_SSB_SIRF_STATS_AGPS *msg = (tSIRF_MSG_SSB_SIRF_STATS_AGPS *) message_structure;
             snprintf(szBuf, sizeof(szBuf), "225,7,%u,%u,%u,%ld,%ld,%ld,%ld,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%lu,%lu",
-               msg->stats.ttff_since_reset, msg->stats.ttff_since_aiding, msg->stats.ttff_first_nav,
-               msg->stats.pos_aiding_error_north, msg->stats.pos_aiding_error_east, msg->stats.pos_aiding_error_down,
-               msg->stats.time_aiding_error, msg->stats.freq_aiding_error,
-               msg->stats.hor_pos_uncertainty, msg->stats.ver_pos_uncertainty,
-               msg->stats.time_uncertainty, msg->stats.freq_uncertainty,
-               msg->stats.num_aided_ephemeris, msg->stats.num_aided_acq_assist,
-               msg->stats.nav_mode, msg->stats.pos_mode, msg->stats.nav_status,
-               msg->stats.start_mode, msg->stats.aiding_status,
-               msg->clock_drift, msg->reserved);
+               (unsigned)msg->stats.ttff_since_reset, (unsigned)msg->stats.ttff_since_aiding, (unsigned)msg->stats.ttff_first_nav,
+               (long)msg->stats.pos_aiding_error_north, (long)msg->stats.pos_aiding_error_east, (long)msg->stats.pos_aiding_error_down,
+               (long)msg->stats.time_aiding_error, (int)msg->stats.freq_aiding_error,
+               (unsigned)msg->stats.hor_pos_uncertainty, (unsigned)msg->stats.ver_pos_uncertainty,
+               (unsigned)msg->stats.time_uncertainty, (unsigned)msg->stats.freq_uncertainty,
+               (unsigned)msg->stats.num_aided_ephemeris, (unsigned)msg->stats.num_aided_acq_assist,
+               (unsigned)msg->stats.nav_mode, (unsigned)msg->stats.pos_mode, (unsigned)msg->stats.nav_status,
+               (unsigned)msg->stats.start_mode, (unsigned)msg->stats.aiding_status,
+               (unsigned long)msg->clock_drift, (unsigned long)msg->reserved);
             break;
          }
 
@@ -1435,54 +1435,54 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_UINT32 i=0, j=0;
 
             snprintf(szBuf, sizeof(szBuf), "234,1,%u,%u",
-                                        msg->numSensors,
-                                        msg->i2cSpeed);
+                                        (unsigned)msg->numSensors,
+                                        (unsigned)msg->i2cSpeed);
 
             for(i = 0; (i < msg->numSensors) && (i < SIRF_MSG_SSB_MAX_NUM_SENSORS); i++)
             {
                snprintf(szFoo, sizeof(szFoo), ",%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
-                                      msg->Sensors[i].i2cAddress,msg->Sensors[i].sensorType,msg->Sensors[i].initTime,
-                                      msg->Sensors[i].nBytesResol,msg->Sensors[i].sampRate,msg->Sensors[i].sendRate,msg->Sensors[i].decmMethod,
-                                      msg->Sensors[i].acqTime,msg->Sensors[i].numReadReg,msg->Sensors[i].measState);
+                                      (unsigned)msg->Sensors[i].i2cAddress,(unsigned)msg->Sensors[i].sensorType,msg->Sensors[i].initTime,
+                                      (unsigned)msg->Sensors[i].nBytesResol,(unsigned)msg->Sensors[i].sampRate,msg->Sensors[i].sendRate,(unsigned)msg->Sensors[i].decmMethod,
+                                      (unsigned)msg->Sensors[i].acqTime,(unsigned)msg->Sensors[i].numReadReg,(unsigned)msg->Sensors[i].measState);
                strlcat(szBuf, szFoo, sizeof(szBuf));
 
                for(j=0;j<msg->Sensors[i].numReadReg;j++)
                  {
-                    snprintf(szFoo, sizeof(szFoo), ",%u,%u", msg->Sensors[i].sensorReadReg[j].readOprMethod,
-                                                                               msg->Sensors[i].sensorReadReg[j].dataReadReg);
+                    snprintf(szFoo, sizeof(szFoo), ",%u,%u", (unsigned)msg->Sensors[i].sensorReadReg[j].readOprMethod,
+                                                                               (unsigned)msg->Sensors[i].sensorReadReg[j].dataReadReg);
                     strlcat(szBuf, szFoo, sizeof(szBuf));
                  }
 
-               snprintf(szFoo, sizeof(szFoo), ",%u,%u,%u,%u", msg->Sensors[i].pwrCtrlReg,msg->Sensors[i].pwrOffSetting,
-                                   msg->Sensors[i].pwrOnSetting,msg->Sensors[i].numInitReadReg);
+               snprintf(szFoo, sizeof(szFoo), ",%u,%u,%u,%u", (unsigned)msg->Sensors[i].pwrCtrlReg,msg->Sensors[i].pwrOffSetting,
+                                   (unsigned)msg->Sensors[i].pwrOnSetting,(unsigned)msg->Sensors[i].numInitReadReg);
 
                strlcat(szBuf, szFoo, sizeof(szBuf));
 
                for(j=0;j<msg->Sensors[i].numInitReadReg;j++)
                {
-                    snprintf(szFoo, sizeof(szFoo), ",%u,%u", msg->Sensors[i].sensorInitReg[j].address,
-                                                                               msg->Sensors[i].sensorInitReg[j].nBytes);
+                    snprintf(szFoo, sizeof(szFoo), ",%u,%u", (unsigned)msg->Sensors[i].sensorInitReg[j].address,
+                                                                               (unsigned)msg->Sensors[i].sensorInitReg[j].nBytes);
                     strlcat(szBuf, szFoo, sizeof(szBuf));
                }
 
-               snprintf(szFoo, sizeof(szFoo), ",%u,%u", msg->Sensors[i].numCtrlReg,msg->Sensors[i].ctrlRegWriteDelay);
+               snprintf(szFoo, sizeof(szFoo), ",%u,%u", (unsigned)msg->Sensors[i].numCtrlReg,(unsigned)msg->Sensors[i].ctrlRegWriteDelay);
                strlcat(szBuf, szFoo, sizeof(szBuf));
 
                for(j=0;j<msg->Sensors[i].numCtrlReg;j++)
                {
-                    snprintf(szFoo, sizeof(szFoo), ",%u,%u", msg->Sensors[i].sensorCtrlReg[j].address,
-                                                                               msg->Sensors[i].sensorCtrlReg[j].value);
+                    snprintf(szFoo, sizeof(szFoo), ",%u,%u", (unsigned)msg->Sensors[i].sensorCtrlReg[j].address,
+                                                                               (unsigned)msg->Sensors[i].sensorCtrlReg[j].value);
                     strlcat(szBuf, szFoo, sizeof(szBuf));
                }
             } /* for loop = numSensors */
 
-            snprintf(szFoo, sizeof(szFoo), ",%u", msg->processingRate);
+            snprintf(szFoo, sizeof(szFoo), ",%u", (unsigned)msg->processingRate);
             strlcat(szBuf, szFoo, sizeof(szBuf));
 
             for(i=0;i<msg->numSensors;i++)
             {
-                    snprintf(szFoo, sizeof(szFoo), ",%u,%u", msg->sensorScaleZeroPointVal[i].zeroPointVal,
-                                                                              msg->sensorScaleZeroPointVal[i].scaleFactor);
+                    snprintf(szFoo, sizeof(szFoo), ",%u,%u", (unsigned)msg->sensorScaleZeroPointVal[i].zeroPointVal,
+                                                                              (unsigned)msg->sensorScaleZeroPointVal[i].scaleFactor);
                     strlcat(szBuf, szFoo, sizeof(szBuf));
             }
             break;
@@ -1493,7 +1493,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
            tSIRF_MSG_SSB_SENSOR_SWITCH *msg = (tSIRF_MSG_SSB_SENSOR_SWITCH*) message_structure;
 
            snprintf(szBuf, sizeof(szBuf), "234,2,%u",
-                                          msg->sensorSetState);
+                                          (unsigned)msg->sensorSetState);
            break;
          }
 
@@ -1503,18 +1503,18 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_UINT32 i = 0, j =0;
 
             snprintf(szBuf, sizeof(szBuf), "72,1,%u,%u,%u,%u",
-                                        msg->sensorID,
-                                        msg->dataLength,
-                                        msg->numDataSet,
-                                        msg->dataMode);
+                                        (unsigned)msg->sensorID,
+                                        (unsigned)msg->dataLength,
+                                        (unsigned)msg->numDataSet,
+                                        (unsigned)msg->dataMode);
 
             for(i = 0; i < msg->numDataSet; i++)
               {
-                 snprintf(szFoo, sizeof(szFoo), ",%lu", msg->dataSet[i].timeTag);
+                 snprintf(szFoo, sizeof(szFoo), ",%lu", (unsigned long)msg->dataSet[i].timeTag);
                  strlcat(szBuf, szFoo, sizeof(szBuf));
                    for(j = 0; j < msg->dataLength; j++)
                    {
-                       snprintf(szFoo, sizeof(szFoo), ",%u", msg->dataSet[i].data[j]);
+                       snprintf(szFoo, sizeof(szFoo), ",%u", (unsigned)msg->dataSet[i].data[j]);
                        strlcat(szBuf, szFoo, sizeof(szBuf));
                    }
                }
@@ -1528,17 +1528,17 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_UINT32 i=0, j=0;
 
             snprintf(szBuf, sizeof(szBuf), "72,2,%u,%u",
-                                        msg->sensorID,
-                                        msg->numInitReadReg);
+                                        (unsigned)msg->sensorID,
+                                        (unsigned)msg->numInitReadReg);
 
             for(i=0;i<msg->numInitReadReg;i++)
               {
-                 snprintf(szFoo, sizeof(szFoo), ",%u", msg->initData[i].nBytes);
+                 snprintf(szFoo, sizeof(szFoo), ",%u", (unsigned)msg->initData[i].nBytes);
                  strlcat(szBuf, szFoo, sizeof(szBuf));
 
                  for(j=0;j<msg->initData[i].nBytes;j++)
                   {
-                    snprintf(szFoo, sizeof(szFoo), ",%u", msg->initData[i].data[j]);
+                    snprintf(szFoo, sizeof(szFoo), ",%u", (unsigned)msg->initData[i].data[j]);
                     strlcat(szBuf, szFoo, sizeof(szBuf));
                   }
                } /* for */
@@ -1551,7 +1551,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SBB_RCVR_STATE *msg = (tSIRF_MSG_SBB_RCVR_STATE*) message_structure;
 
             snprintf(szBuf, sizeof(szBuf), "72,3,%lu,%u",
-                                         msg->timeStamp,msg->rcvrPhysicalState);
+                                         (unsigned long)msg->timeStamp,(unsigned)msg->rcvrPhysicalState);
             break;
          }
 
@@ -1560,8 +1560,8 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_POINT_N_TELL_OUTPUT *msg = (tSIRF_MSG_SSB_POINT_N_TELL_OUTPUT*) message_structure;
 
             snprintf(szBuf, sizeof(szBuf), "72,4,%lu,%ld,%ld,%u,%hd,%hd,%u,%u,%u,%u",
-                                         msg->timeStamp,msg->latitude,msg->longitude,msg->heading,msg->pitch,
-                                         msg->roll,msg->headingUnc,msg->pitchUnc,msg->rollUnc,msg->status);
+                                         (unsigned long)msg->timeStamp,(long)msg->latitude,(long)msg->longitude,(unsigned)msg->heading,(short)msg->pitch,
+                                         (short)msg->roll,(unsigned)msg->headingUnc,(unsigned)msg->pitchUnc,(unsigned)msg->rollUnc,(unsigned)msg->status);
             break;
          }
 
@@ -1571,7 +1571,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_UINT32 i=0;
 
             snprintf(szBuf, sizeof(szBuf), "72,5,%u,%u,%lu",
-                                         msg->msgDescriptor,msg->sensorType,msg->timeStamp);
+                                         (unsigned)msg->msgDescriptor,(unsigned)msg->sensorType,(unsigned long)msg->timeStamp);
 
             for(i =0;i<6;i++)
             {
@@ -1592,8 +1592,8 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             tSIRF_MSG_SSB_MAG_MODEL_PARAMS *msg = (tSIRF_MSG_SSB_MAG_MODEL_PARAMS*) message_structure;
 
             snprintf(szBuf, sizeof(szBuf), "72,6,%u,%ld,%ld,%ld,%u,%u,%u,%.10e,%.10e,%.10e,%.10e,%.10e,%.10e,%.10e",
-                                         msg->magModelParamSrc,msg->latitude,msg->longitude,
-                                         msg->altitude,msg->year,msg->month,msg->day,msg->declination,
+                                         (unsigned)msg->magModelParamSrc,(long)msg->latitude,(long)msg->longitude,
+                                         (long)msg->altitude,(unsigned)msg->year,(unsigned)msg->month,(unsigned)msg->day,msg->declination,
                                          msg->totalField,msg->horizonField,msg->inclination,msg->northComp,
                                          msg->eastComp,msg->downComp );
             break;
@@ -1640,10 +1640,10 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
             else
             {
                snprintf( szBuf, sizeof(szBuf), "%ld,%02X",
-                  (unsigned long)SIRF_GET_MID(message_id), SIRF_GET_SUB_ID(message_id));
+                  (unsigned long)SIRF_GET_MID(message_id), (unsigned)SIRF_GET_SUB_ID(message_id));
                for ( i = 0; i <= message_length - 1; i++ )
                {
-                  snprintf( szFoo, sizeof(szFoo), ",%02X", ((tSIRF_UINT8*)message_structure)[i] );
+                  snprintf( szFoo, sizeof(szFoo), ",%02X", (unsigned)(((tSIRF_UINT8*)message_structure)[i]) );
                   strlcat( szBuf, szFoo, sizeof(szBuf) );
                }
             }
@@ -1690,7 +1690,7 @@ tSIRF_RESULT SIRF_CODEC_ASCII_Encode( tSIRF_UINT32 message_id,
                   (unsigned long)SIRF_GET_MID(message_id));
                for ( i = 0; i <= message_length - 1; i++ )
                {
-                  snprintf( szFoo, sizeof(szFoo), ",%02X", ((tSIRF_UINT8*)message_structure)[i] );
+                  snprintf( szFoo, sizeof(szFoo), ",%02X", (unsigned)(((tSIRF_UINT8*)message_structure)[i]) );
                   strlcat( szBuf, szFoo, sizeof(szBuf) );
                }
             }
