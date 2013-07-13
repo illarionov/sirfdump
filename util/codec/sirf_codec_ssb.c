@@ -4384,6 +4384,38 @@ tSIRF_RESULT SIRF_CODEC_SSB_Decode( tSIRF_UINT8 *payload,
             }
          }
          break;
+         case SIRF_MSG_SSB_SW_VERSION: /* 0x06 */
+         {
+             if ( payload_length < 2)
+             {
+                 tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+             }else {
+                 tSIRF_MSG_SSB_SW_VERSION *msg = (tSIRF_MSG_SSB_SW_VERSION *)message_structure;
+                 msg->sirf_ver_bytes = SIRFBINARY_IMPORT_UINT8(ptr);
+                 msg->cust_ver_bytes = SIRFBINARY_IMPORT_UINT8(ptr);
+                 if ( payload_length < (unsigned)(2 + msg->sirf_ver_bytes + msg->cust_ver_bytes))
+                 {
+                     tRet = SIRF_CODEC_ERROR_INVALID_MSG_LENGTH;
+                 }
+                 else if( (msg->sirf_ver_bytes > MAX_VERSION_LENGTH) ||
+                         (msg->cust_ver_bytes > MAX_VERSION_LENGTH) )
+                 {
+                     tRet = SIRF_CODEC_ERROR_INVALID_PARAMETER;
+                 }
+                 else
+                 {
+                     for (i = 0; i < msg->sirf_ver_bytes; i++)
+                     {
+                         msg->sirf_ver_str[i] = SIRFBINARY_IMPORT_UINT8(ptr);
+                     }
+                     for (i = 0; i < msg->cust_ver_bytes; i++)
+                     {
+                         msg->cust_ver_str[i] = SIRFBINARY_IMPORT_UINT8(ptr);
+                     }
+                 }
+             }
+         }
+         break;
          case SIRF_MSG_SSB_CLOCK_STATUS: /* 0x07 */
          {
             tSIRF_MSG_SSB_CLOCK_STATUS * msg = (tSIRF_MSG_SSB_CLOCK_STATUS*) message_structure;
