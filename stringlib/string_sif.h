@@ -67,6 +67,7 @@ extern "C" {
 #endif /*__cplusplus*/
 
 
+#if !defined(WIN32)
 
 /**
  * Returns the length of the input string not including the null termination
@@ -83,6 +84,8 @@ extern "C" {
 size_t strnlen(
          const char   * str,
          size_t         size);
+
+#endif
 
 /**
  * @brief Copy source string to destination.
