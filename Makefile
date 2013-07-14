@@ -1,7 +1,7 @@
 CC?=gcc
 CFLAGS?= -Os -s -pipe
-#CFLAGS+= -DNDEBUG
-CFLAGS=-W  -Wall -g -O0 -DVERBOSITY=LOG_RAW
+CFLAGS+= -DNDEBUG
+#CFLAGS=-W  -Wall -g -O0 -DVERBOSITY=LOG_RAW
 
 CFLAGS+= -I./include -I./util/codec -I./util/proto -I./pal -I./stringlib
 
@@ -39,7 +39,7 @@ OBJS=	sirf_codec_ssb.o \
 	subframe.o
 
 ifdef NO_STRLCPY
-	OBJS += strlcat.o
+	OBJS += string_sif.o strnlen_sif.o
 endif
 
 all: sirfdump
@@ -91,8 +91,11 @@ isgps.o: gpsd/gps.h gpsd/isgps.c
 crc24q.o: gpsd/crc24q.h gpsd/crc24q.c
 	$(CC) $(CFLAGS) -c gpsd/crc24q.c
 
-strlcat.o: compat/strlcat.c
-	$(CC) $(CFLAGS) -c compat/strlcat.c
+string_sif.o: stringlib/string_sif.c
+	$(CC) $(CFLAGS) -c stringlib/string_sif.c
+
+strnlen_sif.o: stringlib/strnlen_sif.c
+	$(CC) $(CFLAGS) -c stringlib/strnlen_sif.c
 
 sirfsplitter: output_rinex.o sirf_codec_ssb.o sirfsplitter.c sirfdump.h
 	$(CC) $(CFLAGS) \
