@@ -418,6 +418,7 @@ int main(int argc, char *argv[])
       unsigned gps_week;
       double gps_tow;
       tSIRF_UINT32 msg_id, msg_length;
+      tSIRF_UINT32 options;
       union {
 	 tSIRF_MSG_SSB_NL_MEAS_DATA nld;
 	 tSIRF_MSG_SSB_MEASURED_NAVIGATION mn;
@@ -427,11 +428,13 @@ int main(int argc, char *argv[])
 
       msg_id=0;
 
+      options = 0;
       if ( SIRF_CODEC_SSB_Decode(msg.payload,
 	    msg.payload_length,
 	    &msg_id,
 	    m.u8,
-	    &msg_length) != 0) {
+	    &msg_length,
+            &options) != 0) {
 	 /* fprintf(stderr,"SIRF_CODEC_SSB_Decode() error. Msg %04x\n", msg_id & 0xffff); */
       }else {
 	 switch (msg_id) {
@@ -461,7 +464,7 @@ int main(int argc, char *argv[])
 	 break;
       }else if ((unsigned)r < msg.payload_length+8) {
 	 fprintf(stderr, "stdout write(): wrote less than requested (%i < %i)\n",
-	       r, msg.payload_length+8);
+	       (int)r, (int)msg.payload_length+8);
 	 ctx->in.last_errno = 1;
 	 break;
       }
@@ -474,7 +477,7 @@ int main(int argc, char *argv[])
 	    break;
 	 }else if ((unsigned)r < msg.payload_length+8) {
 	    fprintf(stderr, "outfd write(): wrote less than requested (%i < %i)\n",
-		  r, msg.payload_length+8);
+		  (int)r, (int)msg.payload_length+8);
 	    ctx->in.last_errno = 1;
 	    break;
 	 }
