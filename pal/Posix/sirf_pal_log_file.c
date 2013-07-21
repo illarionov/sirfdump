@@ -6,7 +6,7 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2005-2009 by SiRF Technology, Inc.  All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -52,7 +52,6 @@
 /* ----------------------------------------------------------------------------
  *    Functions
  * ------------------------------------------------------------------------- */
-
 
 /**
  * @brief Open the specified file for storing logging data.
@@ -120,10 +119,28 @@ tSIRF_RESULT SIRF_PAL_LOG_Write( tSIRF_LOG_HANDLE log, tSIRF_CHAR *text, tSIRF_U
    }
 
    fwrite( text, 1, length, (FILE *)log );
+   
+   fflush((FILE *)log);
 
    return SIRF_SUCCESS;
 
 } /* SIRF_PAL_LOG_Write() */
+
+/**
+ * @brief Return the file size
+ * @param[in] log                Handle of the opened file.
+ * @param[out] fileSize          File length.
+ * @return                       Success code.
+ */
+tSIRF_RESULT SIRF_PAL_LOG_FileSize( tSIRF_LOG_HANDLE log, tSIRF_UINT32* fileSize  )
+{
+   (void)log;
+   (void)fileSize;
+
+   return SIRF_FAILURE;
+
+} /* SIRF_PAL_LOG_FileSize() */
+
 
 #endif /* SIRF_EXT_LOG */
 

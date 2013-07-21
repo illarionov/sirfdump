@@ -6,7 +6,7 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2005-2009 by SiRF Technology, Inc.  All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -39,7 +39,7 @@
  *    Included Files
  * ------------------------------------------------------------------------- */
 
-
+#include "sirf_errors.h"
 
 /* Include the standard SiRF types. */
 #include "sirf_types.h"
@@ -54,9 +54,6 @@
 
 /** Max count of a semaphore: */
 #define SIRF_PAL_OS_SEMAPHORE_MAXCOUNT          32000L
-
-/** Return code indicating timeout waiting for semaphore. */
-#define SIRF_PAL_OS_SEMAPHORE_WAIT_TIMEOUT   0x2202
 
 /* Infinite timeout: */
 #define SIRF_PAL_OS_TIMEOUT_INFINITE            0xFFFFFFFF

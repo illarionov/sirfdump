@@ -7,7 +7,7 @@
  *                                                                         *
  *                   SiRF Technology, Inc. GPS Software                    *
  *                                                                         *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc.  All rights reserved.    *
+ *    Copyright (c) 2005-2009 by SiRF Technology, Inc.  All rights reserved.    *
  *                                                                         *
  *    This Software is protected by United States copyright laws and       *
  *    international treaties.  You may not reverse engineer, decompile     *
@@ -177,7 +177,7 @@ tSIRF_RESULT SIRF_PROTO_Unwrapper( tSIRF_UINT8 *data, tSIRF_UINT32 data_length,
    for ( i=0; i<len; i++ )
    {
       *ptr_out++  = *ptr_in;
-      sum        += *ptr_in++;
+      sum = sum + (tSIRF_UINT16)(*ptr_in++);
    }
 
    sum &= 0x7FFF;

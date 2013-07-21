@@ -46,17 +46,11 @@
 #include "sirf_types.h"
 #include "sirf_msg.h"
 #include "sirf_codec.h"
-#include "sirf_codec_ssb.h"
-
-#ifdef SIRF_LOC
 #include "sirf_codec_f.h"
 #include "sirf_codec_stats.h"
-#endif
-
-#ifdef LPL_CMDR_INCLUDED
-   #include "sirf_codec_csv.h"
-   #include "sirf_codec_lplc.h"
-#endif
+#include "sirf_codec_ssb.h"
+#include "sirf_codec_csv.h"
+#include "sirf_codec_lplc.h"
 
 #ifndef MIN
 #define MIN(a,b)   (((a) < (b)) ? (a) : (b))
@@ -70,7 +64,6 @@
  * Import routines 
  ***************************************************/
 
-#ifdef LPL_CMDR_INCLUDED
 /** 
  * Imports a tSIRF_UINT8 from either an ascii or byte buffer
  * 
@@ -831,8 +824,6 @@ tSIRF_UINT32 ExportSTRING( tSIRF_UINT8 *Src,
    }
 }
 
-#endif
-
 #ifdef SIRF_LOC
 /** 
  * Encode function for NMEA.  This function encodes the current encoded
@@ -907,13 +898,17 @@ tSIRF_RESULT SIRF_CODEC_Encode( tSIRF_UINT32  message_id,
 {
    tSIRF_RESULT tRet = SIRF_CODEC_ERROR_INVALID_MSG_ID;
    tSIRF_UINT8 LogicalChannel = SIRF_GET_LC(message_id);
-
+   tSIRF_UINT32 options = SIRF_CODEC_OPTIONS_GET_FIRST_MSG;
 #ifdef SIRF_LOC
    switch (LogicalChannel)
    {
       case SIRF_LC_SSB:
-         tRet = SIRF_CODEC_SSB_Encode( message_id, message_structure, message_length,
-                                       packet, packet_length );
+         tRet = SIRF_CODEC_SSB_Encode( message_id, 
+                                       message_structure, 
+                                       message_length,
+                                       packet, 
+                                       packet_length,
+                                       &options );
          break;
 
       case SIRF_LC_F:
@@ -926,7 +921,7 @@ tSIRF_RESULT SIRF_CODEC_Encode( tSIRF_UINT32  message_id,
                                          packet, packet_length );
          break;
 
-#ifdef LPL_CMDR_INCLUDED
+#ifdef SIRF_LPL
       case SIRF_LC_LPLC:
          /* Currently a special case for the ASCII codec and must be called seperately until
           * if and when we decide to add similar support to the other codec API's
@@ -950,7 +945,8 @@ tSIRF_RESULT SIRF_CODEC_Encode( tSIRF_UINT32  message_id,
    if (SIRF_LC_SSB == LogicalChannel)
    {
       tRet = SIRF_CODEC_SSB_Encode( message_id, message_structure, message_length,
-                                    packet, packet_length );
+                                    packet, packet_length,
+                                    &options );
    }
 #endif /* SIRF_LOC */
 

@@ -6,7 +6,7 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2005-2009 by SiRF Technology, Inc.  All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -33,12 +33,8 @@
 #ifndef SIRF_PAL_HW_FREQUENCY_AIDING_H_INCLUDED
 #define SIRF_PAL_HW_FREQUENCY_AIDING_H_INCLUDED
 
+#include "sirf_errors.h"
 #include "sirf_types.h"
-
-/** When request is made and response will be received with call back */
-#define SIRF_PAL_HW_FREQ_UPDATE_REQUEST_PENDING     0x1201
-/** Invalid Frequency transfer update Request*/
-#define SIRF_PAL_HW_FREQ_UPDATE_REQUEST_INVALID_ID  0x1202
 
 /** Frequency update related defines */
 /** Indicates frequency value is invalid and should not be used. */

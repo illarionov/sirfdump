@@ -37,11 +37,47 @@
 #ifndef __SIRF_CODEC_H__
 #define __SIRF_CODEC_H__
 
+#include "sirf_errors.h"
 #include "sirf_types.h"
 
-#define SIRF_CODEC_ERROR_INVALID_MSG_ID      0x6101
-#define SIRF_CODEC_ERROR_INVALID_MSG_LENGTH  0x6102
-#define SIRF_CODEC_ERROR_INVALID_PARAMETER   0x6103
+
+/* The codec options:
+ * On input the lower 8 bits is used to determine which message to encode or
+ * decode from the input on a one to many codec.  The upper bits are reserved
+ * for additional options.  Each codec will define the message ID values if
+ * they deviate from the default of a 1 to 1 encode and decode defined here
+ */
+#define SIRF_CODEC_OPTIONS_GET_FIRST_MSG (0x00000001)
+#define SIRF_CODEC_OPTIONS_ENCODE_ASCII  (0x80000000)
+#define SIRF_CODEC_OPTIONS_NO_WRAPPER    (0x40000000)
+
+#define SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER   (0xa0000000)
+
+/* On output the Options value holds the total number of messages that can
+ * be produced from the input message and which message number this is */
+#define SIRF_CODEC_OPTIONS_GET_MSG_NUMBER( n )       (((n)>>8) & 0x000000FF)
+#define SIRF_CODEC_OPTIONS_GET_MAX_MSG_NUMBER( n )   ( (n)     & 0x000000FF)
+
+#define SIRF_CODEC_OPTIONS_MAKE_MSG_NUMBER( num, max ) \
+       ((num << 8) | max)
+
+
+typedef tSIRF_RESULT (*tSIRF_CODEC_Encode)( tSIRF_UINT32  message_id, 
+                                            tSIRF_VOID   *message_structure, 
+                                            tSIRF_UINT32  message_length,
+                                            tSIRF_UINT8  *packet, 
+                                            tSIRF_UINT32 *packet_length,
+                                            tSIRF_UINT32 *options );
+
+typedef tSIRF_RESULT (*tSIRF_CODEC_Decode)( tSIRF_UINT8  *payload, 
+                                            tSIRF_UINT32  payload_length,
+                                            tSIRF_UINT32 *message_id, 
+                                            tSIRF_VOID   *message_structure, 
+                                            tSIRF_UINT32 *message_length,
+                                            tSIRF_UINT32 *options );
+
+
+
 
 /* Stream converters ------------------------------------------------------- */
 
@@ -87,6 +123,9 @@
      (*((bytestream)++)) = *(hostbyte-1);\
      (*((bytestream)++)) = *(hostbyte-2);\
      (*((bytestream)++)) = *(hostbyte-3); }
+
+/* Double format out is bits 63..0 per GSW2.3 - GSW2.99 spec */
+#define SIRF_SWAPOUT_DOUBLE_GSW230 SIRF_SWAPOUT64
 
 /* Currently not used but availabe for integer 64 big endian export */
 #define SIRF_SWAPOUT64(hostint64, bytestream) {\
@@ -159,6 +198,9 @@
    (*((bytestream)++)) = (hostbyte[1]);\
    (*((bytestream)++)) = (hostbyte[2]);\
    (*((bytestream)++)) = (hostbyte[3]); }
+
+/* Double format out is bits 31..0 then 63..32 per GSW3.x spec */
+#define SIRF_COPYOUT_DOUBLE_GSW230 SIRF_COPYOUT64
 
 #define SIRF_COPYOUT64(hostint64, bytestream) {\
    const tSIRF_UINT8 *hostbyte = (const tSIRF_UINT8*)&(hostint64);\
@@ -236,6 +278,14 @@
       SIRF_SWAPOUT_DOUBLE(*(bytestream_i), hostbyte_i);\
       (bytestream_i)+=8; }
 
+#   define SIRFBINARY_IMPORT_DOUBLE_EX(hostdouble_i, bytestream_i, sirf_flags_i) {\
+      tSIRF_UINT8 *hostbyte_i = (tSIRF_UINT8*)&(hostdouble_i);\
+      if ( (sirf_flags_i) & SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER) \
+	 SIRF_SWAPOUT_DOUBLE_GSW230(*(bytestream_i), hostbyte_i) \
+      else \
+	 SIRF_SWAPOUT_DOUBLE(*(bytestream_i), hostbyte_i);\
+      (bytestream_i)+=8; }
+
 #   define SIRFBINARY_EXPORT8(src, dst) (*((dst)++) = (tSIRF_UINT8)(src))
 #   define SIRFBINARY_EXPORT16(src, dst) SIRF_SWAPOUT16((src),(dst))
 #   define SIRFBINARY_EXPORT24(src, dst) SIRF_SWAPOUT24((src),(dst))
@@ -265,6 +315,14 @@
 #   define SIRFBINARY_IMPORT_DOUBLE(hostdouble_i, bytestream_i) {\
       tSIRF_UINT8 *hostbyte_i = (tSIRF_UINT8*)&(hostdouble_i);\
       SIRF_COPYOUT_DOUBLE(*(bytestream_i), hostbyte_i);\
+      (bytestream_i)+=8; }
+
+#   define SIRFBINARY_IMPORT_DOUBLE_EX(hostdouble_i, bytestream_i, sirf_flags_i) {\
+      tSIRF_UINT8 *hostbyte_i = (tSIRF_UINT8*)&(hostdouble_i);\
+      if ( (sirf_flags_i) & SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER) \
+	 SIRF_COPYOUT_DOUBLE_GSW230(*(bytestream_i), hostbyte_i) \
+      else \
+	 SIRF_COPYOUT_DOUBLE(*(bytestream_i), hostbyte_i);\
       (bytestream_i)+=8; }
 
 #   define SIRFBINARY_EXPORT8( src, dst) (*((dst)++) = (tSIRF_UINT8)(src))

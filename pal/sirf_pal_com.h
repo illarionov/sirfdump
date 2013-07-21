@@ -1,12 +1,13 @@
 /**
- * @addtogroup platform_src_sirf_pal
+ * @addtogroup src_sirf_pal
  * @{
  */
 
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2006-2009 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2006-2010 by SiRF Technology, a CSR plc Companyc.
+ *    All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -22,444 +23,184 @@
  *    is subject to and restricted by your signed written agreement with
  *    SiRF Technology, Inc.
  *
+ *
+ *  Keywords for Perforce.  Do not modify.
+ *
+ *  $File: //customs/customer/Marvell-U1/sirf/Software/sirf/pal/sirf_pal_com.h $
+ *
+ *  $DateTime: 2011/07/29 13:26:23 $
+ *
+ *  $Revision: #1 $
  */
 
 /**
  * @file   sirf_pal_com.h
  *
- * @brief  SiRF PAL communications API.
+ * @brief  Generic I/O communication for the SiRF PAL
  *
- * Terminologies
- *    HW - Hardware
- *    FC - Flow Control
+ * This file defines the typedefs, enums, and functions utilized by the
+ * various COM devices supported by the SiRFNav application.
+ *
+ * SiRFNav will prepare a device for communication by utilizing the following
+ * pseudocode initialization sequence:
+ *
+ *    SIRF_PAL_COM_Create_Fcn()
+ *
+ *    while(control_settings_remain)
+ *    {
+ *       SIRF_PAL_COM_Control_Fcn()
+ *    }
+ *
+ *    SIRF_PAL_COM_Open_Fcn()
+ *
+ *    At this point, SiRFNav will expect the device to be open for
+ *    communication.  SiRFNav will begin utilizing Read() and Write().
+ *
  */
 
 #ifndef SIRF_PAL_COM_H_INCLUDED
 #define SIRF_PAL_COM_H_INCLUDED
+
+
+/* ----------------------------------------------------------------------------
+ *   Included files
+ * ------------------------------------------------------------------------- */
+/* library includes */
+
+/* public includes */
+#include "sirf_errors.h"
 #include "sirf_types.h"
+/* private includes */
 
-
-
-/* ----------------------------------------------------------------------------
- *   Preprocessor Definitions
- * ------------------------------------------------------------------------- */
-
-
-
-/* SiRF PAL communications error codes */
-#define SIRF_PAL_COM_ERROR                    0x2301
-#define SIRF_PAL_COM_DATA_NOT_AVAILABLE       0x2302
-#define SIRF_PAL_COM_TIMEOUT                  0x2303
-#define SIRF_PAL_COM_RESUMED_POWER            0x2304
-#define SIRF_PAL_COM_INVALID_PORT_BAUD_RATE   0x2305
-#define SIRF_PAL_COM_WAIT_TERMINATED          0x2306
-#define SIRF_PAL_COM_INVALIDARG               0x2307
-#define SIRF_PAL_COM_STATE                    0x2308
-
-/* Hardware flow control values */
-#define SIRF_PAL_COM_FC_HW      0x1
-#define SIRF_PAL_COM_FC_NONE    0x0
-
-
-/* ----------------------------------------------------------------------------
- *   Types
- * ------------------------------------------------------------------------- */
-
-
-
-/** SiRF PAL communications handle. */
-typedef tSIRF_HANDLE tSIRF_COM_HANDLE;
-
-
-/* ----------------------------------------------------------------------------
- *   Function Prototypes
- * ------------------------------------------------------------------------- */
-
-
+/* local includes */
 
 /* Enter C naming convention */
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /*__cplusplus*/
 
+/* ----------------------------------------------------------------------------
+ *   Definitions
+ * ------------------------------------------------------------------------- */
+#define SIRF_COM_FILE_MAX_INSTANCES       (0)
+#define SIRF_COM_I2C_MAX_INSTANCES        (2)
+#define SIRF_COM_SPI_MAX_INSTANCES        (1)
+#define SIRF_COM_UART_MAX_INSTANCES       (4)
 
+#define SIRF_COM_MAX_INSTANCES            (SIRF_COM_FILE_MAX_INSTANCES + \
+                                           SIRF_COM_I2C_MAX_INSTANCES  + \
+                                           SIRF_COM_SPI_MAX_INSTANCES  + \
+                                           SIRF_COM_UART_MAX_INSTANCES)
 
-/**
- * @brief Create a serial port and return a handle to it.
- *
- * This function creates a serial port object and returns a handle to it. The
- * serial port may then be opened and closed an arbitrary number of times.
- *
- * The possible return values are:
- *   - SIRF_SUCCESS            - A valid port handle was returned.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - Out of resources.
- *
- * Once this function returns successfully, the following operations
- * may be performed:
- *   - SIRF_PAL_COM_Open
- *   - SIRF_PAL_COM_Delete
- *
- * @param[out] port_handle    Returned serial port handle.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_Create(
-      tSIRF_COM_HANDLE * port_handle);
+#define SIRF_COM_DFLT_READ_WAIT_TIMEOUT   (SIRF_TIMEOUT_INFINITE)
+#define SIRF_COM_DFLT_READ_TOTAL_TIMEOUT  (1000) /* in milliseconds */
+#define SIRF_COM_DFLT_READ_BYTE_TIMEOUT   (SIRF_TIMEOUT_INFINITE)
+
+/* ----------------------------------------------------------------------------
+ *    Types, Enums, and Structs
+ * ------------------------------------------------------------------------- */
 
 /**
- * @brief Delete a serial port.
  *
- * This function deletes a serial port created by the SIRF_PAL_COM_Create
- * function. If the serial port handle is invalid, or the port is still 
- * open then this function returns SIRF_PAL_COM_ERROR.
+ * @brief      structure for common com settings.
  *
- * The possible return values are:
- *   - SIRF_SUCCESS            - The port was successfully deleted.
- *   - SIRF_PAL_COM_ERROR      - An error occured while deleting.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_STATE      - The port is still open.
+ * long_description
+ *             This typedef contains COM settings that are common across all
+ *             platforms and ports.  Its use is entirely OPTIONAL; it exists
+ *             to encourage simplicity and commonality across the various COM
+ *             implementations.  If it is utilized, it should be declared 
+ *             locally (static) to the driver in which it is used.
  *
- * @param[in] port_handle     Serial port to delete.
- * @return                    Return value (see table).
+ * @pre
+ *             none.
+ *
+ * @warning
+ *             Usage of this structure is OPTIONAL.
  */
-tSIRF_RESULT SIRF_PAL_COM_Delete(
-      tSIRF_COM_HANDLE port_handle);
+typedef struct
+{
+   tSIRF_HANDLE         logical_handle;
+   tSIRF_INT32          read_byte_timeout;
+   tSIRF_INT32          read_total_timeout;
+   tSIRF_INT32          read_wait_timeout;
+   tSIRF_BOOL           port_opened;
+} tSIRF_COM_COMMON_SETTINGS;
 
 /**
- * @brief Open the serial port.
+ * @brief      typedef to set/get settings in SiRF PAL I/O drivers.
  *
- * This function opens a serial port created by the SIRF_PAL_COM_Create 
- * function.
+ * long_description
+ *             This typedef is utilized to set/get settings in SiRF PAL I/O
+ *             drivers.
  *
- * The possible return values are:
- *   - SIRF_SUCCESS            - The device was opened.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred opening the device.
- *   - SIRF_PAL_COM_STATE      - The port is already open.
+ * @pre
+ *             This typedef is set to a UINT32 to guarantee a consistent size
+ *             across all platforms.
  *
- * Once this function returns successfully, the following operations
- * may be performed on the handle:
- *   - SIRF_PAL_COM_SetUart
- *   - SIRF_PAL_COM_Wait
- *   - SIRF_PAL_COM_Read
- *   - SIRF_PAL_COM_Write
- *   - SIRF_PAL_COM_Close
- *   - SIRF_PAL_COM_ClrRTS
- *   - SIRF_PAL_COM_SetRTS
- *
- * @param[in] port_handle     Handle to the serial port.
- * @param[in] port            Hardware port number (1 = COM1, 2 = COM2, ...)
- * @param[in] flow_ctrl       flow control. 0 = no flow control, 1 = hardware fc
- *                            2 and above are reserved for future use
- * @param[in] baudrate        Serial baud rate (e.g 115200)
- * @return                    Return value (see table).
+ * @warning
+ *             no warnings.
  */
-tSIRF_RESULT SIRF_PAL_COM_Open(
-      tSIRF_COM_HANDLE port_handle, 
-      tSIRF_UINT32     port, 
-      tSIRF_UINT32     flow_ctrl,
-      tSIRF_UINT32     baudrate );
+typedef tSIRF_UINT32 tSIRF_COM_CONTROL; enum
+{
+   /* command                             parameter type                      */
 
-/**
- * @brief Re-open the serial port.
- *
- * This function closes (if necessary) the serial port, and re-opens it with
- * the saved parameters from the last time the port was opened.
- *
- * The possible return values are:
- *   - SIRF_SUCCESS            - The device was reopened.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred re-opening the device.
- *   - SIRF_PAL_COM_STATE      - The port was never opened.
- *
- * @param[in] port_handle     Handle to the serial port.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_Reopen(
-      tSIRF_COM_HANDLE port_handle);
+   /* -------------------------------------------------------------------------
+    *   General Settings
+    * ---------------------------------------------------------------------- */
+   SIRF_COM_CTRL_READ_BYTE_TIMEOUT = 0,/* tSIRF_INT32 - timeout in milliseconds */
+   SIRF_COM_CTRL_READ_WAIT_TIMEOUT,    /* tSIRF_INT32 - timeout in milliseconds */
+   SIRF_COM_CTRL_READ_TOTAL_TIMEOUT,   /* tSIRF_INT32 - timeout in milliseconds */
+   SIRF_COM_CTRL_READ_BLOCKING,        /* specifies whether tracker is in bootloader state */
 
-/**
- * @brief Close the open serial port.
- *
- * This function closes the open serial port handle. It does so by halting and
- * blocking all I/O operations (Wait / Read / Write) and once all active I/O
- * has halted, it closes the port.
- *
- * The possible return values are:
- *   - SIRF_SUCCESS            - The device was reopened.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred closing the device.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * Once this function returns successfully, the following operations
- * may be performed:
- *   - SIRF_PAL_COM_Open
- *   - SIRF_PAL_COM_Delete
- *
- * @param[in] port_handle     Handle to the port to close.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_Close(
-      tSIRF_COM_HANDLE port_handle);
+   /* -------------------------------------------------------------------------
+    *   File-Specific Settings
+    * ---------------------------------------------------------------------- */
 
-/**
- * @brief Configure UART port.
- *
- * This function configures UART port.
- *
- * The possible return values are:
- *   - SIRF_SUCCESS            - The device was reconfigured.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred opening the device.
- *   - SIRF_PAL_COM_STATE      - The port is not open.
- *
- * @param[in] port_handle     Handle to the serial port.
- * @param[in] flow_ctrl       Hardware flow control.
- * @param[in] baud_rate       New serial baud rate. See SIRF_PAL_COM_Open
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_SetUart(
-      tSIRF_COM_HANDLE port_handle, 
-      tSIRF_UINT32     flow_ctrl,
-      tSIRF_UINT32     baud_rate);
+   /* -------------------------------------------------------------------------
+    *   I2C-Specific Settings
+    * ---------------------------------------------------------------------- */
+   SIRF_COM_CTRL_I2C_HOST_ADDR,
+   SIRF_COM_CTRL_I2C_ME_ADDR,
+   SIRF_COM_CTRL_I2C_RATE,
+   SIRF_COM_CTRL_I2C_MODE,
 
-/**
- * @brief Wait for input on the serial port.
- *
- * This function waits up to the specified timeout period for activity on
- * the serial port. It acquires a semaphore lock for the duration of its
- * work to ensure that SIRF_PAL_COM_Close() does not close the serial port
- * while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Input ready for reading.
- *   - SIRF_PAL_COM_TIMEOUT    - Timed out waiting.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the wait.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @note If the port is not open then this function may return immediately 
- *       without yielding. Therefore threads calling this in a loop should
- *       protect themselves from consuming 100% of the processor.
- *
- * @param[in] port_handle     Handle to the port to wait on.
- * @param[in] timeout         Milliseconds to wait for.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_Wait(
-      tSIRF_COM_HANDLE port_handle, 
-      tSIRF_UINT32     timeout);
+   /* -------------------------------------------------------------------------
+    *   SPI-Specific Settings
+    * ---------------------------------------------------------------------- */
+   SIRF_COM_CTRL_SPI_RATE,             /* tSIRF_UINT8                         */
+   SIRF_COM_CTRL_SPI_SET_IDLE_TX,      /* tSIRF_BOOL - enable SPI idle TX     */
+   SIRF_COM_CTRL_SPI_SET_WATERMARK,    /* tSIRF_BOOL - enable SPI water mark  */
 
-/**
- * @brief Read data from the serial port.
- *
- * This function reads data from the serial port. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in]  port_handle    Handle to the port to read from.
- * @param[out] data           Buffer to hold the read data.
- * @param[in]  length         Amount of data to read.
- * @param[out] bytes_read     Number of bytes read from the port.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_Read(
-      tSIRF_COM_HANDLE   port_handle, 
-      tSIRF_UINT8      * data, 
-      tSIRF_UINT32       length, 
-      tSIRF_UINT32     * bytes_read);
+   /* -------------------------------------------------------------------------
+    *   UART-Specific Settings
+    * ---------------------------------------------------------------------- */
+   SIRF_COM_CTRL_UART_BAUD_RATE,       /* tSIRF_UINT32                        */
+   SIRF_COM_CTRL_UART_FLOW_CONTROL,    /* tSIRF_BOOL                          */
+   SIRF_COM_CTRL_UART_SET_DTR,         /* tSIRF_BOOL; TRUE = SET; FALSE = CLR */
+   SIRF_COM_CTRL_UART_SET_RTS,         /* tSIRF_BOOL; TRUE = SET; FALSE = CLR */
 
-/**
- * @brief Write data to the serial port.
- *
- * This function writes data to the serial port. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @param[in] data            Pointer to the data to write.
- * @param[in] length          Amount of data to write.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_Write(
-      tSIRF_COM_HANDLE   port_handle, 
-      tSIRF_UINT8      * data, 
-      tSIRF_UINT32       length);
+   SIRF_COM_CTRL_COUNT
+}  /* tSIRF_COM_CONTROL */;
 
-/**
- * @brief Clear the serial port RTS line.
- *
- * This function clears the serial port RTS line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_ClrRTS(
-      tSIRF_COM_HANDLE port_handle);
+/* ----------------------------------------------------------------------------
+ *    Global Variables
+ * ------------------------------------------------------------------------- */
 
-/**
- * @brief Set the serial port RTS line.
- *
- * This function sets the serial port RTS line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_SetRTS(
-      tSIRF_COM_HANDLE port_handle);
 
-/**
- * @brief Clear the serial port DTR line.
- *
- * This function clears the serial port DTR line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_ClrDTR(
-      tSIRF_COM_HANDLE port_handle);
+/* ----------------------------------------------------------------------------
+ *    Function Prototypes
+ * ------------------------------------------------------------------------- */
 
-/**
- * @brief Set the serial port DTR line.
- *
- * This function sets the serial port DTR line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_SetDTR(
-      tSIRF_COM_HANDLE port_handle);
-
-/**
- * @brief Clear the serial port CTS line.
- *
- * This function clears the serial port CTS line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_ClrCTS(
-      tSIRF_COM_HANDLE port_handle);
-
-/**
- * @brief Set the serial port CTS line.
- *
- * This function sets the serial port CTS line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_SetCTS(
-      tSIRF_COM_HANDLE port_handle);
-
-/**
- * @brief Clear the SPI port SS line.
- *
- * This function clears the serial port SS line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_ClrSS(
-      tSIRF_COM_HANDLE port_handle);
-
-/**
- * @brief Set the SPI port SS line.
- *
- * This function sets the serial port SS line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_SetSS(
-      tSIRF_COM_HANDLE port_handle);
 
 /* Leave C naming convention */
 #ifdef __cplusplus
 }
-#endif
+#endif /*__cplusplus*/
 
-#endif /* !SIRF_PAL_COM_H_INCLUDED */
+
+#endif /* SIRF_PAL_COM_H_INCLUDED */
 
 /**
  * @}
  * End of file.
  */
-
-

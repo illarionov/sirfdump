@@ -6,7 +6,8 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2005-2009 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2005 - 2010 by SiRF Technology, a CSR plc Company.
+ *    All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -35,6 +36,7 @@
 #ifndef SIRF_PAL_NET_H_INCLUDED
 #define SIRF_PAL_NET_H_INCLUDED
 
+#include "sirf_errors.h"
 #include "sirf_types.h"
 
 
@@ -48,17 +50,6 @@
 /** Default socket type. */
 #define SIRF_PAL_NET_SOCKET_TYPE_DEFAULT     (0)
 #define SIRF_PAL_NET_SOCKET_TYPE_BLOCKING    (1)
-
-/** SiRF PAL network error codes. */
-#define SIRF_PAL_NET_ERROR                       (0x2601)
-#define SIRF_PAL_NET_TIMEOUT                     (0x2602) /* notification */
-#define SIRF_PAL_NET_CONNECTION_CLOSED           (0x2603) /* notification */
-#define SIRF_PAL_NET_MAX_SOCKETS_ALLOCATED       (0x2604)
-#define SIRF_PAL_NET_SECURITY_NOT_SUPPORTED      (0x2605)
-#define SIRF_PAL_NET_SECURITY_VERSION_ERROR      (0x2606)
-#define SIRF_PAL_NET_SECURITY_PEER_REFUSED       (0x2607)
-#define SIRF_PAL_NET_SECURITY_CERTIFICATE_ERROR  (0x2608)
-#define SIRF_PAL_NET_SECURITY_ERROR              (0x2609)
 
 #define SIRF_PAL_NET_SECURITY_NONE           (0)
 /* Type of security is platform dependent */

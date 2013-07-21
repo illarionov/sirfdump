@@ -6,7 +6,7 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2005-2009 by SiRF Technology, Inc.  All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -33,6 +33,7 @@
 #ifndef SIRF_PAL_LOG_H_INCLUDED
 #define SIRF_PAL_LOG_H_INCLUDED
 
+#include "sirf_errors.h"
 #include "sirf_types.h"
 
 
@@ -40,17 +41,6 @@
 /* ----------------------------------------------------------------------------
  *    Preprocessor Definitions
  * ------------------------------------------------------------------------- */
-
-
-
-/* SiRF PAL logging error codes. */
-#define SIRF_PAL_LOG_ALREADY_OPEN                  0x4201
-#define SIRF_PAL_LOG_ALREADY_CLOSED                0x4202
-#define SIRF_PAL_LOG_OPEN_ERROR                    0x4203
-#define SIRF_PAL_LOG_NOT_OPEN                      0x4204
-#define SIRF_PAL_LOG_NULL_PARAMETER                0x4205
-
-
 
 /* ----------------------------------------------------------------------------
  *    Function Prototypes
@@ -75,6 +65,7 @@ extern "C" {
 tSIRF_RESULT SIRF_PAL_LOG_Open(  tSIRF_CHAR *filename, tSIRF_LOG_HANDLE *log, tSIRF_UINT32 mode );
 tSIRF_RESULT SIRF_PAL_LOG_Close( tSIRF_LOG_HANDLE log );
 tSIRF_RESULT SIRF_PAL_LOG_Write( tSIRF_LOG_HANDLE log, tSIRF_CHAR *text, tSIRF_UINT32 length );
+tSIRF_RESULT SIRF_PAL_LOG_FileSize( tSIRF_LOG_HANDLE log, tSIRF_UINT32* fileSize  );
 
 /* Leave C naming convention */
 #ifdef __cplusplus

@@ -6,7 +6,8 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2007-2008 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2007-2010 by SiRF Technology, a CSR plc Company.
+ *    All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -53,19 +54,14 @@
 
 /* Includes and Configuration for LPL */
 
-#ifdef SIRF_LPL
 #include "sirflpl_config.h"
-#else
-#define LPL_SEM_MAX     0
-#define LPL_MUTEX_MAX   0
-#endif
 
 /* Includes and Configuration for CLM */
 
-#ifdef SIRF_CLM
-#include "sirfclm_config.h"
+#if defined( SIRF_INSTANT_FIX )
+   #include "sirfclm_config.h"
 #else
-#define SIRFCLM_MUTEX_MAX   0
+#define SIRFINSTANTFIX_MUTEX_MAX   0
 #endif
 
 /* ----------------------------------------------------------------------------
@@ -78,10 +74,10 @@
 #define OS_TIMER_TICK            1
 
 /** Calculate total amount of semaphore resources needed: */
-#define SIRF_PAL_OS_SEM_MAX    (SIRFNAV_SEM_MAX + SIRFNAV_DEMO_SEM_MAX + LPL_SEM_MAX )
+#define SIRF_PAL_OS_SEM_MAX    (SIRFNAV_SEM_MAX + SIRFNAV_DEMO_SEM_MAX + LPL_SEM_MAX + SIRFINSTANTFIX_SEM_MAX)
 
 /** Calculate total amount of mutex resources needed: */
-#define SIRF_PAL_OS_MUTEX_MAX  (SIRFNAV_MUTEX_MAX + SIRFNAV_DEMO_MUTEX_MAX + LPL_MUTEX_MAX + SIRFCLM_MUTEX_MAX)
+#define SIRF_PAL_OS_MUTEX_MAX  (SIRFNAV_MUTEX_MAX + SIRFNAV_DEMO_MUTEX_MAX + LPL_MUTEX_MAX + SIRFINSTANTFIX_MUTEX_MAX)
 
 
 

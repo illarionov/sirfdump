@@ -6,7 +6,8 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2005-2008 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2005-2010 by SiRF Technology, a CSR plc Company.
+ *    All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -31,8 +32,9 @@
  */
 
 #include <pthread.h> 
+#include <string.h>
 
-#ifdef OS_QNX
+#if defined(OS_QNX) || defined(OS_LINUX)
    #include <signal.h>
 #else
    #include <sys/signal.h>
@@ -66,12 +68,28 @@
    #define VERIFY(x) ((void)(x))
 #endif /* DEBUG */
 
-
+/* This purpose of this function is to interrupt a blocking system call */
+extern tSIRF_VOID (*GPS_Syscall_Intr_Fn)(tSIRF_VOID *param);
 
 /* ----------------------------------------------------------------------------
  *    Functions
  * ------------------------------------------------------------------------- */
 
+static void sighandler (int signal)
+{
+   (void)signal;
+
+   return;
+}
+
+static void SIRF_PAL_OS_THREAD_Send_Signal(void *param)
+{
+   pthread_t thread_handle = (pthread_t)param;
+
+   pthread_kill(thread_handle, SIGUSR1);
+   
+   return;
+}
 
 
 /**
@@ -89,7 +107,7 @@ tSIRF_UINT32 SIRF_PAL_OS_THREAD_Create( tSIRF_UINT32 thread_id, tSIRF_HANDLE fun
    pthread_attr_t       attr;
    struct sched_param   param;
    int                  policy;
-	printf("SIRF_PAL_OS_THREAD_Create \n");
+
    max_threads = SIRF_THREAD_MaxThreads();
    
    for( i=0; i< max_threads; i++ )
@@ -115,14 +133,19 @@ tSIRF_UINT32 SIRF_PAL_OS_THREAD_Create( tSIRF_UINT32 thread_id, tSIRF_HANDLE fun
 
       param.sched_priority = SIRF_THREAD_Table[i].thread_priority;
 
+#ifdef OS_ANDROID
+     if ( pthread_attr_setschedpolicy( &attr, policy ) != 0
+         || pthread_attr_setschedparam( &attr, &param) != 0 )
+#else
       /* Note: This may fail on some Posix implementations such as Cygwin. */
-    //  if ( pthread_attr_setinheritsched( &attr, PTHREAD_EXPLICIT_SCHED ) != 0
-     //    || pthread_attr_setschedpolicy( &attr, policy ) != 0
-     //    || pthread_attr_setschedparam( &attr, &param) != 0 )
-    //  {
-    //     DEBUGMSG(1,(DEBUGTXT("OS_Thread_Create: could not set thread priority, using default\n")));
+      if ( pthread_attr_setinheritsched( &attr, PTHREAD_EXPLICIT_SCHED ) != 0
+         || pthread_attr_setschedpolicy( &attr, policy ) != 0
+         || pthread_attr_setschedparam( &attr, &param) != 0 )
+#endif
+      {
+         DEBUGMSG(1,(DEBUGTXT("OS_Thread_Create: could not set thread priority, using default\n")));
          /* return SIRF_PAL_OS_ERROR; */
-     // }
+      }
    }
 
    if ( SIRF_THREAD_Table[i].thread_stack_size != 0 )
@@ -140,7 +163,7 @@ tSIRF_UINT32 SIRF_PAL_OS_THREAD_Create( tSIRF_UINT32 thread_id, tSIRF_HANDLE fun
       DEBUGMSG(1, (DEBUGTXT("OS_Thread_Create: fatal error: could not create thread, ret=%d, errno=%d\n"), ret, errno));
       return SIRF_PAL_OS_ERROR;
    }
-	printf("SIRF_PAL_OS_THREAD_Create exit \n");
+
    return SIRF_SUCCESS ;
 
 } /* SIRF_PAL_OS_THREAD_Create() */
@@ -205,12 +228,33 @@ tSIRF_VOID SIRF_PAL_OS_THREAD_Entry( tSIRF_VOID )
 {
    sigset_t set;
    int      ret;
+   struct sigaction sigact;
 
+   /* install signal handler for SIGUSR1 */
+   memset(&sigact, 0, sizeof(sigact));
+   sigact.sa_handler = sighandler;
+   ret = sigaction(SIGUSR1, &sigact, NULL);
+   if(ret < 0)
+   {
+      DEBUGMSG(1, (DEBUGTXT("ERROR: sigaction failed with errno %dn"), errno));
+   }
+   
+   /* set signal mask for the thread */
    sigemptyset( &set );
+   /* pthread_sigmask call on Android is returning EINVAL.
+    * so, it has to replaced with sigprocmask */
+#if defined(OS_ANDROID)
+   ret = sigprocmask( SIG_SETMASK, &set, NULL);
+#else
    ret = pthread_sigmask( SIG_SETMASK, &set, NULL );
-
+#endif
    if ( ret!=0 )
+   {
       DEBUGMSG(1, (DEBUGTXT("ERROR: could not set thread mask for current thread,\n")));
+   }
+
+   /* Set the System call interrupt function */
+   GPS_Syscall_Intr_Fn = SIRF_PAL_OS_THREAD_Send_Signal;
 
 } /* SIRF_PAL_OS_Thread_Start() */
 
@@ -221,8 +265,11 @@ tSIRF_VOID SIRF_PAL_OS_THREAD_Entry( tSIRF_VOID )
 SIRF_PAL_OS_THREAD_RETURNTYPE SIRF_PAL_OS_THREAD_Return( tSIRF_VOID )
 {
    pthread_exit(NULL);
+#if defined(OS_QNX)
    return NULL;
-   
+#else
+   return;
+#endif
 } /* SIRF_PAL_OS_Thread_Return() */
 
 

@@ -8,10 +8,11 @@
 
 #include "sirfdump.h"
 #include "sirf_msg.h"
+#include "sirf_codec.h"
 #include "sirf_codec_ssb.h"
 
 const char * const MonthName[] = {"JAN","FEB","MAR","APR", "MAY","JUN","JUL","AUG", 
-   "SEP", "OCO", "DEC"};
+   "SEP", "OCT", "NOV", "DEC"};
 
 struct epoch_t {
       /* mid-7 */
@@ -80,6 +81,8 @@ struct rinex_ctx_t {
    int header_printed;
 
    struct epoch_t epoch;
+
+   unsigned sirf_flags;
 };
 
 static int handle_nl_meas_data_msg(struct rinex_ctx_t *ctx,
@@ -97,7 +100,7 @@ static void epoch_clear (struct epoch_t *e);
 static void epoch_close(struct epoch_t *e);
 static int epoch_printf(FILE *out_f, struct epoch_t *e);
 
-void *new_rinex_ctx(int argc, char **argv)
+void *new_rinex_ctx(int argc, char **argv, unsigned gsw230_byte_order)
 {
    struct rinex_ctx_t *ctx;
    struct tm *tm;
@@ -142,6 +145,8 @@ void *new_rinex_ctx(int argc, char **argv)
    ctx->first_obs_found = 0;
    ctx->header_printed = 0;
 
+   ctx->sirf_flags = gsw230_byte_order ? SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER : 0;
+
    epoch_clear(&ctx->epoch);
 
    return ctx;
@@ -160,12 +165,12 @@ int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
    int err;
    struct rinex_ctx_t *ctx;
    tSIRF_UINT32 msg_id, msg_length;
+   tSIRF_UINT32 options;
    union {
       tSIRF_MSG_SSB_NL_MEAS_DATA nld;
       tSIRF_MSG_SSB_NL_AUX_MEAS_DATA aux_nld;
       uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
    } m;
-   char str[1024];
 
    assert(user_ctx);
 
@@ -174,16 +179,16 @@ int output_rinex(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 
    ctx = (struct rinex_ctx_t *)user_ctx;
 
+   options = ctx->sirf_flags;
    err = SIRF_CODEC_SSB_Decode(msg->payload,
 	 msg->payload_length,
 	 &msg_id,
 	 m.u8,
-	 &msg_length);
+	 &msg_length,
+         &options);
 
    if (err)
       return err;
-
-   str[0]='\0';
 
    switch (msg_id) {
       case SIRF_MSG_SSB_NL_MEAS_DATA:
@@ -388,7 +393,7 @@ int gpstime2tm0(unsigned gps_week, double gps_tow, struct gps_tm *res)
 
    assert(res);
 
-   gps_tow = floor(gps_tow * 1e7 + 0.5)/1e7;
+   gps_tow = floor(gps_tow * 1e6 + 0.5)/1e6;
    fractpart = modf(gps_tow, &intpart);
    assert(fractpart<1.0);
 
@@ -401,6 +406,7 @@ int gpstime2tm0(unsigned gps_week, double gps_tow, struct gps_tm *res)
    res->min = tm->tm_min;
    res->hour = tm->tm_hour;
    res->day = tm->tm_mday;
+   res->yday = tm->tm_yday + 1;
    res->month = tm->tm_mon + 1;
    res->year = tm->tm_year + 1900;
 

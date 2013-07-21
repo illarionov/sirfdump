@@ -32,7 +32,7 @@
 
 #include "sirf_types.h"
 #include "sirf_pal.h"
-#include "sirf_pal_os_mem_internal.h"
+#include "sirf_heap_sif.h"
 
 
 #ifdef TLSF_32BIT

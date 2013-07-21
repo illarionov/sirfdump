@@ -82,12 +82,12 @@ int output_rinex_nav(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
    int err;
    struct rinex_nav_ctx_t *ctx;
    tSIRF_UINT32 msg_id, msg_length;
+   tSIRF_UINT32 options;
    union {
       tSIRF_MSG_SSB_50BPS_DATA data_50bps;
       tSIRF_MSG_SSB_CLOCK_STATUS data_clock;
       uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
    } m;
-   char str[1024];
 
    assert(user_ctx);
 
@@ -96,16 +96,16 @@ int output_rinex_nav(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 
    ctx = (struct rinex_nav_ctx_t *)user_ctx;
 
+   options = 0;
    err = SIRF_CODEC_SSB_Decode(msg->payload,
 	 msg->payload_length,
 	 &msg_id,
 	 m.u8,
-	 &msg_length);
+	 &msg_length,
+         &options);
 
    if (err)
       return err;
-
-   str[0]='\0';
 
    if (msg_id ==  SIRF_MSG_SSB_50BPS_DATA)
       handle_mid8_msg(ctx, &m.data_50bps, out_f);
@@ -138,9 +138,9 @@ static int handle_mid8_msg(struct rinex_nav_ctx_t *ctx,
 
    if (!ctx->header_printed)
       ctx->header_printed = print_nav_header(out_f, ctx, dst);
-   else if (!ctx->opt_header_printed)
+   else if (!ctx->opt_header_printed && (data_changed & 0x02))
       ctx->opt_header_printed = print_nav_optional_header(out_f, ctx, dst);
-   else if (data_changed & 0x02) /* iono data changed  */
+   else if (0 && (data_changed & 0x02)) /* iono data changed  */
       print_nav_optional_header(out_f, ctx, dst);
 
    if (data_changed & 0x01)

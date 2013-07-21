@@ -8,6 +8,7 @@
 #include "gpsd/gps.h"
 #include "gpsd/crc24q.h"
 #include "sirfdump.h"
+#include "sirf_codec.h"
 #include "sirf_codec_ssb.h"
 #include "sirf_msg.h"
 #include "nav.h"
@@ -43,6 +44,7 @@ struct epoch_t {
 struct rtcm_ctx_t {
    struct epoch_t epoch;
    struct nav_data_t navdata;
+   unsigned sirf_flags;
 };
 
 static int handle_nl_meas_data_msg(struct rtcm_ctx_t *ctx,
@@ -62,7 +64,7 @@ static int rtcm_transport_write(FILE *out_f, void *data, unsigned size);
 static unsigned set_ubits(uint8_t *buf, unsigned pos, int len, unsigned val);
 static unsigned set_sbits(uint8_t *buf, unsigned pos, unsigned len, int val);
 
-void *new_rtcm_ctx(int argc, char **argv)
+void *new_rtcm_ctx(int argc, char **argv, unsigned gsw230_byte_order)
 {
    struct rtcm_ctx_t *ctx;
 
@@ -75,6 +77,7 @@ void *new_rtcm_ctx(int argc, char **argv)
 
    epoch_clear(&ctx->epoch);
    init_nav_data(&ctx->navdata);
+   ctx->sirf_flags = gsw230_byte_order ? SIRF_CODEC_FLAGS_GSW230_BYTE_ORDER : 0;
 
    return ctx;
 }
@@ -89,6 +92,7 @@ int output_rtcm(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
    int err;
    struct rtcm_ctx_t *ctx;
    tSIRF_UINT32 msg_id, msg_length;
+   tSIRF_UINT32 options;
    union {
       tSIRF_MSG_SSB_50BPS_DATA data_50bps;
       tSIRF_MSG_SSB_MEASURED_NAVIGATION  meas_nav;
@@ -96,7 +100,6 @@ int output_rtcm(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
       tSIRF_MSG_SSB_NL_MEAS_DATA nld;
       uint8_t u8[SIRF_MSG_SSB_MAX_MESSAGE_LEN];
    } m;
-   char str[1024];
 
    assert(user_ctx);
 
@@ -105,16 +108,16 @@ int output_rtcm(struct transport_msg_t *msg, FILE *out_f, void *user_ctx)
 
    ctx = (struct rtcm_ctx_t *)user_ctx;
 
+   options = ctx->sirf_flags;
    err = SIRF_CODEC_SSB_Decode(msg->payload,
 	 msg->payload_length,
 	 &msg_id,
 	 m.u8,
-	 &msg_length);
+	 &msg_length,
+         &options);
 
    if (err)
       return err;
-
-   str[0]='\0';
 
    switch (msg_id) {
       case SIRF_MSG_SSB_NL_MEAS_DATA:

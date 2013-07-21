@@ -48,6 +48,10 @@ tSIRF_RESULT SIRF_PAL_Init(void)
 {
    tSIRF_RESULT result;
 
+   SIRF_PAL_COM_UART_Init();
+   SIRF_PAL_COM_I2C_Init();
+   SIRF_PAL_COM_SPI_Init();
+
    result = SIRF_PAL_OS_MEM_Init();
    if (SIRF_SUCCESS != result)
    {

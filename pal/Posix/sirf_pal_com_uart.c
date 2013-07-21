@@ -6,7 +6,8 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2006-2009 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2006-2010 by SiRF Technology, a CSR plc Companyc.
+ *    All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -22,587 +23,1017 @@
  *    is subject to and restricted by your signed written agreement with
  *    SiRF Technology, Inc.
  *
- */
-
-/**
- * @file   sirf_pal_com_uart.c
  *
- * @brief  SiRF PAL serial communications module.
+ *  Keywords for Perforce.  Do not modify.
+ *
+ *  $File: //customs/customer/Marvell-U1/sirf/Software/sirf/pal/Posix/sirf_pal_com_uart.c $
+ *
+ *  $DateTime: 2012/02/08 15:09:01 $
+ *
+ *  $Revision: #5 $
+ */
+/**
+ * @file   sirf_pal_io_uart.c
+ *
+ * @brief  UART COM for the POSIX version of the SiRF PAL
+ *
+ * UART COM for the POSIX version of the SiRF PAL
  */
 
+/* ----------------------------------------------------------------------------
+ *   Included files
+ * ------------------------------------------------------------------------- */
+/* library includes */
 #include <stdio.h>
 #include <string.h>
 #include <termios.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 
-#include "sirf_types.h"
+/* public includes */
 #include "sirf_pal.h"
+#include "sirf_types.h"
+#include "gps_logging.h"
+
+/* private includes */
+
+/* local includes */
+
+/* ----------------------------------------------------------------------------
+ *   Definitions
+ * ------------------------------------------------------------------------- */
+#define INVALID_FILE_DESCRIPTOR                  (-1)
+
+#define PORT_IS_STARTED(_uart_settings)                                        \
+         ((_uart_settings)->general_settings.port_opened != SIRF_FALSE)
 
 
-const char *g_port_format = "COM%d:" ;
+/* ----------------------------------------------------------------------------
+ *    Types, Enums, and Structs
+ * ------------------------------------------------------------------------- */
+typedef struct
+{
+   int          fd;
+   tSIRF_MUTEX  read_mutex;
+   tSIRF_MUTEX  write_mutex;
+} platform_settings_type;
 
 typedef struct
 {
-   int         fd;
-   tSIRF_MUTEX m_WriteSection;
-   int         m_iPortNum;
-   int         m_iBaudRate;
-   tSIRF_BOOL        m_iHwFc; /* hardware flow control */
-} M_Comm;
+   /* general I/O settings */
+   tSIRF_COM_COMMON_SETTINGS general_settings;
 
-#define SERIAL ((M_Comm*)port_handle)
+   /* uart-specific settings */
+   tSIRF_BOOL             flow_control;
+   tSIRF_UINT32           baud_rate;
 
-
-/* 1 input port, 3 debug ports */
-M_Comm  comm_ports[4];
-size_t  port_count=0;
-
+   /* platform-specific (posix) settings */
+   platform_settings_type platform_settings;
+} com_uart_settings_type;
 
 
 /* ----------------------------------------------------------------------------
- *   Local Functions
+ *    Global Variables
  * ------------------------------------------------------------------------- */
 
-
-
-/**
- * @brief Test if the given serial port is open.
- * @param[in] port_handle              Handle to the serial port.
- * @return                             Non-zero if the port is open.
- */
-inline static int IsPortOpen( tSIRF_COM_HANDLE port_handle)
-{
-   /* returns non-zero if port is open */
-   return port_handle && SERIAL->fd != -1;
-
-} /* IsPortOpen() */
-
+/* ----------------------------------------------------------------------------
+ *    Local Variables
+ * ------------------------------------------------------------------------- */
+static com_uart_settings_type my_uart_settings[SIRF_COM_UART_MAX_INSTANCES];
+static tSIRF_MUTEX create_delete_mutex;
+static tSIRF_BOOL blocking_read = SIRF_FALSE; //TRUE;
 
 
 /* ----------------------------------------------------------------------------
- *   Functions
+ *    Function Prototypes
  * ------------------------------------------------------------------------- */
+static void init_port_settings(com_uart_settings_type * const uart_settings,
+                               tSIRF_HANDLE               logical_handle);
 
+static tSIRF_RESULT  set_baud_rate_and_flow_control(
+                               com_uart_settings_type * const uart_settings);
 
-
-/**
- * @brief Set UART port.
- * @param[in] port_handle              Handle to UART port.
- * @param[in] flow_ctrl                    Hardware flow control.
- * @param[in] baud_rate                New baud rate.
- * @return                             Result code.
- */
-tSIRF_RESULT SIRF_PAL_COM_SetUart( tSIRF_COM_HANDLE port_handle, tSIRF_UINT32 flow_ctrl, tSIRF_UINT32 baud_rate )
+/* ----------------------------------------------------------------------------
+ *    Functions
+ * ------------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------------
+ *
+ *    Function:   init_port_settings
+ *
+ *    Note:       Initialize the UART settings structure for a given port.
+ *
+ * ------------------------------------------------------------------------- */
+static void init_port_settings(com_uart_settings_type * const uart_settings,
+                               tSIRF_HANDLE               logical_handle)
 {
-   /* Unused Parameters */
-   (void)(port_handle);
-   (void)(flow_ctrl);
-   (void)(baud_rate);
-   
-   /* This function is not needed in current implementation. */
-   return SIRF_SUCCESS;
+   memset(uart_settings, 0, sizeof(com_uart_settings_type));
 
-} /* SIRF_PAL_COM_SetUart() */
+   /* initialize the general settings */
+   uart_settings->general_settings.logical_handle     = logical_handle;
+   uart_settings->general_settings.read_byte_timeout  = 10;
+   uart_settings->general_settings.read_total_timeout = 100;
+   uart_settings->general_settings.read_wait_timeout  = 100;
+   uart_settings->general_settings.port_opened        = SIRF_FALSE;
 
+   /* initialize the uart-specific settings */
+   uart_settings->baud_rate    = SIRF_COM_UART_BAUD_DEFAULT;
+   uart_settings->flow_control = SIRF_COM_UART_FC_DEFAULT;
 
-/**
- * @brief Create a new serial port.
- * @param[out] port_handle             New serial port handle.
- * @return                             Result code.
- */
-tSIRF_RESULT SIRF_PAL_COM_Create( tSIRF_COM_HANDLE *port_handle )
+   /* initialize the platform-specific settings */
+   uart_settings->platform_settings.fd          = INVALID_FILE_DESCRIPTOR;
+   uart_settings->platform_settings.read_mutex  = NULL;
+   uart_settings->platform_settings.write_mutex = NULL;
+
+   return;
+}  /* init_port_settings() */
+
+/* ----------------------------------------------------------------------------
+ *
+ *    Function:   set_baud_rate_and_flow_control
+ *
+ *    Note:       Set the baud rate and flow control.
+ *
+ * ------------------------------------------------------------------------- */
+static tSIRF_RESULT  set_baud_rate_and_flow_control(com_uart_settings_type * const uart_settings)
 {
-   if ( port_count >= sizeof(comm_ports)/sizeof(M_Comm) )
-      return SIRF_PAL_COM_ERROR;
+   /* local variables */
+   struct termios   options;
+   int              result;
+   int              fd;
+   int              brate = B115200;
 
-   *port_handle = &(comm_ports[port_count]);
-
-   memset( *port_handle, 0, sizeof(M_Comm) );
-
-   if ( SIRF_PAL_OS_MUTEX_Create( &(comm_ports[port_count].m_WriteSection) ) != SIRF_SUCCESS )
-      return SIRF_PAL_COM_ERROR;
-
-   comm_ports[port_count].fd = -1;
-
-   port_count++;
-
-   return SIRF_SUCCESS;
-
-} /* SIRF_PAL_COM_Create() */
-
-
-/**
- * @brief Delete a serial port handle.
- * @param[in] port_handle              Serial port handle to delete.
- * @return                             Result code.
- */
-tSIRF_RESULT SIRF_PAL_COM_Delete( tSIRF_COM_HANDLE port_handle )
-{
-   /* note: ports should be deleted in the same order they were ceated */
-   port_count--; 
-
-   SIRF_PAL_OS_MUTEX_Delete( SERIAL->m_WriteSection );
-
-   return SIRF_SUCCESS;
-
-} /* SIRF_PAL_COM_Delete() */
-
-
-/**
- * @brief Open a serial port.
- * @param[in] port_handle              Serial port handle to open.
- * @param[in] port_num                 Serial port device number.
- * @param[in] flow_ctrl                    hardware flow control.
- * @param[in] baud_rate                Serial baud rate.
- * @return                             Result code.
- */
-tSIRF_RESULT SIRF_PAL_COM_Open( tSIRF_COM_HANDLE port_handle, tSIRF_UINT32 port_num,
-   tSIRF_UINT32 flow_ctrl, tSIRF_UINT32 baud_rate )
-{
-   struct   termios options;
-   char     port_str[30]="";
-   int      brate;
-   int      fd;
-
-#ifdef OS_QNX
-   sprintf( port_str, "/dev/ser%ld", port_num );
-#else
-   sprintf(port_str, "/dev/ttyAMA%ld", port_num); 
-   printf("no OS_QNX\n");
-   printf("open:%s \n",port_str);
- #endif 
-   
-   SERIAL->m_iPortNum = port_num;
-   SERIAL->m_iBaudRate = baud_rate;
-
-   /* open the port: */
-   fd = open( port_str, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK );
-   if ( fd == -1 )
-   {
-      printf("open ttyAMAx error: \n");
-      DEBUGMSG(1, (DEBUGTXT("error: could not open port; errno=%d\n"), errno));
-      return SIRF_PAL_COM_ERROR;
-   }
-   printf("open ttyAMAx ok \n");
-  
-   #ifdef OS_LINUX
-      fcntl( fd, F_SETFL, FNDELAY );
-   #endif
+   fd = uart_settings->platform_settings.fd;
 
    /* Get the current options for the port: */
-   if ( tcgetattr(fd, &options) != 0 )
+   result = tcgetattr(fd, &options);
+   if (0 != result)
    {
-      DEBUGMSG(1, (DEBUGTXT("error: could not get port attributes; errno=%d\n"), errno));
-      return SIRF_PAL_COM_ERROR;
+      SIRF_LOGE("error: could not get port attributes; errno=%d", errno);
+      return SIRF_COM_RET_FAILURE_UART_ERROR;
    }
 
-   bzero (&options, sizeof (options)); 
-   
-   switch (baud_rate)
+   switch (uart_settings->baud_rate)
    {
-   case 115200: brate = B115200; break;
-   case  57600: brate = B57600;  break;
-   case  38400: brate = B38400;  break;
-   case  19200: brate = B19200;  break;
-   case   9600: brate = B9600;   break;
-   case   4800: brate = B4800;   break;
+      case 921600: brate = B921600; break;
+      case 460800: brate = B460800; break;
+      case 230400: brate = B230400; break;
+      case 115200: brate = B115200; break;
+      case  57600: brate = B57600;  break;
+      case  38400: brate = B38400;  break;
+      case  19200: brate = B19200;  break;
+      case   9600: brate = B9600;   break;
+      case   4800: brate = B4800;   break;
+      case   2400: brate = B2400;   break;
+      case   1800: brate = B1800;   break;
+      case   1200: brate = B1200;   break;
+      case   600:  brate = B600;   break;
+      case   300:  brate = B300;   break;
+      case   150:  brate = B150;   break;
+      case   134:  brate = B134;   break;
+      case   110:  brate = B110;   break;
+      case   75:   brate = B75;   break;
    }
 
-   options.c_cflag = CLOCAL | CREAD | CS8;    
+   options.c_cflag = CLOCAL | CREAD | CS8;
    options.c_iflag = IGNPAR;
    options.c_oflag = 0;
    options.c_lflag = 0;
-   
-   if (flow_ctrl)
+
+   if (uart_settings->flow_control)
    {
       /* Depending on the Posix/Unix/Linux flavor you may need one of these */
       /* options.c_cflag |= CNEW_RTSCTS; */
       /* Cygwin supports this one */
       options.c_cflag |= CRTSCTS;
    }
+   else
+   {
+      options.c_cflag &= ~CRTSCTS;
+   }
 
-   cfsetispeed(&options, brate);
-   cfsetospeed(&options, brate);
+   result = cfsetispeed(&options, brate);
+   if (0 != result)
+   {
+      SIRF_LOGE("error: setting input baud rate failed; errno=%d", errno);
+      return SIRF_COM_RET_FAILURE_UART_ERROR;
+   }
+
+   result = cfsetospeed(&options, brate);
+   if (0 != result)
+   {
+      SIRF_LOGE("error: setting output baud rate failed; errno=%d", errno);
+      return SIRF_COM_RET_FAILURE_UART_ERROR;
+   }
 
    options.c_cc[VTIME] = 0;   /* inter-character timer unused */
-   options.c_cc[VMIN] = 1; /* blocking read until 1 char received */ 
+   options.c_cc[VMIN] = 1; /* blocking read until 1 char received */
 
    /* Set the new options for the port: */
-   if ( tcsetattr(fd, TCSANOW, &options) != 0 )
+   result = tcsetattr(fd, TCSANOW, &options);
+   if ( 0 != result )
    {
-      DEBUGMSG(1, (DEBUGTXT("error: could not set port attributes; errno=%d\n"), errno));
-      return SIRF_PAL_COM_ERROR;
-   }  
+      SIRF_LOGE("error: could not set port attributes; errno=%d", errno);
+      return SIRF_COM_RET_FAILURE_UART_ERROR;
+   }
 
    tcflush(fd, TCIOFLUSH);
 
-   SERIAL->fd = fd;
-
    return SIRF_SUCCESS;
+}
 
-} /* SIRF_PAL_COM_Open() */
 
-
-/**
- * @brief Wait for serial port data.
- * @param[in] port_handle              Serial port handle to open.
- * @param[in] timeout                  Timeout to wait for data.
- * @return                             Result code.
- */
-tSIRF_RESULT SIRF_PAL_COM_Wait( tSIRF_COM_HANDLE port_handle, tSIRF_UINT32 timeout )
+/* ----------------------------------------------------------------------------
+ *
+ *    Function:   SIRF_PAL_COM_UART_Init
+ *
+ *    Note:       Initialize UART port settings.
+ *
+ * ------------------------------------------------------------------------- */
+void SIRF_PAL_COM_UART_Init(void)
 {
-   fd_set         sel_set;
-   struct timeval sel_timeout;
-   int            sel_result=0;
+   /* local variables */
+   int port_counter;
+   tSIRF_RESULT mutex_result;
 
-   if ( !IsPortOpen(port_handle) )
+   /* create the create/delete mutex */
+   mutex_result = SIRF_PAL_OS_MUTEX_Create(&create_delete_mutex);
+   if (SIRF_SUCCESS == mutex_result)
    {
-      DEBUGMSG(1, (DEBUGTXT("SIRF_PAL_COM_WaitInput: port not open\n")));
-      SIRF_PAL_OS_THREAD_Sleep(500);
-      return SIRF_PAL_COM_ERROR;
-   }
-
-   FD_ZERO(&sel_set);
-   FD_SET(SERIAL->fd, &sel_set);
-
-   sel_timeout.tv_sec  = timeout / 1000;
-   sel_timeout.tv_usec = (timeout % 1000)*1000;
-
-   sel_result = select(SERIAL->fd+1, &sel_set, NULL, NULL, &sel_timeout);
-
-   if (sel_result < 0)
-   {
-      DEBUGMSG(1,(DEBUGTXT("SIRF_PAL_COM_Wait: error in select; errno=%d\n"), errno));
-      SIRF_PAL_OS_THREAD_Sleep( 100 );
-      return SIRF_PAL_COM_ERROR;
-   }
-
-   else if (sel_result == 0)
-   {
-      return SIRF_PAL_COM_TIMEOUT;
-   }
-
-   /* else - we have input: */
-   DEBUGCHK(sel_result==1);
-
-   return SIRF_SUCCESS;
-
-} /* SIRF_PAL_COM_Wait() */
-
-
-/**
- * @brief Read data from the serial port.
- * @param[in] port_handle              Serial port handle to read from.
- * @param[out] pbyBuffer               Buffer to read into.
- * @param[in] ulbBufSize               Size of the buffer.
- * @param[out] pulBytesRead            Number of bytes read.
- * @return                             Result code.
- */
-tSIRF_RESULT SIRF_PAL_COM_Read( tSIRF_COM_HANDLE port_handle, tSIRF_UINT8 *pbyBuffer, tSIRF_UINT32 ulBufSize, tSIRF_UINT32 * pulBytesRead )
-{
-   int result=0;
-   int i=0;
-   struct timeval timems;
-
-   if ( !IsPortOpen(port_handle) )
-   {
-      *pulBytesRead = 0;
-      return SIRF_PAL_COM_ERROR;
-   }
-
-   do {
-      result = read( SERIAL->fd, pbyBuffer, ulBufSize );
-   } while ( result==-1 && errno==EINTR);
-
-   *pulBytesRead = result>0 ? result : 0;
-   gettimeofday(&timems,NULL);
-   if(result)
-	//printf("%d %d\n", timems.tv_sec*1000+timems.tv_usec/1000, result);
-/* (should have waited for at least one byte before read() ) */
-   return result>0 ? SIRF_SUCCESS : SIRF_PAL_COM_ERROR; 
-
-} /* SIRF_PAL_COM_Read() */
-
-
-/**
- * @brief Write data to the serial port.
- * @param[in] port_handle              Serial port handle to write into.
- * @param[in] pbyData                  Data to write.
- * @param[in] ulLength                 Amount of data to write.
- * @return                             Result code.
- */
-tSIRF_RESULT SIRF_PAL_COM_Write( tSIRF_COM_HANDLE port_handle, tSIRF_UINT8 * pbyData, tSIRF_UINT32 ulLength )
-{
-   int    ok = 1;
-   size_t ulTotalWritten = 0u;
-   int    err = 0;
-   fd_set sel_set;
-   int    sel_result=0;    
-
-   if ( !IsPortOpen(port_handle) )
-      return SIRF_PAL_COM_ERROR;
-
-   if ( ulLength==0 )
-      return SIRF_SUCCESS;
-
-   SIRF_PAL_OS_MUTEX_Enter( SERIAL->m_WriteSection );
-
-   do
-   {
-      long lBytesWritten;
-      
-      FD_ZERO(&sel_set);
-      FD_SET(SERIAL->fd, &sel_set);
-      sel_result = select(SERIAL->fd+1, NULL, &sel_set, NULL, NULL);
-      lBytesWritten = write(SERIAL->fd, pbyData+ulTotalWritten, ulLength-ulTotalWritten);
-      
-      if ( lBytesWritten > 0 )
+      for(port_counter = 0; port_counter < SIRF_COM_UART_MAX_INSTANCES; port_counter++)
       {
-         fsync(SERIAL->fd);
-         ulTotalWritten += lBytesWritten; /* written at least a byte */
-         //printf("lBytesWritten %d\n", lBytesWritten);
+         init_port_settings(&my_uart_settings[port_counter], SIRF_INVALID_HANDLE);
+      }
+   }
+   else
+   {
+      SIRF_LOGE("%s: creation create_delete_mutex failed", __FUNCTION__);
+   }
+
+   return;
+
+}  /* SIRF_PAL_COM_UART_Init() */
+
+/* ----------------------------------------------------------------------------
+ *
+ *    Function:   SIRF_PAL_COM_UART_Close
+ *
+ *    Note:       This function should have the same return type and parameters
+ *                as SIRF_PAL_COM_Close_Fcn().
+ *
+ * ------------------------------------------------------------------------- */
+tSIRF_RESULT SIRF_PAL_COM_UART_Close(tSIRF_HANDLE com_handle)
+{
+   /* local variables */
+   tSIRF_RESULT           return_value = SIRF_COM_RET_FAILURE_GENERIC;
+   com_uart_settings_type *uart_settings;
+   int result;
+   //SIRF_LOGD("SIRF_PAL_COM_UART_Close Called");
+
+   /* Validate input parameters */
+   if((SIRF_INVALID_HANDLE != com_handle) &&
+      (SIRF_COM_UART_MAX_INSTANCES > (int)com_handle))
+   {
+      /* initialize local variables */
+      uart_settings = &my_uart_settings[(int)com_handle];
+
+      result = close(uart_settings->platform_settings.fd);
+      //SIRF_LOGD("UART Port Close result =%d", result);
+      if(result == 0)
+      {
+         return_value = SIRF_SUCCESS;
       }
       else
       {
-         /* break loop unless signals or full buffers or no error */
-         if ( !(lBytesWritten==0 || errno==EINTR || errno==EAGAIN) )
-         { 
-            ok = 0;
-            err = errno;
-         }
-         fsync(SERIAL->fd);
-         /** @todo   SIRF_PAL_OS_THREAD_Sleep( 10 ); retry after a delay */
+         SIRF_LOGE("UART Port Close Fail!!!");
+      }
+
+      uart_settings->platform_settings.fd         = INVALID_FILE_DESCRIPTOR;
+      uart_settings->general_settings.port_opened = SIRF_FALSE;
+   }
+   SIRF_LOGD("rtn V C %d", (int)return_value);
+   return(return_value);
+
+}  /* SIRF_PAL_COM_UART_Close() */
+
+/* ----------------------------------------------------------------------------
+ *
+ *    Function:   SIRF_PAL_COM_UART_Control
+ *
+ *    Note:       This function should have the same return type and parameters
+ *                as SIRF_PAL_COM_Control_Fcn().
+ *
+ * ------------------------------------------------------------------------- */
+tSIRF_RESULT SIRF_PAL_COM_UART_Control(
+      tSIRF_HANDLE               com_handle,
+      tSIRF_COM_CONTROL          com_control,
+      void               * const com_value)
+{
+   /* local variables */
+   tSIRF_RESULT               return_value = SIRF_COM_RET_FAILURE_GENERIC;
+   com_uart_settings_type     *uart_settings;
+
+   /* Validate input parameters */
+   if((SIRF_INVALID_HANDLE != com_handle) &&
+      (SIRF_COM_UART_MAX_INSTANCES > (int)com_handle))
+   {
+      uart_settings = &my_uart_settings[(int)com_handle];
+
+      switch(com_control)
+      {
+         /* ----------------------------------------------------------------------
+          *   General Settings
+          * ------------------------------------------------------------------- */
+         case SIRF_COM_CTRL_READ_BYTE_TIMEOUT:
+            uart_settings->general_settings.read_byte_timeout = (tSIRF_INT32)com_value;
+            return_value = SIRF_SUCCESS;
+            break;
+
+         case SIRF_COM_CTRL_READ_TOTAL_TIMEOUT:
+            uart_settings->general_settings.read_total_timeout = (tSIRF_INT32)com_value;
+            return_value = SIRF_SUCCESS;
+            break;
+
+         case SIRF_COM_CTRL_READ_WAIT_TIMEOUT:
+            if(blocking_read)
+            {
+               uart_settings->general_settings.read_wait_timeout = SIRF_TIMEOUT_INFINITE;
+            }
+            else
+            {
+               uart_settings->general_settings.read_wait_timeout = (tSIRF_INT32)com_value;
+            }
+            return_value = SIRF_SUCCESS;
+            break;
+
+         /* ----------------------------------------------------------------------
+          *   UART-Specific Settings
+          * ------------------------------------------------------------------- */
+         case SIRF_COM_CTRL_UART_BAUD_RATE:
+            uart_settings->baud_rate = (tSIRF_UINT32)com_value;
+            if(PORT_IS_STARTED(uart_settings))
+            {
+               return_value = set_baud_rate_and_flow_control(uart_settings);
+            }
+            else
+            {
+               return_value = SIRF_SUCCESS;
+            }
+            break;
+
+         case SIRF_COM_CTRL_UART_FLOW_CONTROL:
+            uart_settings->flow_control = (tSIRF_UINT32)com_value;
+            if(PORT_IS_STARTED(uart_settings))
+            {
+               return_value = set_baud_rate_and_flow_control(uart_settings);
+            }
+            else
+            {
+               return_value = SIRF_SUCCESS;
+            }
+            break;
+
+         case SIRF_COM_CTRL_READ_BLOCKING:
+            blocking_read = (tSIRF_BOOL)com_value;
+            break;
+
+         default:
+            /* an unhandled/unknown setting was commanded.  do nothing */
+            DEBUGMSG(1, (DEBUGTXT("Unhandled UART control setting: %d\n"), (tSIRF_UINT32)com_control));
+            break;
       }
    }
-   while ( ulTotalWritten < ulLength && ok && IsPortOpen(port_handle) );
 
-   SIRF_PAL_OS_MUTEX_Exit( SERIAL->m_WriteSection );
+   return(return_value);
 
-   if (!ok)
+}  /* SIRF_PAL_COM_UART_Control() */
+
+/* ----------------------------------------------------------------------------
+ *
+ *    Function:   SIRF_PAL_COM_UART_Create
+ *
+ *    Note:       This function should have the same return type and parameters
+ *                as SIRF_PAL_COM_Create_Fcn().
+ *
+ *    Warning:    As written, this function is not thread-safe.
+ *
+ * ------------------------------------------------------------------------- */
+tSIRF_RESULT SIRF_PAL_COM_UART_Create(
+      tSIRF_HANDLE       * const com_handle)
+{
+   /* local variables */
+   tSIRF_RESULT return_value = SIRF_COM_RET_FAILURE_GENERIC;
+   int          port_counter;
+   tSIRF_RESULT mutex_result;
+
+   if(NULL == com_handle)
    {
-      DEBUGMSG(2, (DEBUGTXT("SIRF_PAL_COM_Write: error sending on SERIAL port, errno=%d\n"), err));
+      DEBUGMSG(1, (DEBUGTXT("%s: invalid input parameters\n"), __FUNCTION__));
+      return(SIRF_COM_RET_FAILURE_GENERIC);
    }
 
-   return ok ? SIRF_SUCCESS : SIRF_PAL_COM_ERROR;
+   *com_handle = SIRF_INVALID_HANDLE;
 
-} /* SIRF_PAL_COM_Write() */
-
-
-/**
- * @brief Close an open serial port.
- * @param[in] port_handle              Serial port handle to close.
- * @return                             Result code.
- */
-tSIRF_RESULT SIRF_PAL_COM_Close( tSIRF_COM_HANDLE port_handle )
-{
-   int fd;
-   int result = 0;
-
-   if ( !IsPortOpen(port_handle) )
-      return SIRF_PAL_COM_ERROR;
-
-   fd = SERIAL->fd;
-
-   SERIAL->fd = -1;
-   do 
+   /* ----------------------------------------------------------------------
+    *   1. lock the create/delete mutex
+    * ------------------------------------------------------------------- */
+   mutex_result = SIRF_PAL_OS_MUTEX_Enter(create_delete_mutex);
+   if(SIRF_SUCCESS != mutex_result)
    {
-      result = close(fd);
-   } 
-   while (result==-1 && errno==EINTR);
+      DEBUGMSG(1, (DEBUGTXT("Uart Create Mutex Error on line %d\n"), __LINE__));
+      return_value = SIRF_COM_RET_FAILURE_MUTEX_FAILED;
+   }
+   else
+   {
+      /* ----------------------------------------------------------------------
+       *   2. search for an unused port
+       * ------------------------------------------------------------------- */
+      for(port_counter = 0; port_counter < SIRF_COM_UART_MAX_INSTANCES; port_counter++)
+      {
+         if(SIRF_INVALID_HANDLE == my_uart_settings[port_counter].general_settings.logical_handle)
+         {
+            /* we found an unused port, reserve it */
+            init_port_settings(&my_uart_settings[port_counter], (tSIRF_HANDLE)port_counter);
 
-   return result==0 ? SIRF_SUCCESS : SIRF_PAL_COM_ERROR;
+            /* create the read and write mutexes */
+            mutex_result = SIRF_PAL_OS_MUTEX_Create(&my_uart_settings[port_counter].platform_settings.read_mutex);
 
-} /* SIRF_PAL_COM_Close() */
+            if(SIRF_SUCCESS == mutex_result)
+            {
+               mutex_result = SIRF_PAL_OS_MUTEX_Create(&my_uart_settings[port_counter].platform_settings.write_mutex);
 
+               if(SIRF_SUCCESS == mutex_result)
+               {
+                  *com_handle  = my_uart_settings[port_counter].general_settings.logical_handle;
+                  return_value = SIRF_SUCCESS;
+               }
+               else
+               {
+                  /* creating write mutex failed, delete the read */
+                  (void)SIRF_PAL_OS_MUTEX_Delete(&my_uart_settings[port_counter].platform_settings.read_mutex);
+               }
+            }
 
-/**
- * @brief Re-open a closed serial port.
- * @param[in] port_handle              Serial port handle to re-open.
- * @return                             Result code.
- */
-tSIRF_RESULT SIRF_PAL_COM_Reopen( tSIRF_COM_HANDLE port_handle )
+            break;
+         }
+      } /* for */
+
+      /* ----------------------------------------------------------------------
+       *   3. unlock the create/delete mutex
+       * ------------------------------------------------------------------- */
+      (void)SIRF_PAL_OS_MUTEX_Exit(create_delete_mutex);
+   } /* else */
+
+   return(return_value);
+
+}  /* SIRF_PAL_COM_UART_Create() */
+
+/* ----------------------------------------------------------------------------
+ *
+ *    Function:   SIRF_PAL_COM_UART_Delete
+ *
+ *    Note:       This function should have the same return type and parameters
+ *                as SIRF_PAL_COM_Delete_Fcn().
+ *
+ * ------------------------------------------------------------------------- */
+tSIRF_RESULT SIRF_PAL_COM_UART_Delete(
+      tSIRF_HANDLE       * const com_handle)
 {
-   /* Unused Parameter. */
-   (void)port_handle;
-   
-   /* This function is not needed in current implementation */
-   return SIRF_SUCCESS;
+   /* local variables */
+   tSIRF_RESULT            return_value = SIRF_COM_RET_FAILURE_GENERIC;
+   com_uart_settings_type  *uart_settings;
+   tSIRF_RESULT            result_read;
+   tSIRF_RESULT            result_write;
+   tSIRF_RESULT            mutex_result;
 
-} /* SIRF_PAL_COM_Reopen() */
+   /* Validate input parameters */
+   if((NULL != com_handle) &&
+      (SIRF_INVALID_HANDLE != *com_handle) &&
+      (SIRF_COM_UART_MAX_INSTANCES > (int)*com_handle))
+   {
+      uart_settings = &my_uart_settings[(int)*com_handle];
 
+      /* ----------------------------------------------------------------------
+       *   1. lock the create/delete mutex
+       * ------------------------------------------------------------------- */
+      mutex_result = SIRF_PAL_OS_MUTEX_Enter(create_delete_mutex);
+      if(SIRF_SUCCESS != mutex_result)
+      {
+         DEBUGMSG(1, (DEBUGTXT("Uart Create Mutex Error on line %d\n"), __LINE__));
+         return_value = SIRF_COM_RET_FAILURE_MUTEX_FAILED;
+      }
+      else
+      {
+         /* ----------------------------------------------------------------------
+          *   2. delete the read/write mutexes
+          * ------------------------------------------------------------------- */
+         result_read = SIRF_PAL_OS_MUTEX_Delete(uart_settings->platform_settings.read_mutex);
+         result_write = SIRF_PAL_OS_MUTEX_Delete(uart_settings->platform_settings.write_mutex);
 
+         /* invalidate the platform settings */
+         init_port_settings(uart_settings, SIRF_INVALID_HANDLE);
+         *com_handle = SIRF_INVALID_HANDLE;
+
+         if ((SIRF_SUCCESS == result_read) && (SIRF_SUCCESS == result_write))
+         {
+            return_value = SIRF_SUCCESS;
+         }
+
+         /* ----------------------------------------------------------------------
+          *   3. unlock the create/delete mutex
+          * ------------------------------------------------------------------- */
+         (void)SIRF_PAL_OS_MUTEX_Exit(create_delete_mutex);
+      }
+   }
+
+   return(return_value);
+
+}  /* SIRF_PAL_COM_UART_Delete() */
+
+/* ----------------------------------------------------------------------------
+ *
+ *    Function:   SIRF_PAL_COM_UART_Open
+ *
+ *    Note:       This function should have the same return type and parameters
+ *                as SIRF_PAL_COM_Open_Fcn().
+ *
+ * ------------------------------------------------------------------------- */
+tSIRF_RESULT SIRF_PAL_COM_UART_Open(
+      tSIRF_HANDLE               com_handle,
+      char         const * const com_port)
+{
+  /* local variables */
+   tSIRF_RESULT            return_value = SIRF_COM_RET_FAILURE_GENERIC;
+   com_uart_settings_type  *uart_settings;
+   int                     fd;
+
+   //SIRF_LOGD("SIRF_PAL_COM_UART_Open Called : %s    \n", com_port);
+   if((SIRF_INVALID_HANDLE != com_handle) &&
+      (SIRF_COM_UART_MAX_INSTANCES > (int)com_handle))
+   {
+      uart_settings = &my_uart_settings[(int)com_handle];
+
+      if(PORT_IS_STARTED(uart_settings))
+      {
+         DEBUGMSG(1, (DEBUGTXT("%s: port is already started\n"), __FUNCTION__));
+         return_value = SIRF_COM_RET_FAILURE_GENERIC_OPEN;
+         SIRF_LOGD("UART port is already started");
+      }
+      else
+      {
+         /* open the port: */
+         SIRF_LOGE("UART PORT:%s\n", com_port);
+         fd = open( com_port, O_RDWR | O_NOCTTY );
+         if ( fd < 0 )
+         {
+            DEBUGMSG(1, (DEBUGTXT("error: could not open port; errno=%d\n"), errno));
+            SIRF_LOGE("UART Port Open Fail!!!!");
+            return_value = SIRF_COM_RET_FAILURE_GENERIC_OPEN;
+         }
+         else
+         {
+            uart_settings->platform_settings.fd = fd;
+            return_value = set_baud_rate_and_flow_control (uart_settings);
+            if (SIRF_SUCCESS == return_value)
+            {
+               uart_settings->general_settings.port_opened = SIRF_TRUE;
+               //SIRF_LOGD("UART Port Open Success fd = %d!!!!", fd);
+            }
+         }
+      }
+   }
+   SIRF_LOGD("rtn V O %d", (int)return_value);
+
+   return(return_value);
+
+}  /* SIRF_PAL_COM_UART_Open() */
+
+/* ----------------------------------------------------------------------------
+ *
+ *    Function:   SIRF_PAL_COM_UART_Read
+ *
+ *    Note:       This function should have the same return type and parameters
+ *                as SIRF_PAL_COM_Read_Fcn().
+ *
+ * ------------------------------------------------------------------------- */
+tSIRF_RESULT SIRF_PAL_COM_UART_Read(
+      tSIRF_HANDLE               com_handle,
+      tSIRF_UINT8        * const read_ptr,
+      tSIRF_UINT32               requested_bytes_to_read,
+      tSIRF_UINT32       * const actual_bytes_read)
+{
+   /* local variables */
+   com_uart_settings_type  * uart_settings;
+   tSIRF_RESULT            return_value = SIRF_COM_RET_FAILURE_GENERIC;
+   tSIRF_RESULT            pal_result;
+   fd_set                  read_set;
+   struct timeval          read_timeout;
+   int                     fd;
+   int                     os_result;
+
+   /* Validate input parameters */
+   if((SIRF_INVALID_HANDLE != com_handle) &&
+      (SIRF_COM_UART_MAX_INSTANCES > (int)com_handle) &&
+      (NULL != read_ptr) &&
+      (0 < requested_bytes_to_read) &&
+      (NULL != actual_bytes_read))
+   {
+      uart_settings    = &my_uart_settings[(int)com_handle];
+
+      /* -------------------------------------------------------------------------
+       *   1.  ensure that the port has been started
+       * ---------------------------------------------------------------------- */
+      if(!(PORT_IS_STARTED(uart_settings)))
+      {
+         return_value = SIRF_COM_RET_FAILURE_GENERIC_OPEN;
+      }
+      else
+      {
+         /* ----------------------------------------------------------------------
+          *   2.  lock the read mutex
+          * ------------------------------------------------------------------- */
+         pal_result = SIRF_PAL_OS_MUTEX_Enter(uart_settings->platform_settings.read_mutex);
+         if(SIRF_SUCCESS != pal_result)
+         {
+            DEBUGMSG(1, (DEBUGTXT("Uart Read Mutex Error on line %d\n"), __LINE__));
+            return_value = SIRF_COM_RET_FAILURE_MUTEX_FAILED;
+            SIRF_LOGE("Failed to take mutex in UART read\n" );
+         }
+         else
+         {
+            /* -------------------------------------------------------------------
+             *   3.  wait for a byte to be received,
+             *       or wait timeout exceeded,
+             *       or the port to be closed
+             * ---------------------------------------------------------------- */
+            fd = uart_settings->platform_settings.fd;
+            if(0 > fd)
+            {
+               return_value = SIRF_COM_RET_FAILURE_GENERIC;
+            }
+            else
+            {
+               FD_ZERO(&read_set);
+               FD_SET(fd, &read_set);
+
+               if(uart_settings->general_settings.read_wait_timeout == (tSIRF_INT32)SIRF_TIMEOUT_INFINITE)
+               {
+                  os_result = select(fd + 1, &read_set, NULL, NULL, NULL);
+               }
+               else
+               {
+                  read_timeout.tv_sec  = (uart_settings->general_settings.read_wait_timeout / 1000);
+                  read_timeout.tv_usec = (uart_settings->general_settings.read_wait_timeout % 1000) * 1000;
+                  os_result = select(fd + 1, &read_set, NULL, NULL, &read_timeout);
+               }
+               if (0 > os_result)
+               {
+                  DEBUGMSG(1,(DEBUGTXT("SIRF_PAL_COM_UART_Read: error in select; errno=%d\n"), errno));
+                  return_value = SIRF_COM_RET_FAILURE_UART_ERROR;
+                  SIRF_LOGE("select fail - errno = %d\n", errno);
+               }
+               else if (0 == os_result)
+               {
+                  return_value = SIRF_COM_RET_FAILURE_TIMEOUT;
+               }
+               else
+               {
+                  os_result = read( fd, read_ptr, requested_bytes_to_read );
+                  if(0 > os_result)
+                  {
+                     DEBUGMSG(1, (DEBUGTXT("%s: read failed with errno %d\n"), __FUNCTION__, errno));
+                     return_value = SIRF_COM_RET_FAILURE_UART_ERROR;
+                     *actual_bytes_read = 0;
+                     SIRF_LOGE("failed to read bytes from UART %d", os_result );
+                  }
+                  else
+                  {
+                     return_value = SIRF_SUCCESS;
+                     *actual_bytes_read = os_result;
+                     //SIRF_LOGD("UART Read Bytes = %d", os_result);
+                  }
+               }
+
+               /* -------------------------------------------------------------------
+                *   5.  unlock the mutex
+                * ---------------------------------------------------------------- */
+               (void)SIRF_PAL_OS_MUTEX_Exit(uart_settings->platform_settings.read_mutex);
+            }
+         }
+      }
+   }
+
+   return(return_value);
+
+}  /* SIRF_PAL_COM_UART_Read() */
+
+/* ----------------------------------------------------------------------------
+ *
+ *    Function:   SIRF_PAL_COM_UART_Write
+ *
+ *    Note:       This function should have the same return type and parameters
+ *                as SIRF_PAL_COM_Write_Fcn().
+ *
+ * ------------------------------------------------------------------------- */
+tSIRF_RESULT SIRF_PAL_COM_UART_Write(
+      tSIRF_HANDLE               com_handle,
+      tSIRF_UINT8  const * const write_ptr,
+      tSIRF_UINT32               requested_bytes_to_write,
+      tSIRF_UINT32       * const actual_bytes_written)
+{
+   /* local variables */
+   com_uart_settings_type  *uart_settings;
+   tSIRF_RESULT            return_value = SIRF_COM_RET_FAILURE_GENERIC;
+   tSIRF_UINT32            bytes_written = 0;
+   tSIRF_RESULT            pal_result;
+   int                     os_result;
+   int                     fd;
+
+   /* Validate input paramters */
+   if((SIRF_INVALID_HANDLE != com_handle) &&
+      (SIRF_COM_UART_MAX_INSTANCES > (int)com_handle) &&
+      (NULL != write_ptr) &&
+      (0 < requested_bytes_to_write) &&
+      (NULL != actual_bytes_written))
+   {
+      uart_settings    = &my_uart_settings[(int)com_handle];
+
+      /* ----------------------------------------------------------------------
+       *   1.  ensure that the port has been started
+       * ------------------------------------------------------------------- */
+      if(!(PORT_IS_STARTED(uart_settings)))
+      {
+         return_value = SIRF_COM_RET_FAILURE_GENERIC_OPEN;
+      }
+      else
+      {
+         /* ----------------------------------------------------------------------
+          *   2.  lock the write mutex
+          * ------------------------------------------------------------------- */
+         pal_result = SIRF_PAL_OS_MUTEX_Enter(uart_settings->platform_settings.write_mutex);
+         if(SIRF_SUCCESS != pal_result)
+         {
+            DEBUGMSG(1, (DEBUGTXT("Uart Write Mutex Error on line %d\n"), __LINE__));
+            return_value = SIRF_COM_RET_FAILURE_MUTEX_FAILED;
+         }
+         else
+         {
+            fd = uart_settings->platform_settings.fd;
+            if(0 > fd)
+            {
+               return_value = SIRF_COM_RET_FAILURE_GENERIC;
+            }
+            else
+            {
+               do
+               {
+                  os_result = write(fd, write_ptr+bytes_written, requested_bytes_to_write-bytes_written);
+                  if(0 > os_result)
+                  {
+                     DEBUGMSG(1, (DEBUGTXT("%s: write failed with errno %d\n"), __FUNCTION__, errno));
+                     SIRF_LOGE("UART Write Failed with error %d", errno);
+                     return_value = SIRF_COM_RET_FAILURE_GENERIC_WRITE;
+                     break;
+                  }
+                  else
+                  {
+                     fsync(fd);
+                     bytes_written += os_result;
+                     //SIRF_LOGD("UART Write Success : %d bytes", (int)bytes_written);
+                  }
+               }while ( bytes_written < requested_bytes_to_write && PORT_IS_STARTED(uart_settings) );
+
+               if(bytes_written == requested_bytes_to_write)
+               {
+                  return_value = SIRF_SUCCESS;
+               }
+            }
+
+            /* -------------------------------------------------------------------
+             *   5.  unlock the mutex
+             * ---------------------------------------------------------------- */
+            (void)SIRF_PAL_OS_MUTEX_Exit(uart_settings->platform_settings.write_mutex);
+         }
+      }
+   }
+
+   *actual_bytes_written = bytes_written;
+
+   return(return_value);
+
+}  /* SIRF_PAL_COM_UART_Write() */
 
 /* ============================================================================
- * Functions below are used to reset a GSD3t tracker only.
+ * Functions below are used to reset a GSD4t tracker only.
  * They are not used for any communication handshake. */
-
-
 
 /**
  * @brief Clear serial port RTS.
  * @param[in] port_handle              Serial port handle to drive.
  * @return                             Result code.
  */
-tSIRF_RESULT SIRF_PAL_COM_ClrRTS( tSIRF_COM_HANDLE port_handle )
+tSIRF_RESULT SIRF_PAL_COM_UART_ClrRTS( tSIRF_HANDLE com_handle )
 {
-   /* Unused Parameter. */
-   (void)port_handle;
-   
-   /* This function is not needed in current implementation */
-   return SIRF_SUCCESS;
+   int fd;
+   int sercmd, serstat;
+   int result;
+   com_uart_settings_type *uart_settings;
+   tSIRF_RESULT return_value = SIRF_COM_RET_FAILURE_GENERIC;
 
-} /* SIRF_PAL_COM_ClrRTS() */
+   if((SIRF_INVALID_HANDLE != com_handle) &&
+      (SIRF_COM_UART_MAX_INSTANCES > (int)com_handle))
+   {
+      uart_settings = &my_uart_settings[(int)com_handle];
+      fd = uart_settings->platform_settings.fd;
 
+      if (0 > fd)
+      {
+         return SIRF_COM_RET_FAILURE_GENERIC;
+      }
+      sercmd = TIOCM_RTS;
+
+      result = ioctl(fd, TIOCMBIC, &sercmd); // Reset the RTS pin
+      if(0 > result)
+      {
+         return SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
+      /* Read the RTS pin status. */
+      result = ioctl(fd, TIOCMGET, &serstat);
+      if(0 > result)
+      {
+         return SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
+
+      if (!(serstat & TIOCM_RTS) )
+      {
+         return_value =  SIRF_SUCCESS;
+      }
+      else
+      {
+         return_value = SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
+   }
+
+   return return_value;
+} /* SIRF_PAL_COM_UART_ClrRTS() */
 
 /**
  * @brief Set serial port RTS.
  * @param[in] port_handle              Serial port handle to drive.
  * @return                             Result code.
  */
-tSIRF_RESULT SIRF_PAL_COM_SetRTS( tSIRF_COM_HANDLE port_handle )
+tSIRF_RESULT SIRF_PAL_COM_UART_SetRTS( tSIRF_HANDLE com_handle )
 {
-   /* Unused Parameter. */
-   (void)port_handle;
-   
-   /* This function is not needed in current implementation */
-   return SIRF_SUCCESS;
+   int fd;
+   int sercmd, serstat;
+   int retval;
+   com_uart_settings_type *uart_settings;
+   tSIRF_RESULT result = SIRF_COM_RET_FAILURE_GENERIC;
 
-} /* SIRF_PAL_COM_SetRTS() */
+   if((SIRF_INVALID_HANDLE != com_handle) &&
+      (SIRF_COM_UART_MAX_INSTANCES > (int)com_handle))
+   {
+      uart_settings = &my_uart_settings[(int)com_handle];
+      fd = uart_settings->platform_settings.fd;
 
+      if (0 > fd)
+      {
+         return SIRF_COM_RET_FAILURE_GENERIC;
+      }
+      sercmd = TIOCM_RTS;
+
+      retval = ioctl(fd, TIOCMBIS, &sercmd);
+      if(0 > retval)
+      {
+         return SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
+      /* Read the RTS pin status. */
+      retval = ioctl(fd, TIOCMGET, &serstat);
+      if(0 > retval)
+      {
+         return SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
+
+      if (serstat & TIOCM_RTS)
+      {
+         result = SIRF_SUCCESS;
+      }
+      else
+      {
+         result = SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
+   }
+
+   return result;
+} /* SIRF_PAL_COM_UART_SetRTS() */
 
 /**
  * @brief Clear serial port DTR.
  * @param[in] port_handle              Serial port handle to drive.
  * @return                             Result code.
  */
-tSIRF_RESULT SIRF_PAL_COM_ClrDTR( tSIRF_COM_HANDLE port_handle )
+tSIRF_RESULT SIRF_PAL_COM_UART_ClrDTR( tSIRF_HANDLE com_handle )
 {
-   /* Unused Parameter. */
-   (void)port_handle;
-   
-   /* This function is not needed in current implementation */
-   return SIRF_SUCCESS;
 
-} /* SIRF_PAL_COM_ClrDTR() */
+   int fd;
+   int sercmd, serstat;
+   int retval;
+   com_uart_settings_type *uart_settings;
+   tSIRF_RESULT result = SIRF_COM_RET_FAILURE_GENERIC;
 
+   if((SIRF_INVALID_HANDLE != com_handle) &&
+      (SIRF_COM_UART_MAX_INSTANCES > (int)com_handle))
+   {
+      uart_settings = &my_uart_settings[(int)com_handle];
+      fd = uart_settings->platform_settings.fd;
+      if (0 > fd)
+      {
+         return SIRF_COM_RET_FAILURE_GENERIC;
+      }
+
+      sercmd = TIOCM_DTR;
+      retval = ioctl(fd, TIOCMBIC, &sercmd); // Reset the RTS pin
+      if(0 > retval)
+      {
+         return SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
+
+      /* Read the DTR pin status. */
+      retval = ioctl(fd, TIOCMGET, &serstat);
+      if(0 > retval)
+      {
+         return SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
+
+      if (!(serstat & TIOCM_DTR) )
+      {
+         result = SIRF_SUCCESS;
+      }
+      else
+      {
+         result = SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
+   }
+
+   return result;
+} /* SIRF_PAL_COM_UART_ClrDTR() */
 
 /**
  * @brief Set serial port DTR.
  * @param[in] port_handle              Serial port handle to drive.
  * @return                             Result code.
  */
-tSIRF_RESULT SIRF_PAL_COM_SetDTR( tSIRF_COM_HANDLE port_handle )
+tSIRF_RESULT SIRF_PAL_COM_UART_SetDTR( tSIRF_HANDLE com_handle )
 {
-   /* Unused Parameter. */
-   (void)port_handle;
-   
-   /* This function is not needed in current implementation */
-   return SIRF_SUCCESS;
 
-} /* SIRF_PAL_COM_SetDTR() */
+   int fd;
+   int sercmd, serstat;
+   int retval;
+   com_uart_settings_type *uart_settings;
+   tSIRF_RESULT result = SIRF_COM_RET_FAILURE_GENERIC;
 
+   if((SIRF_INVALID_HANDLE != com_handle) &&
+      (SIRF_COM_UART_MAX_INSTANCES > (int)com_handle))
+   {
+      uart_settings = &my_uart_settings[(int)com_handle];
+      fd = uart_settings->platform_settings.fd;
+      if (0 > fd)
+      {
+         return SIRF_COM_RET_FAILURE_GENERIC;
+      }
 
-/**
- * @brief Clear the serial port CTS line.
- *
- * This function clears the serial port CTS line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_ClrCTS(tSIRF_COM_HANDLE port_handle){
-   /* Unused Parameter. */
-   (void)port_handle;
-   
-   /* This function is not needed in current implementation */
-   return SIRF_FAILURE;
-}
+      sercmd = TIOCM_DTR;
+      retval = ioctl(fd, TIOCMBIS, &sercmd);
+      if(0 > retval)
+      {
+         return SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
 
-/**
- * @brief Set the serial port CTS line.
- *
- * This function sets the serial port CTS line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_SetCTS(tSIRF_COM_HANDLE port_handle){
-   /* Unused Parameter. */
-   (void)port_handle;
-   
-   /* This function is not needed in current implementation */
-   return SIRF_FAILURE;
-}
+      /* Read the DTR pin status. */
+      retval = ioctl(fd, TIOCMGET, &serstat);
+      if(0 > retval)
+      {
+         return SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
 
-/**
- * @brief Clear the SPI port SS line.
- *
- * This function clears the serial port SS line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_ClrSS(tSIRF_COM_HANDLE port_handle){
-   /* Unused Parameter. */
-   (void)port_handle;
-   
-   /* This function is not needed in current implementation */
-   return SIRF_FAILURE;
-}
-/**
- * @brief Set the SPI port SS line.
- *
- * This function sets the serial port SS line. It acquires a semaphore 
- * lock for the duration of its work to ensure that SIRF_PAL_COM_Close() 
- * does not close the serial port while this function is using it.
- *
- * The three possible return values are:
- *   - SIRF_SUCCESS            - Data read successfully.
- *   - SIRF_PAL_COM_INVALIDARG - Invalid argument to function.
- *   - SIRF_PAL_COM_ERROR      - An error occurred during the read.
- *   - SIRF_PAL_COM_STATE      - The port was not open.
- *
- * @param[in] port_handle     Handle to the port to write to.
- * @return                    Return value (see table).
- */
-tSIRF_RESULT SIRF_PAL_COM_SetSS(tSIRF_COM_HANDLE port_handle){
-   /* Unused Parameter. */
-   (void)port_handle;
-   
-   /* This function is not needed in current implementation */
-   return SIRF_FAILURE;
-}
+      if (serstat & TIOCM_DTR)
+      {
+         result = SIRF_SUCCESS;
+      }
+      else
+      {
+         result = SIRF_COM_RET_FAILURE_UART_ERROR;
+      }
+   }
+
+   return result;
+} /* SIRF_PAL_COM_UART_SetDTR() */
 
 /**
  * @}
+ * End of file.
  */
-
-

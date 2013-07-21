@@ -186,7 +186,19 @@ tSIRF_RESULT SIRF_PAL_OS_SEMAPHORE_Delete(
 
    /* Delete the resources. */
    if (sem_destroy(&p_sem->m_sem) != 0)
+   {
+#if defined(OS_ANDROID)
+      /* Android libc (bionic) has a bug, where if the semaphore count
+       * is zero, it returns EBUSY error. If the semaphore is created with
+       * an initial value of 0, the deletion always fails with EBUSY error */
+      if(errno != EBUSY)
+      {
+         return SIRF_PAL_OS_ERROR;
+      }
+#else
       return SIRF_PAL_OS_ERROR;
+#endif
+   }
    
    /* Mark as deleted and place on the free list. */
    p_sem->m_bCreated = SIRF_FALSE;

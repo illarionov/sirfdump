@@ -1,3 +1,4 @@
+
 /**
  * @addtogroup platform_src_sirf_pal_common
  * @{
@@ -13,11 +14,11 @@
  *    or disassemble this Software.
  *
  *    WARNING:
- *    This Software contains SiRF Technology Inc.�s confidential and
+ *    This Software contains SiRF Technology Inc.s confidential and
  *    proprietary information. UNAUTHORIZED COPYING, USE, DISTRIBUTION,
  *    PUBLICATION, TRANSFER, SALE, RENTAL OR DISCLOSURE IS PROHIBITED
  *    AND MAY RESULT IN SERIOUS LEGAL CONSEQUENCES.  Do not copy this
- *    Software without SiRF Technology, Inc.�s  express written
+ *    Software without SiRF Technology, Inc.s  express written
  *    permission.   Use of any portion of the contents of this Software
  *    is subject to and restricted by your signed written agreement with
  *    SiRF Technology, Inc.
@@ -35,10 +36,14 @@
  * ------------------------------------------------------------------------- */
  
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include "sirf_types.h"
 #include "sirf_pal.h"
-//#include "lpl_cmdr_msg_handler.h" /* Helper_Send_LPL_DEBUG_OUTPUT */
+#include "gps_logging.h"
 
 /* ----------------------------------------------------------------------------
  *    Functions
@@ -47,34 +52,31 @@
 /**
  * @brief Start the frequency transfer by turning on the ECLK clock.
  *
- * @note this is a debug implmenation only.  It depends on the lpl commander
- * and hooks in and simply outputs that it would be atempting to start
+ * @note this is a debug implementation only.  It depends on the LPL commander
+ * and hooks in and simply outputs that it would be attempting to start
  * the ECLK at that time.
  *
- * @return  SIRF_SUCCESS � ECLK is successful started
- *          SIRF_FAILURE � Failed to start ECLK
+ * @return  SIRF_SUCCESS  ECLK is successful started
+ *          SIRF_FAILURE  Failed to start ECLK
  */
 tSIRF_RESULT SIRF_PAL_HW_FrequencyTransferStart(tSIRF_VOID)
 {
-   return Helper_Send_LPL_DEBUG_OUTPUT(
-      "SIRF_PAL_HW_FrequencyTransferStart()");
+    return SIRF_FAILURE;
 }
 
 /**
  * @brief Stop the frequency transfer by turning off the ECLK clock.
  *
- * @note this is a debug implmenation only.  It depends on the lpl commander
- * and hooks in and simply outputs that it would be atempting to stop
+ * @note this is a debug implementation only.  It depends on the LPL commander
+ * and hooks in and simply outputs that it would be attempting to stop
  * the ECLK at that time.
  *
- * @return  SIRF_SUCCESS � ECLK is successful stopped
- *          SIRF_FAILURE � Failed to stop  ECLK
+ * @return  SIRF_SUCCESS  ECLK is successful stopped
+ *          SIRF_FAILURE  Failed to stop  ECLK
  */
 tSIRF_RESULT SIRF_PAL_HW_FrequencyTransferStop(tSIRF_VOID)
 {
-   return Helper_Send_LPL_DEBUG_OUTPUT(
-      "SIRF_PAL_HW_FrequencyTransferStop()");
-
+    return SIRF_SUCCESS;
 }
 
 /**
@@ -84,27 +86,28 @@ tSIRF_RESULT SIRF_PAL_HW_FrequencyTransferStop(tSIRF_VOID)
  * SIRF_FAILURE until the frequency and accuracy are ready to be
  * used and are stable.
  *
- * @note this is a debug implmenation only.  It depends on the lpl commander
- * and hooks in and simply outputs that it would be atempting to request
+ * @note this is a debug implementation only.  It depends on the LPL commander
+ * and hooks in and simply outputs that it would be attempting to request
  * a frequency update. The LPL commander looks for the specific debug
- * string sent and will autoreply with the GM_updateFrequency LPL commander
+ * string sent and will auto reply with the GM_updateFrequency LPL commander
  * message.
  *
- * Alternatively there is some hardcoded testing code left here that can 
+ * Alternatively there is some hard coded testing code left here that can 
  * be turned on by modifying a couple of defines.
  *
  * @param[out] frequency_update  Frequency parameter to be filled if available.
- * @return    SIRF_SUCCESS � The frequency and accuracy returned are valid
- *            SIRF_FAILURE � The frequency and accuracy returned are not valid  
- *            SIRF_PAL_HW_FREQ_UPDATE_REQUEST_PENDING � a request is pending
+ * @return    SIRF_SUCCESS  The frequency and accuracy returned are valid
+ *            SIRF_FAILURE  The frequency and accuracy returned are not valid  
+ *            SIRF_PAL_HW_FREQ_UPDATE_REQUEST_PENDING  a request is pending
  */
 tSIRF_RESULT SIRF_PAL_HW_FrequencyTransferUpdateRequest(
                                    tSIRF_PAL_HW_FREQ_UPDATE *frequency_update)
 {
-   tSIRF_RESULT tRet;
-   static int request_id = 0;
-   frequency_update->request_id          = ++request_id;
 
+frequency_update->request_id = 0;
+return SIRF_PAL_HW_FREQ_UPDATE_REQUEST_PENDING;
+
+#if 0
 /* This is for hard coded testing.  You can test by sending a request or
  * returning immediately with the requested information.  To send a request
  * define SEND_FREQUENCY_AIDING_REQUEST_LPLCMDR_STRING.  Otherwise comment it
@@ -138,9 +141,7 @@ tSIRF_RESULT SIRF_PAL_HW_FrequencyTransferUpdateRequest(
 #endif   
 
 #ifdef SEND_FREQUENCY_AIDING_REQUEST_LPLCMDR_STRING
-   tRet = Helper_Send_LPL_DEBUG_OUTPUT(
-      "SIRF_PAL_HW_FrequencyTransferUpdateRequest(): %d", 
-      request_id);
+   tRet = SIRF_SUCCESS;
    if (SIRF_SUCCESS == tRet)
    {
       return SIRF_PAL_HW_FREQ_UPDATE_REQUEST_PENDING;
@@ -154,6 +155,8 @@ tSIRF_RESULT SIRF_PAL_HW_FrequencyTransferUpdateRequest(
 #ifndef SEND_FREQUENCY_AIDING_REQUEST_LPLCMDR_STRING
    return (SIRF_SUCCESS);
 #endif
+#endif
+
 }
 
 /**
@@ -163,26 +166,23 @@ tSIRF_RESULT SIRF_PAL_HW_FrequencyTransferUpdateRequest(
  * SIRF_PAL_HW_FREQ_UPDATE_REQUEST_PENDING and the frequency transfer mechanism
  * is no longer needed.
  *
- * @note this is a debug implmenation only.  It depends on the lpl commander
- * and hooks in and simply outputs that it would be atempting to cancel a
+ * @note this is a debug implementation only.  It depends on the LPL commander
+ * and hooks in and simply outputs that it would be attempting to cancel a
  * frequency transfer update request.
  *
  * @param[in] request_id   The original request ID returned by 
  *                         SIRF_PAL_HW_FrequencyTransferUpdateRequest.
  *
- * @return   SIRF_SUCCESS � The frequency update request was successfully
+ * @return   SIRF_SUCCESS  The frequency update request was successfully
  *                           canceled
- *           SIRF_PAL_HW_FREQ_UPDATE_REQUEST_INVALID_ID � the ID passed in does
+ *           SIRF_PAL_HW_FREQ_UPDATE_REQUEST_INVALID_ID  the ID passed in does
  *           not match a pending request, or that request has already
  *           been serviced
  */
 tSIRF_RESULT SIRF_PAL_HW_FrequencyTransferUpdateCancel(tSIRF_UINT32 request_id)
 {
-   Helper_Send_LPL_DEBUG_OUTPUT(
-            "SIRF_PAL_HW_FrequencyTransferUpdateCancel(): %d", 
-            request_id);
-
-   return (SIRF_SUCCESS);
+   (void)request_id;
+      return SIRF_SUCCESS;
 }
 
 /**

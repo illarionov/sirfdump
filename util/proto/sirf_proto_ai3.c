@@ -34,14 +34,10 @@
  *
  ******************************************************************************/
 
-#ifdef SIRF_LOC
-
 /******************************************************************************
  *  INCLUDES
  ******************************************************************************/
-#include <stdio.h>
 #include <string.h> /* For memset and memcpy */
-
 #include "sirf_msg.h"
 #include "sirf_proto_ai3.h"
 #include "sirf_codec_ai3.h"
@@ -50,7 +46,32 @@
 /******************************************************************************
  *  DEFINES
  ******************************************************************************/
+/** Size of the run length compression header.  
+ *
+ * Run length compressions uses a 2 byte header.  If the MSBit is set then the
+ * very next byte is repeated length number of times.  If it is not set, then 
+ * the next length of bytes are uncompressed.
+ */
+#define RUN_LENGTH_COMPRESSION_HEADER_SIZE_BYTES (2)
+/** This macro extracts and creates a 2 bytes header */
+#define RUN_LENGTH_COMPRESSION_HEADER(data) \
+    ((tSIRF_UINT16)((data)[0] << 8 | (data)[1]))
+/** This macro strips off the MS Bit to ge the length */
+#define RUN_LENGTH_COMPRESSION_LENGTH(header) (header & 0x7FFF)
+/** This is a boolean macro returning if the MS Bit is set.  
+ * False is zero, True is non-zero */
+#define RUN_LENGTH_COMPRESSION_REPEAT_BYTE(header) (header & 0x8000)
 
+/** Minimum run length to justify compression. 
+ * Since it takes 3 bytes to represent run length compression (2 byte header,
+ * and one byte for repeated byte), there is only a benefit when
+ * the compression is smaller than the uncompression.  For example 00 00 00 00
+ * compressed would be 0x80 04 00 which is smaller.
+ */
+#define RUN_LENGTH_COMPRESSION_MINIMUM (4)
+/* This is the bit to set in the MSByte of the header to signify 
+ * to repeat the byte after the header for the length */
+#define RUN_LENGTH_COMPRESSION_BIT (0x80)
 /******************************************************************************
  *  TYPEDEFS
  ******************************************************************************/
@@ -239,7 +260,7 @@ tSIRF_RESULT SIRF_PROTO_AI3_PacketInput(tSIRF_UINT8 *pMsg, tSIRF_UINT32 Len)
    if (SIRF_PROTO_AI3_compressed_msg(pMsg[AI3_MSG_ID_POS]))
    {
       retval = SIRF_PROTO_AI3_processPacket(pMsg,Len,&AckNackStatus);
-      if (retval != SIRF_SUCCESS) 
+      if (SIRF_SUCCESS != retval) 
       {
          return SIRF_FAILURE;
       }
@@ -272,7 +293,7 @@ tSIRF_RESULT SIRF_PROTO_AI3_PacketInput(tSIRF_UINT8 *pMsg, tSIRF_UINT32 Len)
       retval = SIRF_SUCCESS;
    }
 
-   if (retval != SIRF_SUCCESS)
+   if (SIRF_SUCCESS != retval)
    {
       /* There was an error so reset the state variables and send NAK  */
       SIRF_PROTO_AI3_resetStateVariables();
@@ -319,7 +340,10 @@ tSIRF_RESULT SIRF_PROTO_AI3_PacketInput(tSIRF_UINT8 *pMsg, tSIRF_UINT32 Len)
        * only stack needed is for the decompressedMsg
        */
       msg_struct = AI3PacketInfo.compressedMsg;
-      if (SIRF_SUCCESS == SIRF_PROTO_AI3_decompress_decode_inplace(msg_struct,&mid,&msg_length))
+      retval = SIRF_PROTO_AI3_decompress_decode_inplace(msg_struct,
+                                                        &mid,
+                                                        &msg_length);
+      if (SIRF_SUCCESS == retval)
       {
          if (AI3PacketInfo.input_func)
          {
@@ -653,39 +677,47 @@ tSIRF_UINT32 SIRF_PROTO_AI3_decompressAI3Msg( tSIRF_UINT8 *input,
                                               tSIRF_UINT8 *output,
                                               tSIRF_UINT32 maxOutLen )
 {
-   tSIRF_UINT8  byte_data[2];
-   tSIRF_UINT16 data_length, i;
+   tSIRF_UINT16 data_length;
+   tSIRF_UINT16 header;
    tSIRF_UINT32 m, n;
 
    m = 0;
    n = 0;
-   while(( m < inputLen) && (n < maxOutLen))
+
+   /* minimum compression header size is header size (2 bytes) + 1
+    * byte for the repeated byte.  Thus m+3 <= inputLen, or m+2 < inputLen */
+   while(((m+RUN_LENGTH_COMPRESSION_HEADER_SIZE_BYTES) < inputLen) && 
+         (n < maxOutLen))
    {
-      byte_data[0] = *(input + m);
-      byte_data[1] = *(input + m +1);
-      m += 2;
-      data_length = (byte_data[0] & 0x7F)*256 + byte_data[1];
-      if((n + data_length) > maxOutLen)
+      header        = RUN_LENGTH_COMPRESSION_HEADER(&input[m]);
+      data_length   = RUN_LENGTH_COMPRESSION_LENGTH(header);
+      m            += RUN_LENGTH_COMPRESSION_HEADER_SIZE_BYTES;
+      if((0 == data_length) || (n + data_length) > maxOutLen)
       {
-         return 0; /* Failure return */
+         return 0; /* Output buffer is too short, or invalid data_length */
       }
 
-      if( 0x80 == (byte_data[0] & 0x80))
+      if( RUN_LENGTH_COMPRESSION_REPEAT_BYTE(header))
       {
-         memset((output + n), *(input + m), data_length);
+         memset((output + n), input[m], data_length);
          n += data_length;
          m++;
       }
       else
       {
-         for(i = 0; i < data_length; i++)
-            *(output + n + i) = *(input + m + i);
+         /* make sure there is enough data to read */
+         if ((m + data_length) > inputLen)
+         {
+            return 0; /* input buffer is too short */
+         }
+
+         memcpy(&output[n],&input[m],data_length);
          n += data_length;
          m += data_length;
       }
    }
-
-   if(( m < inputLen) && ( n >= maxOutLen))
+   /* There was no data left to consume */
+   if( m < inputLen )
    {
       return 0; /* Failure return */
    }
@@ -726,7 +758,7 @@ tSIRF_UINT16 SIRF_PROTO_AI3_compressAI3Msg(tSIRF_UINT8 *in_buf,  tSIRF_UINT8 *ou
       if(in_buf[cur_ind] == in_buf[cur_ind +1])
       {
          run_cnt++;
-         if( run_cnt < 4)
+         if( run_cnt < RUN_LENGTH_COMPRESSION_MINIMUM)
          {
             non_run_cnt++;
          }
@@ -757,12 +789,13 @@ tSIRF_UINT16 SIRF_PROTO_AI3_compressAI3Msg(tSIRF_UINT8 *in_buf,  tSIRF_UINT8 *ou
          {
             non_run_cnt++;
          }
-         if(run_cnt >= 4)
+         if(run_cnt >= RUN_LENGTH_COMPRESSION_MINIMUM)
          {
             if((non_run_cnt >= run_cnt) && (ready_to_copy))
             {
-               /* copy non run length */
-               out_buf[out_ind++] = 0x00 | ((non_run_cnt - run_cnt + 1) >> 8);
+               /* copy non run length. 
+                  Do not set the RUN_LENGTH_COMPRESSION_BIT */
+               out_buf[out_ind++] = ((non_run_cnt - run_cnt + 1) >> 8);
                out_buf[out_ind++] = (tSIRF_UINT8)(non_run_cnt - run_cnt + 1);
                memcpy(&out_buf[out_ind],&in_buf[in_ind],(non_run_cnt - run_cnt + 1));
                in_ind = in_ind + non_run_cnt - run_cnt + 1;
@@ -771,7 +804,7 @@ tSIRF_UINT16 SIRF_PROTO_AI3_compressAI3Msg(tSIRF_UINT8 *in_buf,  tSIRF_UINT8 *ou
             }
             non_run_cnt = 0;
             /* copy run length */
-            out_buf[out_ind++] = 0x80 | ((run_cnt) >> 8);
+            out_buf[out_ind++] = RUN_LENGTH_COMPRESSION_BIT | ((run_cnt) >> 8);
             out_buf[out_ind++] = (tSIRF_UINT8)(run_cnt);
             out_buf[out_ind++] = in_buf[in_ind];
             in_ind = in_ind + run_cnt;
@@ -782,23 +815,22 @@ tSIRF_UINT16 SIRF_PROTO_AI3_compressAI3Msg(tSIRF_UINT8 *in_buf,  tSIRF_UINT8 *ou
       cur_ind++;
    }
    /* copy remaining run length and non run length */
-   if(run_cnt >= 4)
+   if(run_cnt >= RUN_LENGTH_COMPRESSION_MINIMUM)
    {
-      out_buf[out_ind++] = 0x80 | ((run_cnt + 1) >> 8);
+      out_buf[out_ind++] = RUN_LENGTH_COMPRESSION_BIT | ((run_cnt + 1) >> 8);
       out_buf[out_ind++] = (tSIRF_UINT8)(run_cnt + 1);
       out_buf[out_ind++] = in_buf[in_ind];
    }
    else
    {
-      out_buf[out_ind++] = 0x00 | ((non_run_cnt + 1) >> 8);
+      /* Do not set the RUN_LENGTH_COMPRESSION_BIT */
+      out_buf[out_ind++] = ((non_run_cnt + 1) >> 8);
       out_buf[out_ind++] = (tSIRF_UINT8)(non_run_cnt + 1);
       memcpy(&out_buf[out_ind],&in_buf[in_ind],(non_run_cnt + 1));
       out_ind = out_ind + non_run_cnt + 1;
    }
    return out_ind;
 }
-
-#endif /* SIRF_LOC */
 
 /**
  * @}

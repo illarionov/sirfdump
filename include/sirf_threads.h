@@ -6,7 +6,7 @@
 /*
  *                   SiRF Technology, Inc. GPS Software
  *
- *    Copyright (c) 2006-2008 by SiRF Technology, Inc.  All rights reserved.
+ *    Copyright (c) 2006-2009 by SiRF Technology, Inc.  All rights reserved.
  *
  *    This Software is protected by United States copyright laws and
  *    international treaties.  You may not reverse engineer, decompile
@@ -63,10 +63,10 @@ extern "C" {
  */
 typedef struct
 {
-   tSIRF_UINT32 thread_id;
-   tSIRF_INT32  thread_priority;
-   tSIRF_UINT32 thread_quantum;
-   tSIRF_UINT32 thread_stack_size;
+   tSIRF_UINT16 thread_id;
+   tSIRF_INT16  thread_priority;
+   tSIRF_UINT16 thread_quantum;
+   tSIRF_UINT16 thread_stack_size;
 
 } tSIRF_THREAD_TABLE;
 
